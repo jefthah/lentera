@@ -1,0 +1,12 @@
+/target/
+/dist/
+/test-data/
+*.exe
+*.zip
+*.pdb
+*.ilk
+*.lock.tmp
+library.json
+library.json.bak
+library.lock
+*.tmp-*

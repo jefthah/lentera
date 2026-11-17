@@ -1,6 +1,8 @@
 #![windows_subsystem = "windows"]
 #![allow(unsafe_op_in_unsafe_fn)]
 
+mod update;
+
 use lentera_core::{Cursor, DataLock, Kind, LIBRARY_FILE, Library, Slide, Step, default_data_dir};
 use std::{
     cell::RefCell,
@@ -45,6 +47,8 @@ const NEXT: u16 = 123;
 const MONITOR: u16 = 124;
 const BACKGROUND: u16 = 125;
 const STATUS: u16 = 126;
+const UPDATE: u16 = 127;
+const VERSION: &str = env!("CARGO_PKG_VERSION");
 const SAVE_TIMER: usize = 1;
 const SMOKE_TIMER: usize = 2;
 const SS_LEFT: u32 = 0;
@@ -376,6 +380,9 @@ impl App {
         self.library.background = self.library.background.min(2);
         SendMessageW(self.c(BACKGROUND), CB_SETCURSEL, self.library.background, 0);
         self.make(STATUS, "STATIC", "", SS_LEFT, 0);
+        // Hanya tampil setelah pembaruan selesai diunduh.
+        self.make(UPDATE, "BUTTON", "", WS_TABSTOP | BS_PUSHBUTTON as u32, 0);
+        ShowWindow(self.c(UPDATE), SW_HIDE);
     }
     unsafe fn place(&self, id: u16, x: i32, y: i32, w: i32, h: i32) {
         let scale = GetDpiForWindow(self.hwnd).max(96) as f64 / 96.;
@@ -470,11 +477,44 @@ impl App {
         self.place(LIVE, x3, h - 122, half, 36);
         self.place(BLACKOUT, x3 + half + 8, h - 122, half, 36);
         self.place(PROJECTOR, x3, h - 78, right, 30);
-        self.place(STATUS, 16, h - 32, w - 32, 22);
+        if IsWindowVisible(self.c(UPDATE)) != 0 {
+            self.place(STATUS, 16, h - 32, w - 230, 22);
+            self.place(UPDATE, w - 206, h - 36, 190, 28);
+        } else {
+            self.place(STATUS, 16, h - 32, w - 32, 22);
+        }
         InvalidateRect(self.hwnd, null(), 0);
     }
     unsafe fn status(&self, value: &str) {
         set_text(self.c(STATUS), value);
+    }
+    unsafe fn update_ready(&self) {
+        let Some(version) = update::ready_version() else {
+            return;
+        };
+        set_text(self.c(UPDATE), &format!("Perbarui ke {version}"));
+        ShowWindow(self.c(UPDATE), SW_SHOWNOACTIVATE);
+        self.layout();
+        self.status(&format!(
+            "Lentera {version} sudah diunduh dan akan dipasang saat Lentera ditutup."
+        ));
+    }
+    unsafe fn update_now(&mut self) {
+        let Some(version) = update::ready_version() else {
+            return;
+        };
+        let answer = message(
+            self.hwnd,
+            "Perbarui Lentera",
+            &format!(
+                "Lentera akan ditutup, diperbarui ke versi {version}, lalu dibuka kembali.\nLayar proyektor ikut tertutup sebentar. Data tersimpan otomatis.\n\nPerbarui sekarang?"
+            ),
+            MB_YESNO | MB_ICONQUESTION,
+        );
+        if answer == IDYES {
+            update::request_restart();
+            PostMessageW(self.hwnd, WM_CLOSE, 0, 0);
+        }
     }
     fn kind_filter(&self) -> Option<Kind> {
         match unsafe { SendMessageW(self.c(FILTER), CB_GETCURSEL, 0, 0) } {
@@ -958,6 +998,7 @@ impl App {
                 self.persist();
             }
             LIVE => self.go_live(),
+            UPDATE => self.update_now(),
             BLACKOUT => {
                 self.blackout = !self.blackout;
                 self.refresh_live();
@@ -1078,7 +1119,7 @@ impl App {
                 ));
             }
             7 => {
-                let report = serde_json::json!({"ok":self.smoke_checks.iter().all(|(_,ok)|*ok),"checks":self.smoke_checks,"version":"0.1.0","output_window":!self.output.is_null(),"monitors":self.monitors.len(),"data_saved":self.path.exists()});
+                let report = serde_json::json!({"ok":self.smoke_checks.iter().all(|(_,ok)|*ok),"checks":self.smoke_checks,"version":VERSION,"output_window":!self.output.is_null(),"monitors":self.monitors.len(),"data_saved":self.path.exists()});
                 let _ = std::fs::write(
                     &self.smoke_report,
                     serde_json::to_vec_pretty(&report).unwrap(),
@@ -1381,6 +1422,10 @@ unsafe extern "system" fn main_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM
             PostQuitMessage(0);
             0
         }
+        update::READY_MESSAGE => {
+            with_app(|a| a.update_ready());
+            0
+        }
         _ => DefWindowProcW(hwnd, msg, wp, lp),
     }
 }
@@ -1422,9 +1467,15 @@ unsafe fn run() -> Result<(), String> {
     let args: Vec<_> = std::env::args_os().collect();
     let mut directory = None;
     let mut smoke = false;
+    let mut update_source = None;
     for index in 1..args.len() {
         if args[index] == "--data-dir" {
             directory = args.get(index + 1).map(PathBuf::from);
+        }
+        if args[index] == "--update-source" {
+            update_source = args
+                .get(index + 1)
+                .map(|value| value.to_string_lossy().into_owned());
         }
         if args[index] == "--ui-smoke-test" {
             smoke = true;
@@ -1473,7 +1524,7 @@ unsafe fn run() -> Result<(), String> {
     let hwnd = CreateWindowExW(
         0,
         wide("LenteraMain").as_ptr(),
-        wide("Lentera · Presentasi Ibadah Ringan").as_ptr(),
+        wide(&format!("Lentera {VERSION} · Presentasi Ibadah Ringan")).as_ptr(),
         WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN,
         CW_USEDEFAULT,
         CW_USEDEFAULT,
@@ -1497,6 +1548,8 @@ unsafe fn run() -> Result<(), String> {
     UpdateWindow(hwnd);
     if smoke {
         SetTimer(hwnd, SMOKE_TIMER, 400, None);
+    } else {
+        update::check_in_background(hwnd, update_source);
     }
     let mut msg: MSG = zeroed();
     loop {
@@ -1560,9 +1613,12 @@ unsafe fn run() -> Result<(), String> {
             DeleteObject(app.font);
         }
     });
+    // Data sudah tersimpan dan kunci folder data sudah lepas.
+    update::apply_after_exit(&args[1..]);
     Ok(())
 }
 fn main() {
+    update::startup();
     unsafe {
         if let Err(error) = run() {
             message(

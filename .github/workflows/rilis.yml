@@ -1,6 +1,6 @@
 name: Rilis Windows
 
-# Push tag versi (misalnya v0.1.1) untuk membuat installer dan paket pembaruan.
+# Push tag versi (misalnya v0.2.0) untuk membuat installer dan paket pembaruan.
 # Hasilnya diunggah sebagai DRAF pre-release. Aplikasi tidak melihat draf, jadi
 # pengguna baru menerima pembaruan setelah draf diterbitkan (Publish) di GitHub.
 
@@ -12,7 +12,7 @@ permissions:
   contents: write
 
 env:
-  # Harus sama dengan versi crate velopack di crates/lentera-win32/Cargo.toml.
+  # Harus sama dengan versi crate velopack di crates/lentera-app/Cargo.toml.
   VPK_VERSION: 1.2.161
 
 jobs:
@@ -53,8 +53,21 @@ jobs:
       - name: Tes
         run: cargo test --locked
 
+      # Sejak 0.2.0 yang dirilis adalah tampilan Slint (crates/lentera-app). Nama
+      # programnya tetap lentera.exe supaya pembaruan dari 0.1.x tetap jalan.
       - name: Build
-        run: cargo build -p lentera-win32 --release --locked
+        run: cargo build -p lentera-app --release --locked
+
+      - name: Uji alur UI
+        shell: pwsh
+        timeout-minutes: 3
+        run: |
+          $data = Join-Path $env:RUNNER_TEMP "lentera-smoke"
+          $p = Start-Process -FilePath target\release\lentera.exe `
+            -ArgumentList "--data-dir", "`"$data`"", "--ui-smoke-test" -Wait -PassThru
+          $report = Get-Content (Join-Path $data "ui-smoke-result.json") -Raw
+          $report
+          if ($p.ExitCode -ne 0 -or -not ($report | ConvertFrom-Json).ok) { exit 1 }
 
       - name: Isi paket
         run: |

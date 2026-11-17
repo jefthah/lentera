@@ -51,6 +51,7 @@ jobs:
       - name: Tes inti
         run: cargo test -p lentera-core --locked
 
+  # Tampilan Win32 lama; tidak dirilis lagi sejak 0.2.0, tetap dijaga bisa dibangun.
   win32:
     name: Aplikasi Win32 (windows-latest)
     runs-on: windows-latest
@@ -72,14 +73,14 @@ jobs:
         shell: bash
         run: |
           cargo build -p lentera-win32 --release --locked
-          ls -l target/release/lentera.exe
+          ls -l target/release/lentera-win32.exe
 
       - name: Uji alur UI
         shell: pwsh
         timeout-minutes: 3
         run: |
           $data = Join-Path $env:RUNNER_TEMP "lentera-smoke"
-          $p = Start-Process -FilePath target\release\lentera.exe `
+          $p = Start-Process -FilePath target\release\lentera-win32.exe `
             -ArgumentList "--data-dir", "`"$data`"", "--ui-smoke-test" -Wait -PassThru
           $report = Get-Content (Join-Path $data "ui-smoke-result.json") -Raw
           Add-Content $env:GITHUB_STEP_SUMMARY "### Uji alur UI"
@@ -89,8 +90,9 @@ jobs:
           $report
           if ($p.ExitCode -ne 0 -or -not ($report | ConvertFrom-Json).ok) { exit 1 }
 
-  # Tampilan baru Slint (crates/lentera-app) untuk Windows dan macOS. Build
-  # memakai fitur `snapshot`, jadi uji alur juga menyimpan tangkapan layar.
+  # Tampilan Slint (crates/lentera-app, program `lentera`) untuk Windows dan
+  # macOS; ini yang dirilis sejak 0.2.0. Build memakai fitur `snapshot`, jadi
+  # uji alur juga menyimpan tangkapan layar.
   app:
     name: Aplikasi Slint (${{ matrix.os }})
     strategy:
@@ -116,16 +118,15 @@ jobs:
       - name: Build rilis
         run: |
           cargo build -p lentera-app --release --locked --features snapshot
-          ls -l target/release/ | grep lentera-app
+          ls -l target/release/ | grep lentera
 
-      # Runner macOS hanya punya satu layar virtual dan belum pernah menjalankan
-      # uji ini, jadi kegagalan di macOS belum menggagalkan workflow.
+      # Runner macOS hanya punya satu layar virtual; jendela proyektor dibuka
+      # sebagai jendela biasa lalu diuji layar penuh / jendela.
       - name: Uji alur UI
-        continue-on-error: ${{ runner.os == 'macOS' }}
         timeout-minutes: 3
         run: |
           data="$RUNNER_TEMP/lentera-app-smoke"
-          ./target/release/lentera-app --data-dir "$data" --ui-smoke-test
+          ./target/release/lentera --data-dir "$data" --ui-smoke-test
           report="$data/ui-smoke-result.json"
           {
             echo "### Uji alur UI Slint (${{ matrix.os }})"
@@ -141,7 +142,7 @@ jobs:
         run: |
           mkdir -p hasil
           cp "$RUNNER_TEMP"/lentera-app-smoke/*.png "$RUNNER_TEMP"/lentera-app-smoke/*.json hasil/ 2>/dev/null || true
-          cp target/release/lentera-app target/release/lentera-app.exe hasil/ 2>/dev/null || true
+          cp target/release/lentera target/release/lentera.exe hasil/ 2>/dev/null || true
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()

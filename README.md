@@ -1,55 +1,59 @@
 # Lentera
 
-Presentasi ibadah ringan untuk Windows, dibangun dengan **Rust + Win32/GDI**. Fokus versi awal adalah lirik lagu, ayat teks, susunan ibadah, dan layar proyektor.
+Presentasi ibadah ringan untuk Windows dan macOS, dibangun dengan **Rust + Slint**. Fokus versi awal adalah lirik lagu, ayat teks, susunan ibadah, dan layar proyektor.
 
-**Status: prototipe / beta 0.1.1.** Coba dahulu pada komputer dan proyektor tujuan sebelum dipakai dalam ibadah.
+**Status: beta 0.2.0.** Coba dahulu pada komputer dan proyektor tujuan sebelum dipakai dalam ibadah.
+
+<a href="https://slint.dev"><img src="https://raw.githubusercontent.com/slint-ui/slint/master/logo/MadeWithSlint-logo-whitebg.png" alt="#MadeWithSlint" height="60"></a>
 
 ## Unduh untuk Windows
 
-**[Unduh Lentera 0.1.1 — Installer Windows 64-bit](https://github.com/jefthah/lentera/releases/download/v0.1.1/LenteraApp-win-Setup.exe)**
+**[Unduh Lentera 0.2.0 — Installer Windows 64-bit](https://github.com/jefthah/lentera/releases/download/v0.2.0/LenteraApp-win-Setup.exe)**
 
 [Halaman rilis dan berkas unduhan](https://github.com/jefthah/lentera/releases)
 
 1. Jalankan installer di atas. Tidak perlu hak admin dan tidak perlu memasang Rust. Bila muncul "Windows protected your PC", pilih **More info → Run anyway**.
 2. Buka **Lentera** dari Desktop atau Start Menu.
-3. Pilih materi atau buat materi baru. Satu baris kosong memisahkan bagian / slide.
-4. Tambahkan materi ke susunan, lalu tekan **F5** untuk menayangkan.
+3. Pilih materi di **Pustaka** atau tekan **Materi baru**. Satu baris kosong memisahkan slide.
+4. Tekan **+** untuk menambahkan materi ke susunan ibadah, pilih slide, lalu tekan **Tayangkan** atau **F5**.
 
-**Pembaruan otomatis.** Saat dibuka, Lentera memeriksa versi baru dan mengunduhnya di latar belakang. Pembaruan dipasang saat Lentera ditutup, atau segera lewat tombol **Perbarui ke …** di kanan bawah. Pembaruan tidak pernah dipasang selama Lentera berjalan.
+**Pembaruan otomatis.** Saat dibuka, Lentera memeriksa versi baru dan mengunduhnya di latar belakang. Pembaruan dipasang saat Lentera ditutup, atau segera lewat tombol **Perbarui ke …** di kanan bawah. Pembaruan tidak pernah dipasang selama Lentera berjalan. Pengguna 0.1.1 menerima 0.2.0 dengan cara ini; pengguna 0.1.0 perlu memasang installer di atas sekali. Data lama langsung terbaca.
 
-Memerlukan **Windows 10/11 64-bit**. Antarmuka ditujukan untuk resolusi sekitar 1024×768 atau lebih pada skala 100%. Versi ini belum memiliki tanda tangan digital. Pengguna 0.1.0 cukup memasang installer ini sekali; data lama langsung terbaca.
+Memerlukan **Windows 10/11 64-bit**. Antarmuka ditujukan untuk layar sekitar 1024×640 atau lebih. Versi ini belum memiliki tanda tangan digital.
 
-## Fitur
+**macOS:** belum ada installer. Aplikasi sudah dibangun dan diuji otomatis di macOS lewat GitHub Actions, dan dapat dibangun dari kode sumber (lihat bagian pengembangan).
 
-- Pustaka lirik dan ayat, editor, serta pencarian judul / isi.
-- Susunan ibadah dengan pengaturan urutan dan materi yang dapat dipakai berulang.
-- Pratinjau terpisah dari materi yang sedang tayang.
-- Jendela proyektor, pilihan monitor, layar penuh, dan blackout.
-- Impor lirik TXT serta ayat TSV berformat UTF-8.
+## Tampilan dan fitur
+
+- **Kiri:** susunan ibadah (naik, turun, lepas) dan pustaka lirik / ayat dengan filter dan pencarian judul / isi.
+- **Tengah:** semua slide materi terpilih sebagai kartu. Klik untuk pratinjau, klik dua kali untuk langsung menayangkan.
+- **Kanan:** pratinjau, tombol **Tayangkan**, layar yang sedang tayang, tombol sebelumnya / berikutnya, gelapkan, layar penuh, dan tiga warna latar.
+- **Editor materi:** judul, jenis (lirik / ayat), dan isi, dengan hasil slide yang langsung terlihat. Tersimpan otomatis.
+- Jendela proyektor terpisah dengan pilihan monitor, layar penuh, dan blackout. Ukuran teks menyesuaikan layar.
+- Impor lirik TXT dan ayat TSV berformat UTF-8.
 - Penyimpanan otomatis lokal dan cadangan berkas sebelumnya.
-- Tiga warna latar dan ukuran teks yang menyesuaikan area tayang.
 - Installer Windows dan pembaruan otomatis.
 
 **F5**: tayangkan · **F6**: gelapkan / pulihkan · **F11**: layar penuh · **PageDown / PageUp**: navigasi saat tidak mengetik.
 
-Untuk dua layar, hubungkan proyektor sebelum membuka Lentera, gunakan mode **Perluas / Extend** di Windows, lalu pilih monitor keluaran di aplikasi.
+Untuk dua layar, hubungkan proyektor sebelum membuka Lentera, gunakan mode **Perluas / Extend** di Windows, lalu pilih monitor proyektor di bilah atas.
 
 ## Sasaran komputer ringan
 
-Lentera menggunakan kontrol Windows native dan menggambar ulang saat ada perubahan, tanpa browser tertanam atau loop animasi. Sasaran pengembangannya adalah komputer RAM 2–4 GB.
+Lentera tidak memakai browser tertanam. Tampilan digambar dengan renderer software Slint (tanpa OpenGL), sehingga tidak bergantung pada driver kartu grafis. Sasaran pengembangannya adalah komputer RAM 2–4 GB.
 
-Pengujian singkat versi 0.1.0 pada satu komputer pengembangan:
+Pengukuran versi 0.2.0 pada satu komputer pengembangan (peak working set):
 
-| Data | Peak working set proses |
-|---|---:|
-| Dua materi contoh | 12,78 MiB |
-| Ditambah 31.000 ayat sintetis | 27,00 MiB |
+| Data | 0.2.0 (Slint) | 0.1.1 (Win32) |
+|---|---:|---:|
+| Dua materi contoh | 34 MiB | 15 MiB |
+| Ditambah 31.000 ayat sintetis | 42 MiB | 29 MiB |
 
-Executable 0.1.0 berukuran 368.128 byte, sekitar 360 KiB. Sejak 0.1.1 menjadi sekitar 2,2 MB karena komponen pembaruan otomatis; peak working set pada data contoh tetap sekitar 13 MiB (diukur dengan skrip berbeda dari tabel di atas). Angka ini merupakan pengukuran awal, bukan jaminan penggunaan RAM atau kecepatan pada semua perangkat. Pengujian pada komputer RAM 2 GB belum dilakukan. Lihat [catatan pengujian](docs/PENGUJIAN.md).
+Program 0.2.0 berukuran sekitar 11 MB (0.1.1: 2,2 MB). Angka ini merupakan pengukuran awal, bukan jaminan penggunaan RAM atau kecepatan pada semua perangkat. Pengujian pada komputer RAM 2 GB belum dilakukan. Lihat [catatan pengujian](docs/PENGUJIAN.md).
 
 ## Data dan batasan beta
 
-Data disimpan di `%LOCALAPPDATA%\Lentera\library.json`. Program terpasang terpisah di `%LOCALAPPDATA%\LenteraApp`, sehingga uninstall tidak menghapus data. Cadangan versi sebelum penyimpanan terakhir berada di `library.json.bak`. Hanya satu proses dapat membuka folder data yang sama. Tutup jendela Lentera yang sudah terbuka sebelum menjalankan salinan lain dengan data yang sama.
+Data disimpan di `%LOCALAPPDATA%\Lentera\library.json` (macOS: `~/Library/Application Support/Lentera`). Program terpasang terpisah di `%LOCALAPPDATA%\LenteraApp`, sehingga uninstall tidak menghapus data. Cadangan versi sebelum penyimpanan terakhir berada di `library.json.bak`. Hanya satu proses dapat membuka folder data yang sama. Tutup jendela Lentera yang sudah terbuka sebelum menjalankan salinan lain dengan data yang sama.
 
 Pustaka menampilkan maksimal 500 hasil pertama. Gunakan pencarian untuk mempersempit materi. Belum tersedia video, latar gambar, PowerPoint, NDI, streaming, impor database EasyWorship, atau pengambilan rentang ayat otomatis.
 
@@ -66,27 +70,23 @@ Repositori ini adalah workspace Cargo:
 | Folder | Isi |
 |---|---|
 | `crates/lentera-core` | Data, susunan ibadah, impor, penyimpanan, dan kunci folder data. Tanpa kode tampilan; dibangun dan diuji di Windows dan macOS. |
-| `crates/lentera-win32` | Tampilan Win32/GDI versi 0.1 (hanya Windows). Menghasilkan `lentera.exe`, yang saat ini dirilis. |
-| `crates/lentera-app` | Tampilan baru Slint untuk Windows dan macOS (sedang dikembangkan, belum dirilis). Menghasilkan `lentera-app`. |
-| `prototypes/slint-spike` | Prototipe tampilan Slint untuk Windows dan macOS. Crate terpisah; lihat [hasilnya](prototypes/slint-spike/HASIL.md). |
+| `crates/lentera-app` | Aplikasi Lentera dengan tampilan Slint untuk Windows dan macOS. Menghasilkan `lentera.exe` / `lentera`, yang dirilis sejak 0.2.0. |
+| `crates/lentera-win32` | Tampilan Win32/GDI versi 0.1 (hanya Windows). Tidak dirilis lagi; menghasilkan `lentera-win32.exe`. |
+| `prototypes/slint-spike` | Prototipe tampilan Slint. Crate terpisah; lihat [hasilnya](prototypes/slint-spike/HASIL.md). |
 
-Pasang Rust stable `x86_64-pc-windows-msvc`, Microsoft C++ Build Tools, dan Windows SDK. Dari folder repositori:
+Di Windows, pasang Rust stable `x86_64-pc-windows-msvc`, Microsoft C++ Build Tools, dan Windows SDK. Di macOS, pasang Rust stable dan Xcode Command Line Tools. Dari folder repositori:
 
 ```powershell
 cargo test --locked
-cargo build --release --locked
+cargo build -p lentera-app --release --locked
 ```
 
-Hasil build: `target/release/lentera.exe`. Konfigurasi proyek menautkan C runtime secara statis. Aplikasi bergantung pada DLL sistem Windows.
-
-Untuk mencoba tampilan baru Slint dengan data percobaan terpisah:
+Hasil build: `target/release/lentera.exe` (macOS: `target/release/lentera`). Di Windows, C runtime ditautkan statis dan aplikasi hanya bergantung pada DLL sistem. Untuk mencoba dengan data percobaan terpisah:
 
 ```powershell
-cargo run -p lentera-app --release -- --data-dir ".	est-data"
+cargo run -p lentera-app --release -- --data-dir ".\test-data"
 ```
 
-Di macOS, uji bagian inti saja: `cargo test -p lentera-core --locked`.
+Rilis Windows dibuat otomatis oleh workflow `rilis.yml` saat tag versi (misalnya `v0.2.0`) di-push: installer, ZIP portable, dan paket pembaruan diunggah sebagai draf pre-release. Pengguna baru menerima pembaruan setelah draf diterbitkan. Versi tag harus sama dengan `version` di `Cargo.toml`, dan `CHANGELOG.md` harus punya bagian untuk versi itu.
 
-Rilis dibuat otomatis oleh workflow `rilis.yml` saat tag versi (misalnya `v0.1.1`) di-push: installer, ZIP portable, dan paket pembaruan diunggah sebagai draf pre-release. Pengguna baru menerima pembaruan setelah draf diterbitkan. Versi tag harus sama dengan `version` di `Cargo.toml`, dan `CHANGELOG.md` harus punya bagian untuk versi itu.
-
-Kode sumber menggunakan [lisensi MIT](LICENSE). Lisensi dependensi tersedia di [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt); susun ulang dengan `python scripts/third_party_notices.py` setiap kali dependensi berubah.
+Kode sumber menggunakan [lisensi MIT](LICENSE). Tampilan memakai [Slint](https://slint.dev) dengan lisensi Slint Royalty-free 2.0; atribusinya tampil di layar **Tentang** (tombol ⓘ di bilah atas) dan pada badge di atas. Lisensi dependensi tersedia di [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt); susun ulang dengan `python scripts/third_party_notices.py` setiap kali dependensi berubah.

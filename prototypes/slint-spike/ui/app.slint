@@ -1,0 +1,148 @@
+import { Button, ComboBox, TextEdit, LineEdit, VerticalBox, HorizontalBox, GroupBox } from "std-widgets.slint";
+
+// Jendela yang tampil di proyektor / layar kedua.
+export component OutputWindow inherits Window {
+    in property <image> video-frame;
+    in property <bool> show-video: false;
+    in property <string> lyric;
+    in property <bool> blackout: false;
+
+    title: "Lentera - Output";
+    background: black;
+    preferred-width: 960px;
+    preferred-height: 540px;
+
+    if root.show-video && !root.blackout: Image {
+        width: parent.width;
+        height: parent.height;
+        source: root.video-frame;
+        image-fit: cover;
+    }
+
+    if !root.blackout: Rectangle {
+        // Bayangan teks supaya tetap terbaca di atas video terang.
+        Text {
+            x: parent.width * 0.05 + 3px;
+            y: 3px;
+            width: parent.width * 0.9;
+            height: parent.height;
+            text: root.lyric;
+            color: #000000d0;
+            font-size: root.height / 13;
+            font-weight: 700;
+            wrap: word-wrap;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+        Text {
+            x: parent.width * 0.05;
+            y: 0px;
+            width: parent.width * 0.9;
+            height: parent.height;
+            text: root.lyric;
+            color: white;
+            font-size: root.height / 13;
+            font-weight: 700;
+            wrap: word-wrap;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+}
+
+// Jendela operator di laptop / monitor utama.
+export component OperatorWindow inherits Window {
+    in property <[string]> monitors;
+    in-out property <int> monitor-index: 0;
+    in-out property <string> lyric-draft: "Baris pertama lirik contoh\nBaris kedua lirik contoh";
+    in-out property <string> video-path;
+    in property <string> status: "Siap.";
+    in property <string> renderer;
+    in property <bool> output-visible: false;
+    in property <bool> video-playing: false;
+    in property <bool> blackout: false;
+
+    callback show-output();
+    callback hide-output();
+    callback go-live();
+    callback toggle-blackout();
+    callback play-video();
+    callback stop-video();
+
+    title: "Lentera - Prototipe Slint";
+    preferred-width: 760px;
+    preferred-height: 560px;
+
+    VerticalBox {
+        Text {
+            text: "Prototipe Lentera (Slint) - renderer: " + root.renderer;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        GroupBox {
+            title: "Layar output";
+            HorizontalBox {
+                ComboBox {
+                    model: root.monitors;
+                    current-index <=> root.monitor-index;
+                    horizontal-stretch: 1;
+                }
+                Button {
+                    text: root.output-visible ? "Pindahkan" : "Tampilkan";
+                    clicked => { root.show-output(); }
+                }
+                Button {
+                    text: "Tutup";
+                    enabled: root.output-visible;
+                    clicked => { root.hide-output(); }
+                }
+            }
+        }
+
+        GroupBox {
+            title: "Lirik";
+            vertical-stretch: 1;
+            VerticalBox {
+                TextEdit {
+                    text <=> root.lyric-draft;
+                    vertical-stretch: 1;
+                }
+                HorizontalBox {
+                    Button {
+                        text: "Tayangkan";
+                        primary: true;
+                        clicked => { root.go-live(); }
+                    }
+                    Button {
+                        text: root.blackout ? "Batal hitam" : "Layar hitam";
+                        clicked => { root.toggle-blackout(); }
+                    }
+                }
+            }
+        }
+
+        GroupBox {
+            title: "Video latar (MP4)";
+            HorizontalBox {
+                LineEdit {
+                    text <=> root.video-path;
+                    placeholder-text: "Path file video, mis. C:\\video\\latar.mp4";
+                    horizontal-stretch: 1;
+                }
+                Button {
+                    text: root.video-playing ? "Hentikan" : "Putar";
+                    clicked => {
+                        if root.video-playing { root.stop-video(); } else { root.play-video(); }
+                    }
+                }
+            }
+        }
+
+        Text {
+            text: root.status;
+            wrap: word-wrap;
+            color: #808080;
+        }
+    }
+}

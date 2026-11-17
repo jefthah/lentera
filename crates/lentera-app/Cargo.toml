@@ -1,0 +1,36 @@
+[package]
+name = "lentera-app"
+description = "Tampilan baru Lentera (Slint) untuk Windows dan macOS"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish = false
+
+[[bin]]
+name = "lentera-app"
+path = "src/main.rs"
+
+[features]
+# Simpan tangkapan layar PNG saat --ui-smoke-test. Hanya untuk pengembangan.
+snapshot = ["dep:png"]
+
+[dependencies]
+lentera-core.workspace = true
+# Laporan --ui-smoke-test.
+serde_json.workspace = true
+# Renderer software: tanpa OpenGL, ringan di PC lama, dan tidak memicu
+# overlay driver GPU di layar proyektor (lihat prototypes/slint-spike/HASIL.md).
+slint = { version = "=1.19.0", default-features = false, features = [
+    "std", "compat-1-2", "backend-winit", "renderer-software", "accessibility",
+    "unstable-winit-030", "raw-window-handle-06",
+] }
+# Dialog berkas dan pesan bawaan Windows / macOS.
+rfd = { version = "0.18", default-features = false }
+# Installer dan pembaruan otomatis. Versi harus sama dengan alat `vpk` di
+# workflow rilis.
+velopack = "=1.2.161"
+png = { version = "0.18", optional = true }
+
+[build-dependencies]
+slint-build = "=1.19.0"

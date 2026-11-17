@@ -66,7 +66,8 @@ Repositori ini adalah workspace Cargo:
 | Folder | Isi |
 |---|---|
 | `crates/lentera-core` | Data, susunan ibadah, impor, penyimpanan, dan kunci folder data. Tanpa kode tampilan; dibangun dan diuji di Windows dan macOS. |
-| `crates/lentera-win32` | Tampilan Win32/GDI versi 0.1 (hanya Windows). Menghasilkan `lentera.exe`. |
+| `crates/lentera-win32` | Tampilan Win32/GDI versi 0.1 (hanya Windows). Menghasilkan `lentera.exe`, yang saat ini dirilis. |
+| `crates/lentera-app` | Tampilan baru Slint untuk Windows dan macOS (sedang dikembangkan, belum dirilis). Menghasilkan `lentera-app`. |
 | `prototypes/slint-spike` | Prototipe tampilan Slint untuk Windows dan macOS. Crate terpisah; lihat [hasilnya](prototypes/slint-spike/HASIL.md). |
 
 Pasang Rust stable `x86_64-pc-windows-msvc`, Microsoft C++ Build Tools, dan Windows SDK. Dari folder repositori:
@@ -77,6 +78,12 @@ cargo build --release --locked
 ```
 
 Hasil build: `target/release/lentera.exe`. Konfigurasi proyek menautkan C runtime secara statis. Aplikasi bergantung pada DLL sistem Windows.
+
+Untuk mencoba tampilan baru Slint dengan data percobaan terpisah:
+
+```powershell
+cargo run -p lentera-app --release -- --data-dir ".	est-data"
+```
 
 Di macOS, uji bagian inti saja: `cargo test -p lentera-core --locked`.
 

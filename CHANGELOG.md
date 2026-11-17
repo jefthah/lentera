@@ -1,5 +1,9 @@
 # Riwayat rilis
 
+## Belum dirilis
+
+- Tampilan baru dengan Slint untuk Windows dan macOS (`crates/lentera-app`): tema gelap, susunan ibadah dan pustaka di kiri, semua slide sebagai kartu di tengah, pratinjau, tombol Tayangkan, layar tayang, dan kontrol di kanan. Editor materi menampilkan hasil slide langsung. Fitur sama dengan 0.1.1, termasuk pembaruan otomatis. Rilis Windows masih memakai tampilan Win32 sampai tampilan baru diputuskan menggantikannya.
+
 ## 0.1.1 — 17 November 2026 — beta
 
 Installer dan pembaruan otomatis untuk Windows 10/11 64-bit.

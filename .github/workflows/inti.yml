@@ -1,0 +1,90 @@
+name: Inti Lentera
+
+on:
+  push:
+    branches: [main, "refactor/**"]
+    paths:
+      - "crates/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".cargo/**"
+      - ".github/workflows/inti.yml"
+  pull_request:
+    paths:
+      - "crates/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".cargo/**"
+      - ".github/workflows/inti.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  core:
+    name: Inti (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Rust stable
+        run: |
+          rustup toolchain install stable --profile minimal -c clippy -c rustfmt
+          rustup default stable
+
+      - name: Format
+        run: cargo fmt --all --check
+
+      # lentera-core harus bisa dibangun dan lulus tes di semua OS sasaran.
+      - name: Clippy inti
+        run: cargo clippy -p lentera-core --all-targets --locked -- -D warnings
+
+      - name: Tes inti
+        run: cargo test -p lentera-core --locked
+
+  win32:
+    name: Aplikasi Win32 (windows-latest)
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Rust stable
+        shell: bash
+        run: |
+          rustup toolchain install stable --profile minimal -c clippy
+          rustup default stable
+
+      - name: Clippy
+        shell: bash
+        run: cargo clippy -p lentera-win32 --all-targets --locked -- -D warnings
+
+      - name: Build rilis
+        shell: bash
+        run: |
+          cargo build -p lentera-win32 --release --locked
+          ls -l target/release/lentera.exe
+
+      - name: Uji alur UI
+        shell: pwsh
+        timeout-minutes: 3
+        run: |
+          $data = Join-Path $env:RUNNER_TEMP "lentera-smoke"
+          $p = Start-Process -FilePath target\release\lentera.exe `
+            -ArgumentList "--data-dir", "`"$data`"", "--ui-smoke-test" -Wait -PassThru
+          $report = Get-Content (Join-Path $data "ui-smoke-result.json") -Raw
+          Add-Content $env:GITHUB_STEP_SUMMARY "### Uji alur UI"
+          Add-Content $env:GITHUB_STEP_SUMMARY '```json'
+          Add-Content $env:GITHUB_STEP_SUMMARY $report
+          Add-Content $env:GITHUB_STEP_SUMMARY '```'
+          $report
+          if ($p.ExitCode -ne 0 -or -not ($report | ConvertFrom-Json).ok) { exit 1 }

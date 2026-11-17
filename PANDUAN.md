@@ -48,7 +48,7 @@ Untuk menyimpan di lokasi lain, jalankan `Lentera.exe --data-dir "D:\Data Ibadah
 
 ## Untuk pengembang
 
-Kode utama ada di `src/main.rs`, model data dan pengujiannya di `src/model.rs`. UI menggunakan Win32 + GDI, tanpa browser tertanam, loop animasi, atau server lokal. Aplikasi menunggu pesan Windows dan menggambar saat ada perubahan. Pencarian dibatasi 500 hasil tampilan.
+Logika data, susunan ibadah, impor, dan penyimpanan ada di `crates/lentera-core` beserta pengujiannya. Tampilan Windows ada di `crates/lentera-win32/src/main.rs`. UI menggunakan Win32 + GDI, tanpa browser tertanam, loop animasi, atau server lokal. Aplikasi menunggu pesan Windows dan menggambar saat ada perubahan. Pencarian dibatasi 500 hasil tampilan.
 
 Pasang Rust stable dengan target `x86_64-pc-windows-msvc` serta Microsoft C++ Build Tools / Windows SDK. Dari folder proyek:
 

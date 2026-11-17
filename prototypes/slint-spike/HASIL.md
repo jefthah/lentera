@@ -3,12 +3,13 @@
 ## Kesimpulan singkat
 
 Slint **layak** dipakai untuk Lentera di Windows. Ketiga risiko utama terbukti
-bisa diatasi di Windows. Dua hal belum terbukti: build dan jendela di macOS
-(menunggu GitHub Actions), serta kinerja di PC gereja yang lemah.
+bisa diatasi di Windows. Kode yang sama juga ter-build dan jalan di macOS
+(GitHub Actions), dan jendela output tampil fullscreen di sana. Yang belum
+terbukti: Mac dengan dua monitor, video di Mac, dan kinerja di PC gereja yang lemah.
 
 | Risiko | Hasil di Windows | macOS |
 |---|---|---|
-| Output fullscreen di monitor pilihan | Lulus di semua uji | Belum diuji (CI) |
+| Output fullscreen di monitor pilihan | Lulus di semua uji | Lulus di GitHub Actions (satu monitor virtual) |
 | Video + teks lirik di atasnya | Lulus, 30 fps, tanpa frame terbuang | Pemutar AVFoundation belum dibuat |
 | RAM dan CPU rendah | 32 MiB tanpa video; 164 MiB dengan video 1080p (renderer software + decode GPU) | Belum diukur |
 
@@ -73,9 +74,27 @@ renderer software, notifikasi itu tidak muncul.
 4. **Program jadi ±27× lebih besar** (9,6 MB). Masih kecil untuk unduhan, dan
    bisa dikurangi nanti dengan menganalisis isi binary.
 
+## Hasil GitHub Actions
+
+Run [44086229541](https://github.com/jefthah/lentera/actions/runs/44086229541)
+untuk commit `7932303`: kedua job sukses.
+
+- **macOS** (runner `macos-latest`, chip Apple, 3 inti): build 3 menit 59 detik.
+  Uji dengan renderer femtovg lulus. Jendela output fullscreen tepat menutupi
+  monitor virtual 1024×768 (`winit_window_px` = `monitor_target_px` = `[0, 0, 1024, 768]`),
+  dan notifikasi render tersedia. Uji renderer software juga selesai (5 detik),
+  tapi isinya belum dibaca.
+- **Windows** (runner `windows-latest`, 4 inti, monitor virtual 1024×768): build dan
+  kedua uji selesai. Laporan femtovg menunjukkan `rendering_notifier_supported: false`;
+  kemungkinan runner tanpa GPU membuat Slint beralih ke renderer software.
+
+Di macOS, pemeriksaan tangkapan jendela, layar hitam, RAM, dan CPU belum ada
+karena bagian itu khusus Windows di prototipe ini.
+
 ## Yang belum terbukti
 
-- **macOS:** build, posisi jendela, dan pemutar video (AVFoundation belum ditulis).
+- **macOS:** Mac dengan dua monitor/proyektor, tampilan teks diperiksa mata,
+  RAM, dan pemutar video (AVFoundation belum ditulis).
 - **PC gereja lemah** (2–4 GB RAM, Intel HD, prosesor 2–4 inti): renderer software
   menggambar ulang seluruh layar setiap frame video, jadi CPU bisa jauh lebih
   tinggi. Pada PC lemah mungkin renderer GPU lebih cocok; ini harus diuji di sana.
@@ -86,7 +105,10 @@ renderer software, notifikasi itu tidak muncul.
 
 ## Langkah berikutnya
 
-1. Jalankan workflow `.github/workflows/prototipe-slint.yml` untuk build dan uji
-   di macOS dan Windows di GitHub Actions.
-2. Coba `--selftest` di PC gereja target dengan kedua renderer.
+1. Coba `--selftest` di PC gereja target dengan kedua renderer.
+2. Coba di Mac sungguhan yang tersambung ke proyektor atau monitor kedua.
 3. Kalau keduanya baik: tetapkan Slint, lalu mulai memecah repo menjadi core + app.
+
+**Keputusan 17 November 2026:** Slint ditetapkan sebelum langkah 1 dan 2
+selesai, dan repo mulai dipecah menjadi core + app. Uji di PC gereja dan di Mac
+sungguhan tetap perlu dilakukan sebelum rilis.

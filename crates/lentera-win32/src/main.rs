@@ -1,13 +1,11 @@
 #![windows_subsystem = "windows"]
 #![allow(unsafe_op_in_unsafe_fn)]
 
-mod model;
-use model::{Item, Kind, Library};
+use lentera_core::{Cursor, DataLock, Kind, LIBRARY_FILE, Library, Slide, Step, default_data_dir};
 use std::{
     cell::RefCell,
     collections::HashMap,
     mem::{size_of, zeroed},
-    os::windows::fs::OpenOptionsExt,
     path::PathBuf,
     ptr::{null, null_mut},
 };
@@ -68,16 +66,8 @@ struct Monitor {
     rect: RECT,
     primary: bool,
 }
-#[derive(Clone)]
-struct LiveSlide {
-    title: String,
-    text: String,
-    page: usize,
-    total: usize,
-    item: u64,
-}
 struct App {
-    _data_lock: std::fs::File,
+    _data_lock: DataLock,
     hwnd: HWND,
     output: HWND,
     controls: HashMap<u16, HWND>,
@@ -87,7 +77,7 @@ struct App {
     filtered: Vec<u64>,
     selected: Option<u64>,
     page: usize,
-    live: Option<LiveSlide>,
+    live: Option<Slide>,
     live_service: Option<usize>,
     blackout: bool,
     fullscreen: bool,
@@ -143,15 +133,7 @@ impl App {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
         }
-        let data_lock = std::fs::OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(false)
-            .share_mode(0)
-            .open(path.with_extension("lock"))
-            .map_err(|e| {
-                format!("Pustaka sedang dibuka jendela lain atau tidak dapat ditulis.\n{e}")
-            })?;
+        let data_lock = DataLock::acquire(&path.with_extension("lock"))?;
         let is_new = !path.exists();
         let mut library = Library::load(&path)?;
         let dpi = GetDpiForWindow(hwnd).max(96) as i32;
@@ -611,20 +593,9 @@ impl App {
         if !self.dirty {
             return true;
         }
-        let title = text(self.c(TITLE));
-        let content = text(self.c(BODY)).replace("\r\n", "\n");
-        if let Some(item) = self
-            .library
-            .items
-            .iter_mut()
-            .find(|i| Some(i.id) == self.selected)
-        {
-            item.title = if title.trim().is_empty() {
-                "Tanpa judul".into()
-            } else {
-                title.trim().into()
-            };
-            item.content = content;
+        if let Some(id) = self.selected {
+            self.library
+                .update(id, &text(self.c(TITLE)), &text(self.c(BODY)));
         }
         if !self.persist() {
             return false;
@@ -666,23 +637,11 @@ impl App {
         if !self.commit_editor() {
             return;
         }
-        if let Some(item) = self.selected.and_then(|id| self.library.item(id)) {
-            let slides = item.slides();
-            if let Some(content) = slides.get(self.page) {
-                self.live = Some(LiveSlide {
-                    title: item.title.clone(),
-                    text: content.clone(),
-                    page: self.page,
-                    total: slides.len(),
-                    item: item.id,
-                });
+        if let Some(id) = self.selected {
+            if let Some(slide) = self.library.slide(id, self.page) {
                 let sel = SendMessageW(self.c(SERVICE), LB_GETCURSEL, 0, 0);
-                self.live_service =
-                    if sel >= 0 && self.library.service.get(sel as usize) == Some(&item.id) {
-                        Some(sel as usize)
-                    } else {
-                        self.library.service.iter().position(|id| *id == item.id)
-                    };
+                self.live_service = self.library.service_position(id, usize::try_from(sel).ok());
+                self.live = Some(slide);
                 self.blackout = false;
                 self.show_output();
                 self.refresh_live();
@@ -702,51 +661,35 @@ impl App {
             self.go_live();
             return;
         };
-        let mut id = current.item;
-        let mut page = current.page as isize + if forward { 1 } else { -1 };
-        let slides = self.library.item(id).map(Item::slides).unwrap_or_default();
-        if page < 0 || page as usize >= slides.len() {
-            let Some(position) = self.live_service else {
+        let from = Cursor {
+            item: current.item,
+            page: current.page,
+            service: self.live_service,
+        };
+        let to = match self.library.step(from, forward) {
+            Step::Moved(to) => to,
+            Step::EndOfItem => {
                 self.status(
                     "Sudah di batas materi. Tambahkan materi ke susunan untuk berpindah otomatis.",
                 );
                 return;
-            };
-            let mut next = position as isize + if forward { 1 } else { -1 };
-            loop {
-                if next < 0 || next as usize >= self.library.service.len() {
-                    self.status("Sudah di awal / akhir susunan ibadah.");
-                    return;
-                }
-                id = self.library.service[next as usize];
-                let next_slides = self.library.item(id).map(Item::slides).unwrap_or_default();
-                if !next_slides.is_empty() {
-                    page = if forward {
-                        0
-                    } else {
-                        next_slides.len() as isize - 1
-                    };
-                    break;
-                }
-                next += if forward { 1 } else { -1 };
             }
-            self.live_service = Some(next as usize);
-            SendMessageW(self.c(SERVICE), LB_SETCURSEL, next as usize, 0);
+            Step::EndOfService => {
+                self.status("Sudah di awal / akhir susunan ibadah.");
+                return;
+            }
+        };
+        if let Some(position) = to.service
+            && to.service != from.service
+        {
+            self.live_service = to.service;
+            SendMessageW(self.c(SERVICE), LB_SETCURSEL, position, 0);
         }
-        self.select(id);
-        self.page = page as usize;
+        self.select(to.item);
+        self.page = to.page;
         self.refresh_slides();
-        if let Some(item) = self.library.item(id) {
-            let slides = item.slides();
-            if let Some(value) = slides.get(self.page) {
-                self.live = Some(LiveSlide {
-                    title: item.title.clone(),
-                    text: value.clone(),
-                    page: self.page,
-                    total: slides.len(),
-                    item: id,
-                });
-            }
+        if let Some(slide) = self.library.slide(to.item, self.page) {
+            self.live = Some(slide);
         }
         self.refresh_live();
     }
@@ -843,32 +786,16 @@ impl App {
             .position(|c| *c == 0)
             .unwrap_or(filename.len());
         let path = PathBuf::from(String::from_utf16_lossy(&filename[..end]));
-        let result = (|| -> Result<String, String> {
-            if std::fs::metadata(&path).map_err(|e| e.to_string())?.len() > 32 * 1024 * 1024 {
-                return Err("Berkas terlalu besar. Batas impor 32 MB.".into());
-            }
-            let input = std::fs::read_to_string(&path)
-                .map_err(|e| format!("Gunakan berkas teks UTF-8.\n{e}"))?;
-            if bible {
-                let count = self.library.import_verses(&input)?;
-                Ok(format!(
-                    "{count} ayat baru diimpor. Cari berdasarkan referensi atau isi ayat."
-                ))
-            } else {
-                let title = path
-                    .file_stem()
-                    .unwrap_or_default()
-                    .to_string_lossy()
-                    .into_owned();
-                let id = self.library.add(
-                    Kind::Song,
-                    title,
-                    input.trim_start_matches('\u{feff}').replace("\r\n", "\n"),
-                );
+        let result = if bible {
+            self.library.import_verses_file(&path).map(|count| {
+                format!("{count} ayat baru diimpor. Cari berdasarkan referensi atau isi ayat.")
+            })
+        } else {
+            self.library.import_song_file(&path).map(|id| {
                 self.select(id);
-                Ok("Lirik diimpor. Baris kosong memisahkan bagian / slide.".into())
-            }
-        })();
+                "Lirik diimpor. Baris kosong memisahkan bagian / slide.".to_owned()
+            })
+        };
         match result {
             Ok(value) => {
                 self.refresh_library();
@@ -1251,18 +1178,7 @@ unsafe fn paint_slide(hwnd: HWND) {
             a.as_ref().map(|app| {
                 let preview = hwnd == app.c(PREVIEW);
                 let slide = if preview {
-                    app.selected
-                        .and_then(|id| app.library.item(id))
-                        .and_then(|item| {
-                            let slides = item.slides();
-                            slides.get(app.page).map(|value| LiveSlide {
-                                title: item.title.clone(),
-                                text: value.clone(),
-                                page: app.page,
-                                total: slides.len(),
-                                item: item.id,
-                            })
-                        })
+                    app.selected.and_then(|id| app.library.slide(id, app.page))
                 } else {
                     app.live.clone()
                 };
@@ -1517,12 +1433,7 @@ unsafe fn run() -> Result<(), String> {
     if smoke && directory.is_none() {
         return Err("Pengujian UI wajib memakai --data-dir terpisah.".into());
     }
-    let directory = directory.unwrap_or_else(|| {
-        std::env::var_os("LOCALAPPDATA")
-            .map(PathBuf::from)
-            .unwrap_or_else(|| PathBuf::from("."))
-            .join("Lentera")
-    });
+    let directory = directory.unwrap_or_else(default_data_dir);
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_SYSTEM_AWARE);
     let instance = GetModuleHandleW(null());
     for (name, proc, style) in [
@@ -1576,7 +1487,7 @@ unsafe fn run() -> Result<(), String> {
     if hwnd.is_null() {
         return Err("Jendela utama tidak bisa dibuat.".into());
     }
-    let app = App::new(hwnd, directory.join("library.json"), smoke)?;
+    let app = App::new(hwnd, directory.join(LIBRARY_FILE), smoke)?;
     APP.with(|cell| *cell.borrow_mut() = Some(app));
     with_app(|a| {
         a.layout();

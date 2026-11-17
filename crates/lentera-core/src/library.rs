@@ -91,6 +91,20 @@ impl Library {
         self.items.retain(|i| i.id != id);
         self.service.retain(|i| *i != id);
     }
+    /// Menyimpan isi editor ke materi. Judul kosong menjadi "Tanpa judul".
+    pub fn update(&mut self, id: u64, title: &str, content: &str) -> bool {
+        let Some(item) = self.items.iter_mut().find(|i| i.id == id) else {
+            return false;
+        };
+        let title = title.trim();
+        item.title = if title.is_empty() {
+            "Tanpa judul".into()
+        } else {
+            title.into()
+        };
+        item.content = content.replace("\r\n", "\n");
+        true
+    }
     pub fn load(path: &Path) -> Result<Self, String> {
         if !path.exists() {
             return Ok(Self::default());
@@ -272,6 +286,16 @@ mod tests {
         fs::remove_file(path).unwrap();
         fs::remove_file(directory.join("library.json.bak")).unwrap();
         fs::remove_dir(directory).unwrap();
+    }
+    #[test]
+    fn editor_update_cleans_title_and_line_endings() {
+        let mut library = Library::default();
+        assert!(library.update(1, "  ", "A\r\nB"));
+        assert_eq!(library.items[0].title, "Tanpa judul");
+        assert_eq!(library.items[0].content, "A\nB");
+        assert!(library.update(1, " Judul ", ""));
+        assert_eq!(library.items[0].title, "Judul");
+        assert!(!library.update(99, "x", "y"));
     }
     #[test]
     fn invalid_ids_and_future_formats_are_rejected() {

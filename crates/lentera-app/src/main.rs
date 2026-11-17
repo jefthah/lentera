@@ -1233,6 +1233,10 @@ impl App {
                     !self.ui.get_editing() && self.slide_tiles.row_count() == 3,
                 );
                 self.snapshot("ui-smoke-output.png", self.output.window());
+                self.ui.invoke_show_about();
+            }
+            10 => {
+                self.snapshot("ui-smoke-tentang.png", self.ui.window());
             }
             _ => {
                 self.smoke_timer.stop();

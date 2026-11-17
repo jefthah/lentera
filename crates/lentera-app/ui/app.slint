@@ -1,7 +1,7 @@
 // Tampilan Lentera: jendela operator (MainWindow) dan jendela proyektor
 // (OutputWindow). Logika dan data ada di Rust (src/main.rs).
 
-import { TextEdit, LineEdit, ComboBox, ScrollView, ListView } from "std-widgets.slint";
+import { AboutSlint, TextEdit, LineEdit, ComboBox, ScrollView, ListView } from "std-widgets.slint";
 
 export struct LibraryRow {
     id: int,
@@ -126,6 +126,7 @@ component Btn inherits Rectangle {
     in property <string> kbd;
     in property <bool> on;
     in property <length> font-size: 14px;
+    in property <length> pad: 14px;
     callback clicked();
     property <color> fg: root.kind == "primary" ? Theme.on-accent : root.kind == "danger" ? Theme.danger : Theme.text;
     height: 44px;
@@ -144,9 +145,9 @@ component Btn inherits Rectangle {
     }
     HorizontalLayout {
         alignment: center;
-        spacing: 8px;
-        padding-left: 14px;
-        padding-right: 14px;
+        spacing: root.pad < 14px ? 6px : 8px;
+        padding-left: root.pad;
+        padding-right: root.pad;
         if root.icon != "": VerticalLayout {
             alignment: center;
             Icon {
@@ -161,6 +162,7 @@ component Btn inherits Rectangle {
             font-size: root.font-size;
             font-weight: 600;
             vertical-alignment: center;
+            overflow: elide;
         }
         if root.kbd != "": VerticalLayout {
             alignment: center;
@@ -797,6 +799,10 @@ export component MainWindow inherits Window {
     callback import-verses();
     callback update-now();
 
+    public function show-about() {
+        about-popup.show();
+    }
+
     title: "Lentera " + root.version;
     preferred-width: 1360px;
     preferred-height: 840px;
@@ -952,6 +958,17 @@ export component MainWindow inherits Window {
                                 }
                             }
                         }
+                        VerticalLayout {
+                            alignment: center;
+                            IconBtn {
+                                icon: Icons.info;
+                                label: "Tentang Lentera";
+                                size: 44px;
+                                clicked => {
+                                    about-popup.show();
+                                }
+                            }
+                        }
                     }
                     if root.editing && root.has-live: VerticalLayout {
                         alignment: center;
@@ -989,7 +1006,7 @@ export component MainWindow inherits Window {
                     background: Theme.line;
                 }
                 import-menu := PopupWindow {
-                    x: parent.width - 260px;
+                    x: parent.width - 312px;
                     y: parent.height - 4px;
                     width: 244px;
                     Rectangle {
@@ -1016,6 +1033,89 @@ export component MainWindow inherits Window {
                                     root.import-verses();
                                 }
                             }
+                        }
+                    }
+                }
+                // Tentang Lentera. Widget AboutSlint wajib tampil di sini sebagai
+                // atribusi lisensi Slint Royalty-free 2.0.
+                about-popup := PopupWindow {
+                    x: (parent.width - 460px) / 2;
+                    y: 96px;
+                    width: 460px;
+                    close-policy: close-on-click-outside;
+                    Rectangle {
+                        background: Theme.raised;
+                        border-radius: 16px;
+                        border-width: 1px;
+                        border-color: Theme.border;
+                        VerticalLayout {
+                            padding: 24px;
+                            spacing: 14px;
+                            HorizontalLayout {
+                                spacing: 12px;
+                                VerticalLayout {
+                                    alignment: center;
+                                    Rectangle {
+                                        width: 44px;
+                                        height: 44px;
+                                        border-radius: 12px;
+                                        background: Theme.accent;
+                                        Icon {
+                                            svg: Icons.flame;
+                                            color: Theme.on-accent;
+                                            width: 24px;
+                                            height: 24px;
+                                            x: 10px;
+                                            y: 10px;
+                                        }
+                                    }
+                                }
+                                VerticalLayout {
+                                    alignment: center;
+                                    spacing: 2px;
+                                    horizontal-stretch: 1;
+                                    Text {
+                                        text: "Lentera";
+                                        color: Theme.text;
+                                        font-size: 20px;
+                                        font-weight: 700;
+                                    }
+                                    Text {
+                                        text: "Versi " + root.version;
+                                        color: Theme.text-3;
+                                        font-size: 13px;
+                                    }
+                                }
+                                VerticalLayout {
+                                    alignment: start;
+                                    IconBtn {
+                                        icon: Icons.close;
+                                        label: "Tutup";
+                                        size: 32px;
+                                        bordered: false;
+                                        clicked => {
+                                            about-popup.close();
+                                        }
+                                    }
+                                }
+                            }
+                            Text {
+                                text: "Presentasi ibadah yang ringan untuk Windows dan macOS. Kode sumber berlisensi MIT di github.com/jefthah/lentera.";
+                                color: Theme.text-2;
+                                font-size: 13px;
+                                wrap: word-wrap;
+                            }
+                            Text {
+                                text: "Komponen pihak ketiga dan lisensinya tercantum di THIRD-PARTY-NOTICES.txt di folder program.";
+                                color: Theme.text-3;
+                                font-size: 12px;
+                                wrap: word-wrap;
+                            }
+                            Rectangle {
+                                height: 1px;
+                                background: Theme.line;
+                            }
+                            AboutSlint { }
                         }
                     }
                 }
@@ -1339,7 +1439,7 @@ export component MainWindow inherits Window {
 
                 // Kolom kanan, mode tayang: pratinjau, tayang, dan kontrol.
                 if !root.editing: Rectangle {
-                    width: 340px;
+                    width: 360px;
                     background: Theme.panel;
                     ScrollView {
                         content-width: self.visible-width;
@@ -1431,6 +1531,8 @@ export component MainWindow inherits Window {
                                 Row {
                                     Btn {
                                         text: "Sebelumnya";
+                                        font-size: 13px;
+                                        pad: 10px;
                                         icon: Icons.left;
                                         clicked => {
                                             keys.focus();
@@ -1439,6 +1541,8 @@ export component MainWindow inherits Window {
                                     }
                                     Btn {
                                         text: "Berikutnya";
+                                        font-size: 13px;
+                                        pad: 10px;
                                         icon: Icons.right;
                                         clicked => {
                                             keys.focus();
@@ -1449,6 +1553,8 @@ export component MainWindow inherits Window {
                                 Row {
                                     Btn {
                                         text: root.blackout ? "Pulihkan" : "Gelapkan";
+                                        font-size: 13px;
+                                        pad: 10px;
                                         icon: root.blackout ? Icons.sun : Icons.moon;
                                         kbd: "F6";
                                         on: root.blackout;
@@ -1459,6 +1565,8 @@ export component MainWindow inherits Window {
                                     }
                                     Btn {
                                         text: root.fullscreen ? "Jendela" : "Layar penuh";
+                                        font-size: 13px;
+                                        pad: 10px;
                                         icon: root.fullscreen ? Icons.minimize : Icons.maximize;
                                         kbd: "F11";
                                         clicked => {
@@ -1497,7 +1605,7 @@ export component MainWindow inherits Window {
 
                 // Kolom kanan, mode edit: hasil slide.
                 if root.editing: Rectangle {
-                    width: 340px;
+                    width: 360px;
                     background: Theme.panel;
                     VerticalLayout {
                         padding: 18px;

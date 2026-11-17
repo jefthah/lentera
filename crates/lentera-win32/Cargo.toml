@@ -1,6 +1,6 @@
 [package]
 name = "lentera-win32"
-description = "Tampilan Win32/GDI Lentera 0.1 untuk Windows"
+description = "Tampilan Win32/GDI Lentera 0.1 untuk Windows (tidak dirilis lagi sejak 0.2.0)"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,7 +8,7 @@ rust-version.workspace = true
 publish = false
 
 [[bin]]
-name = "lentera"
+name = "lentera-win32"
 path = "src/main.rs"
 
 [dependencies]

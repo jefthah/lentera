@@ -1,14 +1,16 @@
 [package]
 name = "lentera-app"
-description = "Tampilan baru Lentera (Slint) untuk Windows dan macOS"
+description = "Lentera dengan tampilan Slint untuk Windows dan macOS"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
 publish = false
 
+# Nama program tetap `lentera` (lentera.exe) supaya pembaruan dari 0.1.x dan
+# shortcut yang sudah ada tetap jalan.
 [[bin]]
-name = "lentera-app"
+name = "lentera"
 path = "src/main.rs"
 
 [features]

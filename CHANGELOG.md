@@ -1,8 +1,17 @@
 # Riwayat rilis
 
-## Belum dirilis
+## 0.2.0 — 17 November 2026 — beta
 
-- Tampilan baru dengan Slint untuk Windows dan macOS (`crates/lentera-app`): tema gelap, susunan ibadah dan pustaka di kiri, semua slide sebagai kartu di tengah, pratinjau, tombol Tayangkan, layar tayang, dan kontrol di kanan. Editor materi menampilkan hasil slide langsung. Fitur sama dengan 0.1.1, termasuk pembaruan otomatis. Rilis Windows masih memakai tampilan Win32 sampai tampilan baru diputuskan menggantikannya.
+Tampilan baru untuk Windows dan macOS, dibangun dengan Slint.
+
+- **Tampilan baru bertema gelap.** Susunan ibadah dan pustaka di kiri, semua slide materi sebagai kartu di tengah, lalu pratinjau, tombol **Tayangkan**, layar yang sedang tayang, dan kontrol di kanan. Slide yang dipratinjau berbingkai kuning, yang sedang tayang berbingkai merah.
+- **Editor materi** dibuka lewat **Edit materi** atau **Materi baru**, dengan hasil slide yang langsung terlihat saat mengetik. Bilah atas menunjukkan apa yang sedang tayang selama mengedit.
+- Klik dua kali slide, materi, atau baris susunan untuk langsung menayangkan. Pilihan monitor proyektor dan menu **Impor** pindah ke bilah atas.
+- Layar **Tentang** (tombol ⓘ) menampilkan versi dan atribusi Slint.
+- Fitur, tombol cepat, folder data, dan format `library.json` sama dengan 0.1.1.
+- Pengguna 0.1.1 menerima versi ini lewat pembaruan otomatis. Nama program tetap `lentera.exe`, jadi shortcut lama tetap jalan.
+- Program menjadi sekitar 11 MB (sebelumnya 2,2 MB) dan memakai sekitar 34 MiB RAM pada data contoh (sebelumnya sekitar 15 MiB).
+- Aplikasi juga dibangun dan diuji otomatis di macOS. Installer macOS belum tersedia.
 
 ## 0.1.1 — 17 November 2026 — beta
 

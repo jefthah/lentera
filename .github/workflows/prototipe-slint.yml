@@ -1,0 +1,72 @@
+name: Prototipe Slint
+
+on:
+  push:
+    branches: [prototype/slint]
+    paths:
+      - "prototypes/slint-spike/**"
+      - ".github/workflows/prototipe-slint.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    defaults:
+      run:
+        shell: bash
+        working-directory: prototypes/slint-spike
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Rust stable
+        run: rustup toolchain install stable --profile minimal && rustup default stable
+
+      - name: Build
+        run: cargo build --release --locked
+
+      - name: Ukuran program
+        run: ls -l target/release/ | grep lentera-slint-spike
+
+      # Runner CI hanya punya satu layar virtual, jadi uji ini memeriksa
+      # bahwa jendela bisa dibuat dan dipasang fullscreen. Video diuji di PC.
+      - name: Uji otomatis (renderer software)
+        continue-on-error: true
+        timeout-minutes: 3
+        run: ./target/release/lentera-slint-spike --selftest --renderer software --out hasil/software
+
+      - name: Uji otomatis (renderer femtovg)
+        continue-on-error: true
+        timeout-minutes: 3
+        run: ./target/release/lentera-slint-spike --selftest --renderer femtovg --out hasil/femtovg
+
+      - name: Ringkasan
+        if: always()
+        run: |
+          {
+            echo "## Prototipe Slint di ${{ matrix.os }}"
+            for f in hasil/*/laporan.json; do
+              [ -f "$f" ] || continue
+              echo "### $f"
+              echo '```json'
+              cat "$f"
+              echo '```'
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: prototipe-${{ matrix.os }}
+          path: |
+            prototypes/slint-spike/hasil/
+            prototypes/slint-spike/target/release/lentera-slint-spike
+            prototypes/slint-spike/target/release/lentera-slint-spike.exe
+          if-no-files-found: warn

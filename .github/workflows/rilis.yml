@@ -1,0 +1,89 @@
+name: Rilis Windows
+
+# Push tag versi (misalnya v0.1.1) untuk membuat installer dan paket pembaruan.
+# Hasilnya diunggah sebagai DRAF pre-release. Aplikasi tidak melihat draf, jadi
+# pengguna baru menerima pembaruan setelah draf diterbitkan (Publish) di GitHub.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+env:
+  # Harus sama dengan versi crate velopack di crates/lentera-win32/Cargo.toml.
+  VPK_VERSION: 1.2.161
+
+jobs:
+  windows:
+    name: Installer Windows
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Versi tag sama dengan Cargo.toml
+        run: |
+          version=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -n 1)
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME tidak sama dengan versi Cargo.toml ($version)."
+            exit 1
+          fi
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
+      - name: Catatan rilis dari CHANGELOG.md
+        run: |
+          mkdir -p dist
+          awk -v v="$VERSION" '/^## /{p = ($2 == v)} p' CHANGELOG.md > dist/catatan.md
+          if [ ! -s dist/catatan.md ]; then
+            echo "::error::CHANGELOG.md belum punya bagian '## $VERSION'."
+            exit 1
+          fi
+          cat dist/catatan.md
+
+      - name: Rust stable
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      - name: Tes
+        run: cargo test --locked
+
+      - name: Build
+        run: cargo build -p lentera-win32 --release --locked
+
+      - name: Isi paket
+        run: |
+          mkdir -p dist/app
+          cp target/release/lentera.exe dist/app/
+          cp README.md PANDUAN.md CHANGELOG.md LICENSE THIRD-PARTY-NOTICES.txt \
+             contoh-lirik.txt contoh-ayat.tsv dist/app/
+
+      - name: Pasang vpk
+        run: dotnet tool install --global vpk --version "$VPK_VERSION"
+
+      # Rilis sebelumnya dipakai untuk membuat paket delta (unduhan lebih kecil).
+      # Rilis pertama yang memakai Velopack belum punya pendahulu.
+      - name: Ambil rilis sebelumnya
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: vpk download github --repoUrl "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" --token "$GH_TOKEN" --pre --outputDir dist/releases
+
+      - name: Buat installer dan paket pembaruan
+        run: |
+          vpk pack --packId LenteraApp --packVersion "$VERSION" --packDir dist/app \
+            --mainExe lentera.exe --packTitle Lentera --packAuthors Lentera \
+            --releaseNotes dist/catatan.md --outputDir dist/releases
+          ls -l dist/releases
+
+      - name: Unggah sebagai draf pre-release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          vpk upload github --repoUrl "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" --token "$GH_TOKEN" \
+            --outputDir dist/releases --pre --releaseName "Lentera $VERSION" --tag "$GITHUB_REF_NAME"

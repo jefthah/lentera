@@ -15,6 +15,9 @@ path = "src/main.rs"
 lentera-core.workspace = true
 # Hanya untuk laporan --ui-smoke-test.
 serde_json.workspace = true
+# Installer dan pembaruan otomatis. Versi harus sama dengan alat `vpk` di
+# workflow rilis.
+velopack = "=1.2.161"
 windows-sys = { version = "0.61.2", features = [
     "Win32_Foundation", "Win32_Graphics_Gdi", "Win32_System_LibraryLoader",
     "Win32_UI_WindowsAndMessaging", "Win32_UI_Input_KeyboardAndMouse",

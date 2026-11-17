@@ -1,6 +1,17 @@
 # Lentera 0.1 — presentasi ibadah ringan
 
-Prototipe Windows native berbasis Rust, untuk lirik, ayat, dan proyektor pada komputer dengan RAM 2–4 GB. Buka **Lentera.exe**; tidak perlu memasang Rust pada komputer pengguna. Target RAM merupakan sasaran pengembangan, bukan hasil uji pada semua komputer lama.
+Prototipe Windows native berbasis Rust, untuk lirik, ayat, dan proyektor pada komputer dengan RAM 2–4 GB. Target RAM merupakan sasaran pengembangan, bukan hasil uji pada semua komputer lama.
+
+## Memasang dan memperbarui
+
+1. Unduh **LenteraApp-win-Setup.exe** dari halaman rilis GitHub, lalu jalankan. Tidak perlu hak admin. Karena aplikasi belum bertanda tangan digital, Windows mungkin menampilkan "Windows protected your PC": pilih **More info → Run anyway**.
+2. Buka Lentera dari shortcut **Lentera** di Desktop atau Start Menu.
+3. Saat dibuka dan tersambung ke internet, Lentera memeriksa versi baru dan mengunduhnya di latar belakang. Bila sudah siap, muncul tombol **Perbarui ke …** di kanan bawah.
+   - Biarkan saja: pembaruan dipasang otomatis saat Lentera ditutup.
+   - Atau klik tombolnya, lalu pilih **Yes**: Lentera ditutup, diperbarui, dan dibuka kembali. Proyektor ikut tertutup sebentar, jadi lakukan di luar ibadah.
+4. Untuk menghapus: Settings → Apps → **Lentera** → Uninstall. Data di `%LOCALAPPDATA%\Lentera` tidak ikut terhapus.
+
+Pengguna 0.1.0 (ZIP lama) cukup memasang installer ini sekali; data lama langsung terbaca. Versi ZIP lama boleh dihapus setelahnya.
 
 ## Mulai memakai
 
@@ -37,18 +48,18 @@ Pustaka menampilkan maksimal 500 hasil pertama agar tetap responsif. Ketik refer
 
 Data tersimpan di `%LOCALAPPDATA%\Lentera\library.json`, termasuk susunan ibadah dan pilihan latar. `library.json.bak` menyimpan versi sebelum penyimpanan terakhir. Cadangan ini bukan riwayat lengkap; salin folder data secara berkala, terutama sebelum impor besar. Aplikasi tidak mengganti data rusak dengan pustaka kosong. Hanya satu proses dapat membuka folder data yang sama.
 
-Untuk menyimpan di lokasi lain, jalankan `Lentera.exe --data-dir "D:\Data Ibadah"`. Tutup aplikasi sebelum menyalin atau memulihkan cadangan. Layar tayang menyimpan salinan slide sehingga mengedit materi tidak langsung mengubah slide yang sedang ditampilkan.
+Untuk menyimpan di lokasi lain, jalankan `Lentera.exe --data-dir "D:\Data Ibadah"`. Setelah pembaruan lewat tombol **Perbarui**, Lentera dibuka kembali dengan folder data yang sama. Tutup aplikasi sebelum menyalin atau memulihkan cadangan. Layar tayang menyimpan salinan slide sehingga mengedit materi tidak langsung mengubah slide yang sedang ditampilkan.
 
 ## Ruang lingkup versi ini
 
 - Lirik, ayat teks, pencarian, editor, susunan ibadah, pratinjau, keluaran terpisah, layar penuh, blackout, dan tiga warna latar.
 - Windows 10/11 **64-bit**. Antarmuka ditujukan untuk layar minimal sekitar 1024×768 pada skala 100%.
 - Belum mencakup video, latar gambar, PowerPoint, NDI, streaming, pencarian rentang ayat otomatis, atau impor database EasyWorship.
-- Belum ada installer, pembaruan otomatis, atau sertifikat penandatanganan aplikasi. Jangan gunakan untuk layanan langsung sebelum latihan dan pengujian di komputer / proyektor tujuan.
+- Sudah ada installer dan pembaruan otomatis, tetapi belum ada sertifikat penandatanganan aplikasi. Jangan gunakan untuk layanan langsung sebelum latihan dan pengujian di komputer / proyektor tujuan.
 
 ## Untuk pengembang
 
-Logika data, susunan ibadah, impor, dan penyimpanan ada di `crates/lentera-core` beserta pengujiannya. Tampilan Windows ada di `crates/lentera-win32/src/main.rs`. UI menggunakan Win32 + GDI, tanpa browser tertanam, loop animasi, atau server lokal. Aplikasi menunggu pesan Windows dan menggambar saat ada perubahan. Pencarian dibatasi 500 hasil tampilan.
+Logika data, susunan ibadah, impor, dan penyimpanan ada di `crates/lentera-core` beserta pengujiannya. Tampilan Windows ada di `crates/lentera-win32/src/main.rs`; pembaruan otomatis (Velopack) di `crates/lentera-win32/src/update.rs`. Rilis dibuat oleh workflow `.github/workflows/rilis.yml` saat tag versi di-push. UI menggunakan Win32 + GDI, tanpa browser tertanam, loop animasi, atau server lokal. Aplikasi menunggu pesan Windows dan menggambar saat ada perubahan. Pencarian dibatasi 500 hasil tampilan.
 
 Pasang Rust stable dengan target `x86_64-pc-windows-msvc` serta Microsoft C++ Build Tools / Windows SDK. Dari folder proyek:
 

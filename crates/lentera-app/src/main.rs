@@ -133,9 +133,14 @@ struct State {
 
 struct Smoke {
     step: u32,
+    /// Berapa kali langkah ini sudah menunggu (lihat `App::retry`).
+    waits: u32,
     checks: Vec<(String, bool)>,
     report: PathBuf,
 }
+
+/// Batas tunggu satu langkah uji, dalam detak 450 ms (sekitar 5 detik).
+const SMOKE_MAX_WAITS: u32 = 12;
 
 struct App {
     ui: MainWindow,
@@ -1117,6 +1122,7 @@ impl App {
     fn start_smoke(self: &Rc<Self>, report: PathBuf) {
         *self.smoke.borrow_mut() = Some(Smoke {
             step: 0,
+            waits: 0,
             checks: Vec::new(),
             report,
         });
@@ -1131,7 +1137,22 @@ impl App {
 
     fn check(&self, name: &str, ok: bool) {
         if let Some(smoke) = self.smoke.borrow_mut().as_mut() {
+            smoke.waits = 0;
             smoke.checks.push((name.into(), ok));
+        }
+    }
+
+    /// Mengulang langkah uji ini pada detak berikutnya. Dipakai untuk keadaan
+    /// jendela yang berubah tidak seketika, misalnya animasi layar penuh macOS.
+    /// `false` bila batas tunggu sudah habis.
+    fn retry(&self) -> bool {
+        match self.smoke.borrow_mut().as_mut() {
+            Some(smoke) if smoke.waits < SMOKE_MAX_WAITS => {
+                smoke.waits += 1;
+                smoke.step -= 1;
+                true
+            }
+            _ => false,
         }
     }
 
@@ -1190,17 +1211,19 @@ impl App {
                 }
             }
             6 => {
-                self.check(
-                    "fullscreen",
-                    self.state.borrow().fullscreen && self.output_fullscreen() == Some(true),
-                );
+                let ok = self.state.borrow().fullscreen && self.output_fullscreen() == Some(true);
+                if !ok && self.retry() {
+                    return;
+                }
+                self.check("fullscreen", ok);
                 self.toggle_fullscreen();
             }
             7 => {
-                self.check(
-                    "windowed",
-                    !self.state.borrow().fullscreen && self.output_fullscreen() == Some(false),
-                );
+                let ok = !self.state.borrow().fullscreen && self.output_fullscreen() == Some(false);
+                if !ok && self.retry() {
+                    return;
+                }
+                self.check("windowed", ok);
                 self.ui.set_query("BERSYUKUR".into());
                 self.refresh_library();
                 self.check("search", self.state.borrow().filtered == vec![1]);
@@ -1254,8 +1277,15 @@ impl App {
             let st = self.state.borrow();
             (st.output_visible, st.path.exists())
         };
+        let failed: Vec<&str> = smoke
+            .checks
+            .iter()
+            .filter(|(_, ok)| !ok)
+            .map(|(name, _)| name.as_str())
+            .collect();
         let report = serde_json::json!({
-            "ok": smoke.checks.iter().all(|(_, ok)| *ok),
+            "ok": failed.is_empty(),
+            "failed": failed,
             "checks": smoke.checks,
             "version": VERSION,
             "ui": "slint",

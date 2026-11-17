@@ -76,4 +76,12 @@ Uji jendela otomatis menggunakan direktori data percobaan terpisah:
 .\target\release\lentera.exe --data-dir ".\test-data" --ui-smoke-test
 ```
 
-Hasilnya ditulis ke `test-data/ui-smoke-result.json`; proses menutup diri setelah pengujian. Kode sumber memakai lisensi MIT. Teks contoh adalah placeholder, bukan kumpulan lagu atau Alkitab berlisensi.
+Hasilnya ditulis ke `test-data/ui-smoke-result.json`; proses menutup diri setelah pengujian.
+
+Tampilan baru untuk Windows dan macOS sedang dibangun dengan Slint di `crates/lentera-app` (belum dirilis). Logikanya ada di `src/main.rs`, tata letak dan tema di `ui/app.slint`, pembaruan otomatis di `src/update.rs`. Aplikasi ini memakai data dan argumen yang sama (`--data-dir`, `--ui-smoke-test`, `--update-source`). Untuk menyimpan tangkapan layar PNG ke folder data saat uji alur, build dengan fitur `snapshot`:
+
+```powershell
+cargo run -p lentera-app --release --features snapshot -- --data-dir ".	est-data" --ui-smoke-test
+```
+
+Kode sumber memakai lisensi MIT. Teks contoh adalah placeholder, bukan kumpulan lagu atau Alkitab berlisensi.

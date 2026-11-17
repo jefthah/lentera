@@ -1,0 +1,1765 @@
+// Tampilan Lentera: jendela operator (MainWindow) dan jendela proyektor
+// (OutputWindow). Logika dan data ada di Rust (src/main.rs).
+
+import { TextEdit, LineEdit, ComboBox, ScrollView, ListView } from "std-widgets.slint";
+
+export struct LibraryRow {
+    id: int,
+    title: string,
+    meta: string,
+    song: bool,
+}
+
+export struct ServiceRow {
+    id: int,
+    title: string,
+    meta: string,
+    song: bool,
+}
+
+export struct SlideTile {
+    text: string,
+    first: string,
+    lines: int,
+    chars: int,
+}
+
+export global Theme {
+    out property <color> bg: #0F1115;
+    out property <color> bar: #12151B;
+    out property <color> panel: #13161C;
+    out property <color> raised: #181C24;
+    out property <color> hover: #1C2029;
+    out property <color> active: #1F2430;
+    out property <color> active-border: #2F3646;
+    out property <color> line: #222731;
+    out property <color> border: #2C3240;
+    out property <color> text: #E9ECF1;
+    out property <color> text-2: #A3ABB9;
+    out property <color> text-3: #8B94A5;
+    out property <color> num: #6F7889;
+    out property <color> accent: #F2B441;
+    out property <color> accent-soft: #2B2414;
+    out property <color> on-accent: #1A1204;
+    out property <color> live: #E5484D;
+    out property <color> live-badge: #D93036;
+    out property <color> live-soft: #2A1416;
+    out property <color> verse: #8DB4FF;
+    out property <color> verse-soft: #152238;
+    out property <color> ok: #3FCB7E;
+    out property <color> danger: #FF9EA2;
+    // Latar layar proyektor, urutannya sama dengan `Library::background`.
+    out property <[color]> slide-bg: [#0B0D12, #0E1C3A, #F3EFE6];
+    out property <[color]> slide-ink: [#F5F7FA, #F5F7FA, #1B1A17];
+    out property <[string]> slide-names: ["Gelap", "Biru malam", "Terang"];
+}
+
+// Ikon garis 24×24 (perintah path SVG).
+export global Icons {
+    out property <string> flame: "M12 3c2.6 3 4 5.1 4 7.4a4 4 0 0 1-8 0C8 8.1 9.4 6 12 3z M9 17h6 M10 21h4";
+    out property <string> search: "M11 4a7 7 0 1 0 0 14a7 7 0 1 0 0-14z M20 20l-3.5-3.5";
+    out property <string> music: "M9 18V5l12-2v13 M6 15a3 3 0 1 0 0 6a3 3 0 1 0 0-6z M18 13a3 3 0 1 0 0 6a3 3 0 1 0 0-6z";
+    out property <string> book: "M4 19.5A2.5 2.5 0 0 1 6.5 17H20 M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z";
+    out property <string> plus: "M12 5v14 M5 12h14";
+    out property <string> left: "M15 18l-6-6 6-6";
+    out property <string> right: "M9 18l6-6-6-6";
+    out property <string> moon: "M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z";
+    out property <string> sun: "M12 8a4 4 0 1 0 0 8a4 4 0 1 0 0-8z M12 2v2 M12 20v2 M4.9 4.9l1.4 1.4 M17.7 17.7l1.4 1.4 M2 12h2 M20 12h2 M4.9 19.1l1.4-1.4 M17.7 6.3l1.4-1.4";
+    out property <string> maximize: "M8 3H5a2 2 0 0 0-2 2v3 M21 8V5a2 2 0 0 0-2-2h-3 M3 16v3a2 2 0 0 0 2 2h3 M16 21h3a2 2 0 0 0 2-2v-3";
+    out property <string> minimize: "M8 3v3a2 2 0 0 1-2 2H3 M21 8h-3a2 2 0 0 1-2-2V3 M3 16h3a2 2 0 0 1 2 2v3 M16 21v-3a2 2 0 0 1 2-2h3";
+    out property <string> monitor: "M4 3h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z M8 21h8 M12 17v4";
+    out property <string> import: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M7 10l5 5 5-5 M12 15V3";
+    out property <string> edit: "M12 20h9 M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z";
+    out property <string> check: "M20 6L9 17l-5-5";
+    out property <string> info: "M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18z M12 16v-4 M12 8h.01";
+    out property <string> refresh: "M21 12a9 9 0 1 1-3-6.7 M21 3v6h-6";
+    out property <string> back: "M19 12H5 M12 19l-7-7 7-7";
+    out property <string> trash: "M3 6h18 M8 6V4h8v2 M19 6l-1 14H6L5 6";
+    out property <string> up: "M12 19V5 M5 12l7-7 7 7";
+    out property <string> down: "M12 5v14 M19 12l-7 7-7-7";
+    out property <string> close: "M18 6L6 18 M6 6l12 12";
+    out property <string> play: "M7 4l13 8-13 8z";
+}
+
+component Icon inherits Path {
+    in property <string> svg;
+    in property <color> color: Theme.text;
+    in property <bool> filled;
+    commands: root.svg;
+    viewbox-width: 24;
+    viewbox-height: 24;
+    width: 18px;
+    height: 18px;
+    stroke: root.filled ? transparent : root.color;
+    fill: root.filled ? root.color : transparent;
+    stroke-width: 1.8px;
+    stroke-line-cap: round;
+}
+
+component Kbd inherits Rectangle {
+    in property <string> text;
+    in property <color> ink: Theme.text-2;
+    in property <color> outline: #343B4A;
+    height: 20px;
+    width: label.preferred-width + 12px;
+    border-radius: 5px;
+    border-width: 1px;
+    border-color: root.outline;
+    label := Text {
+        width: parent.width;
+        height: parent.height;
+        text: root.text;
+        color: root.ink;
+        font-size: 11px;
+        font-weight: 600;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+component Btn inherits Rectangle {
+    in property <string> text;
+    in property <string> icon;
+    in property <bool> icon-filled;
+    // "primary", "secondary", "ghost", atau "danger".
+    in property <string> kind: "secondary";
+    in property <string> kbd;
+    in property <bool> on;
+    in property <length> font-size: 14px;
+    callback clicked();
+    property <color> fg: root.kind == "primary" ? Theme.on-accent : root.kind == "danger" ? Theme.danger : Theme.text;
+    height: 44px;
+    border-radius: 12px;
+    background: root.kind == "primary"
+        ? (touch.pressed ? Theme.accent.darker(0.15) : touch.has-hover ? Theme.accent.brighter(0.08) : Theme.accent)
+        : root.on ? Theme.accent-soft
+        : root.kind == "ghost" || root.kind == "danger" ? (touch.has-hover ? Theme.hover : transparent)
+        : (touch.pressed ? Theme.active : touch.has-hover ? Theme.hover : Theme.raised);
+    border-width: root.kind == "primary" || root.kind == "ghost" ? 0px : 1px;
+    border-color: root.on ? Theme.accent : root.kind == "danger" ? #4A2A2E : Theme.border;
+    accessible-role: button;
+    accessible-label: root.text;
+    accessible-action-default => {
+        root.clicked();
+    }
+    HorizontalLayout {
+        alignment: center;
+        spacing: 8px;
+        padding-left: 14px;
+        padding-right: 14px;
+        if root.icon != "": VerticalLayout {
+            alignment: center;
+            Icon {
+                svg: root.icon;
+                color: root.fg;
+                filled: root.icon-filled;
+            }
+        }
+        Text {
+            text: root.text;
+            color: root.fg;
+            font-size: root.font-size;
+            font-weight: 600;
+            vertical-alignment: center;
+        }
+        if root.kbd != "": VerticalLayout {
+            alignment: center;
+            Kbd {
+                text: root.kbd;
+                ink: root.kind == "primary" ? Theme.on-accent : Theme.text-2;
+                outline: root.kind == "primary" ? #1A120455 : #343B4A;
+            }
+        }
+    }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+component IconBtn inherits Rectangle {
+    in property <string> icon;
+    in property <string> label;
+    in property <length> size: 36px;
+    in property <color> tint: Theme.text-2;
+    in property <bool> bordered: true;
+    callback clicked();
+    width: root.size;
+    height: root.size;
+    border-radius: 10px;
+    background: touch.pressed ? Theme.active : touch.has-hover ? #262B36 : (root.bordered ? Theme.raised : transparent);
+    border-width: root.bordered ? 1px : 0px;
+    border-color: Theme.border;
+    accessible-role: button;
+    accessible-label: root.label;
+    accessible-action-default => {
+        root.clicked();
+    }
+    Icon {
+        svg: root.icon;
+        color: touch.has-hover ? Theme.text : root.tint;
+        width: 16px;
+        height: 16px;
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+    }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+component Chip inherits Rectangle {
+    in property <string> text;
+    in property <bool> on;
+    callback clicked();
+    height: 32px;
+    width: label.preferred-width + 26px;
+    border-radius: 16px;
+    background: root.on ? #232835 : touch.has-hover ? Theme.hover : transparent;
+    border-width: 1px;
+    border-color: root.on ? #3A4150 : Theme.border;
+    accessible-role: button;
+    accessible-label: root.text;
+    accessible-checked: root.on;
+    accessible-action-default => {
+        root.clicked();
+    }
+    label := Text {
+        width: parent.width;
+        height: parent.height;
+        text: root.text;
+        color: root.on ? Theme.text : Theme.text-2;
+        font-size: 13px;
+        font-weight: root.on ? 600 : 400;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+// Teks slide yang ukurannya menyesuaikan kotak, seperti di layar proyektor.
+component SlideText inherits Rectangle {
+    in property <string> text;
+    in property <int> lines: 1;
+    in property <int> chars: 10;
+    in property <color> ink;
+    Text {
+        x: parent.width * 0.06;
+        y: parent.height * 0.08;
+        width: parent.width * 0.88;
+        height: parent.height * 0.84;
+        text: root.text;
+        color: root.ink;
+        wrap: word-wrap;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        font-weight: 700;
+        font-size: Math.min(
+            parent.height * 0.84 / (Math.max(root.lines, 1) * 1.32),
+            parent.width * 0.88 / (Math.max(root.chars, 10) * 0.55),
+            parent.height / 6.5);
+    }
+}
+
+component SlideTileView inherits Rectangle {
+    in property <SlideTile> tile;
+    in property <int> number;
+    in property <bool> preview;
+    in property <bool> live;
+    in property <int> bg-index;
+    callback clicked();
+    callback activated();
+    property <length> thumb-h: self.width * 9 / 16;
+    height: self.thumb-h + 30px;
+    accessible-role: button;
+    accessible-label: "Slide " + root.number + ": " + root.tile.first;
+    accessible-action-default => {
+        root.clicked();
+    }
+    Rectangle {
+        x: 0;
+        y: 0;
+        width: parent.width;
+        height: root.thumb-h;
+        border-radius: 14px;
+        border-width: root.live || root.preview ? 2px : 1px;
+        border-color: root.live ? Theme.live : root.preview ? Theme.accent : touch.has-hover ? #3A4150 : #2A303C;
+        Rectangle {
+            x: 4px;
+            y: 4px;
+            width: parent.width - 8px;
+            height: parent.height - 8px;
+            border-radius: 10px;
+            clip: true;
+            background: Theme.slide-bg[root.bg-index];
+            SlideText {
+                width: parent.width;
+                height: parent.height;
+                text: root.tile.text;
+                lines: root.tile.lines;
+                chars: root.tile.chars;
+                ink: Theme.slide-ink[root.bg-index];
+            }
+            if root.live || root.preview: Rectangle {
+                x: 8px;
+                y: 8px;
+                height: 22px;
+                width: badge.preferred-width + 16px;
+                border-radius: 6px;
+                background: root.live ? Theme.live-badge : Theme.accent;
+                badge := Text {
+                    width: parent.width;
+                    height: parent.height;
+                    text: root.live ? "Tayang" : "Pratinjau";
+                    color: root.live ? #FFFFFF : Theme.on-accent;
+                    font-size: 12px;
+                    font-weight: 700;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+        }
+    }
+    HorizontalLayout {
+        y: root.thumb-h + 8px;
+        height: 20px;
+        width: parent.width;
+        spacing: 8px;
+        padding-left: 2px;
+        Text {
+            text: root.number;
+            color: #C5CBD6;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        Text {
+            text: root.tile.first;
+            color: Theme.text-3;
+            font-size: 13px;
+            overflow: elide;
+            horizontal-stretch: 1;
+        }
+    }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+        double-clicked => {
+            root.activated();
+        }
+    }
+}
+
+// Layar kecil di kolom kanan: pratinjau atau yang sedang tayang.
+component Screen inherits Rectangle {
+    in property <SlideTile> tile;
+    in property <bool> has-slide;
+    in property <bool> dark;
+    in property <int> bg-index;
+    in property <color> ring;
+    in property <string> empty-text;
+    border-radius: 14px;
+    border-width: 2px;
+    border-color: root.ring;
+    Rectangle {
+        x: 4px;
+        y: 4px;
+        width: parent.width - 8px;
+        height: parent.height - 8px;
+        border-radius: 10px;
+        clip: true;
+        background: root.dark ? #000000 : Theme.slide-bg[root.bg-index];
+        if root.has-slide && !root.dark: SlideText {
+            width: parent.width;
+            height: parent.height;
+            text: root.tile.text;
+            lines: root.tile.lines;
+            chars: root.tile.chars;
+            ink: Theme.slide-ink[root.bg-index];
+        }
+        if root.dark || !root.has-slide: Text {
+            width: parent.width;
+            height: parent.height;
+            text: root.dark ? "Layar jemaat gelap" : root.empty-text;
+            color: root.bg-index == 2 && !root.dark ? #6B6A63 : Theme.text-3;
+            font-size: 13px;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+}
+
+component ServiceRowView inherits Rectangle {
+    in property <ServiceRow> entry;
+    in property <int> index;
+    in property <bool> selected;
+    in property <bool> on-air;
+    callback clicked();
+    callback activated();
+    callback up();
+    callback down();
+    callback remove();
+    height: 58px;
+    border-radius: 12px;
+    background: root.selected ? Theme.active : touch.has-hover ? Theme.hover : transparent;
+    border-width: 1px;
+    border-color: root.selected ? Theme.active-border : transparent;
+    accessible-role: list-item;
+    accessible-label: (root.index + 1) + ". " + root.entry.title;
+    accessible-action-default => {
+        root.clicked();
+    }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+        double-clicked => {
+            root.activated();
+        }
+    }
+    HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 6px;
+        spacing: 10px;
+        Text {
+            width: 20px;
+            text: (root.index + 1 < 10 ? "0" : "") + (root.index + 1);
+            color: Theme.num;
+            font-size: 12px;
+            font-weight: 600;
+            vertical-alignment: center;
+        }
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 34px;
+                height: 34px;
+                border-radius: 9px;
+                background: root.entry.song ? Theme.accent-soft : Theme.verse-soft;
+                Icon {
+                    svg: root.entry.song ? Icons.music : Icons.book;
+                    color: root.entry.song ? Theme.accent : Theme.verse;
+                    width: 17px;
+                    height: 17px;
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                }
+            }
+        }
+        VerticalLayout {
+            alignment: center;
+            spacing: 2px;
+            horizontal-stretch: 1;
+            Text {
+                text: root.entry.title;
+                color: Theme.text;
+                font-size: 14px;
+                font-weight: 500;
+                overflow: elide;
+            }
+            Text {
+                text: root.entry.meta;
+                color: Theme.text-3;
+                font-size: 12px;
+                overflow: elide;
+            }
+        }
+        if root.on-air && !root.selected: VerticalLayout {
+            alignment: center;
+            Rectangle {
+                height: 22px;
+                width: 70px;
+                border-radius: 11px;
+                background: Theme.live-badge;
+                HorizontalLayout {
+                    alignment: center;
+                    spacing: 6px;
+                    VerticalLayout {
+                        alignment: center;
+                        Rectangle {
+                            width: 6px;
+                            height: 6px;
+                            border-radius: 3px;
+                            background: #FFFFFF;
+                        }
+                    }
+                    Text {
+                        text: "Tayang";
+                        color: #FFFFFF;
+                        font-size: 12px;
+                        font-weight: 700;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+        }
+        if root.selected: HorizontalLayout {
+            spacing: 0px;
+            if root.on-air: VerticalLayout {
+                alignment: center;
+                padding-right: 4px;
+                Rectangle {
+                    width: 10px;
+                    height: 10px;
+                    border-radius: 5px;
+                    background: Theme.live;
+                }
+            }
+            VerticalLayout {
+                alignment: center;
+                IconBtn {
+                    icon: Icons.up;
+                    label: "Naikkan";
+                    size: 30px;
+                    bordered: false;
+                    clicked => {
+                        root.up();
+                    }
+                }
+            }
+            VerticalLayout {
+                alignment: center;
+                IconBtn {
+                    icon: Icons.down;
+                    label: "Turunkan";
+                    size: 30px;
+                    bordered: false;
+                    clicked => {
+                        root.down();
+                    }
+                }
+            }
+            VerticalLayout {
+                alignment: center;
+                IconBtn {
+                    icon: Icons.close;
+                    label: "Lepas dari susunan";
+                    size: 30px;
+                    bordered: false;
+                    clicked => {
+                        root.remove();
+                    }
+                }
+            }
+        }
+    }
+}
+
+component LibraryRowView inherits Rectangle {
+    in property <LibraryRow> entry;
+    in property <bool> selected;
+    callback clicked();
+    callback activated();
+    callback add();
+    height: 52px;
+    border-radius: 10px;
+    background: root.selected ? Theme.active : touch.has-hover ? Theme.hover : transparent;
+    accessible-role: list-item;
+    accessible-label: root.entry.title;
+    accessible-action-default => {
+        root.clicked();
+    }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+        double-clicked => {
+            root.activated();
+        }
+    }
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 6px;
+        spacing: 10px;
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 8px;
+                height: 8px;
+                border-radius: 4px;
+                background: root.entry.song ? Theme.accent : Theme.verse;
+            }
+        }
+        VerticalLayout {
+            alignment: center;
+            spacing: 1px;
+            horizontal-stretch: 1;
+            Text {
+                text: root.entry.title;
+                color: Theme.text;
+                font-size: 14px;
+                font-weight: root.selected ? 600 : 400;
+                overflow: elide;
+            }
+            Text {
+                text: root.entry.meta;
+                color: Theme.text-3;
+                font-size: 12px;
+                overflow: elide;
+            }
+        }
+        VerticalLayout {
+            alignment: center;
+            IconBtn {
+                icon: Icons.plus;
+                label: "Tambah ke susunan";
+                clicked => {
+                    root.add();
+                }
+            }
+        }
+    }
+}
+
+component MenuRow inherits Rectangle {
+    in property <string> text;
+    in property <string> hint;
+    callback clicked();
+    height: 48px;
+    border-radius: 8px;
+    background: touch.has-hover ? Theme.hover : transparent;
+    accessible-role: button;
+    accessible-label: root.text;
+    accessible-action-default => {
+        root.clicked();
+    }
+    VerticalLayout {
+        padding-left: 12px;
+        alignment: center;
+        spacing: 1px;
+        Text {
+            text: root.text;
+            color: Theme.text;
+            font-size: 14px;
+        }
+        Text {
+            text: root.hint;
+            color: Theme.text-3;
+            font-size: 12px;
+        }
+    }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+component Swatch inherits VerticalLayout {
+    in property <int> index;
+    in property <bool> on;
+    callback clicked();
+    spacing: 4px;
+    Rectangle {
+        height: 30px;
+        border-radius: 9px;
+        border-width: root.on ? 2px : 1px;
+        border-color: root.on ? Theme.accent : #3A4150;
+        accessible-role: button;
+        accessible-label: "Latar " + Theme.slide-names[root.index];
+        accessible-checked: root.on;
+        accessible-action-default => {
+            root.clicked();
+        }
+        Rectangle {
+            x: 3px;
+            y: 3px;
+            width: parent.width - 6px;
+            height: parent.height - 6px;
+            border-radius: 6px;
+            background: Theme.slide-bg[root.index];
+        }
+        TouchArea {
+            mouse-cursor: pointer;
+            clicked => {
+                root.clicked();
+            }
+        }
+    }
+    Text {
+        text: Theme.slide-names[root.index];
+        color: root.on ? Theme.text : Theme.text-3;
+        font-size: 12px;
+        horizontal-alignment: center;
+    }
+}
+
+component SectionTitle inherits HorizontalLayout {
+    in property <string> text;
+    in property <string> detail;
+    padding-left: 6px;
+    padding-right: 6px;
+    Text {
+        text: root.text;
+        color: Theme.text;
+        font-size: 15px;
+        font-weight: 600;
+        vertical-alignment: center;
+    }
+    Text {
+        text: root.detail;
+        color: Theme.text-3;
+        font-size: 12px;
+        horizontal-alignment: right;
+        vertical-alignment: center;
+        horizontal-stretch: 1;
+        overflow: elide;
+    }
+}
+
+export component MainWindow inherits Window {
+    in property <string> version;
+
+    in property <[LibraryRow]> library;
+    in property <string> library-detail;
+    in property <[ServiceRow]> service;
+    in property <[SlideTile]> slides;
+    in property <int> selected-id: -1;
+    in property <int> selected-service: -1;
+
+    in property <bool> has-current;
+    in property <string> current-title;
+    in property <string> current-meta;
+    in property <int> preview-page;
+    in property <bool> has-preview;
+    in property <SlideTile> preview;
+    in property <string> preview-meta;
+
+    in property <bool> has-live;
+    in property <SlideTile> live;
+    in property <string> live-meta: "Belum ada yang tayang";
+    in property <int> live-item-id: -1;
+    in property <int> live-page: -1;
+    in property <int> live-service: -1;
+    in property <bool> blackout;
+    in property <bool> output-visible;
+    in property <bool> fullscreen;
+    in property <int> bg-index;
+    in property <[string]> monitors;
+    in-out property <int> monitor-index;
+
+    in-out property <string> query;
+    in-out property <int> filter;
+
+    in property <bool> editing;
+    in property <bool> focus-title;
+    in-out property <string> editor-title;
+    in-out property <string> editor-body;
+    in property <bool> editor-song: true;
+    in property <[SlideTile]> editor-slides;
+
+    in property <string> status: "Tersimpan otomatis";
+    in property <bool> status-ok: true;
+    in property <string> update-version;
+
+    callback search-changed();
+    callback filter-changed(int);
+    callback select-library(int);
+    callback activate-library(int);
+    callback add-to-service(int);
+    callback select-service(int);
+    callback activate-service(int);
+    callback move-service(int, int);
+    callback remove-service(int);
+    callback select-slide(int);
+    callback activate-slide(int);
+    callback go-live();
+    callback navigate(bool);
+    callback toggle-blackout();
+    callback toggle-fullscreen();
+    callback toggle-projector();
+    callback escape();
+    callback monitor-changed(int);
+    callback background-changed(int);
+    callback new-item();
+    callback edit-current();
+    callback close-editor();
+    callback editor-edited();
+    callback set-song(bool);
+    callback add-current-to-service();
+    callback delete-current();
+    callback save-now();
+    callback import-lyrics();
+    callback import-verses();
+    callback update-now();
+
+    title: "Lentera " + root.version;
+    preferred-width: 1360px;
+    preferred-height: 840px;
+    min-width: 1024px;
+    min-height: 640px;
+    background: Theme.bg;
+    default-font-size: 14px;
+
+    init => {
+        keys.focus();
+    }
+
+    keys := FocusScope {
+        key-pressed(event) => {
+            if event.text == Key.F5 || (event.modifiers.control && event.text == Key.Return) {
+                root.go-live();
+                return accept;
+            }
+            if event.text == Key.F6 {
+                root.toggle-blackout();
+                return accept;
+            }
+            if event.text == Key.F11 {
+                root.toggle-fullscreen();
+                return accept;
+            }
+            if event.text == Key.PageDown {
+                root.navigate(true);
+                return accept;
+            }
+            if event.text == Key.PageUp {
+                root.navigate(false);
+                return accept;
+            }
+            if event.text == Key.Escape {
+                root.escape();
+                return accept;
+            }
+            if event.modifiers.control && (event.text == "s" || event.text == "S") {
+                root.save-now();
+                return accept;
+            }
+            if event.modifiers.control && (event.text == "n" || event.text == "N") {
+                root.new-item();
+                return accept;
+            }
+            if self.has-focus && (event.text == Key.RightArrow || event.text == Key.DownArrow || event.text == " ") {
+                root.navigate(true);
+                return accept;
+            }
+            if self.has-focus && (event.text == Key.LeftArrow || event.text == Key.UpArrow) {
+                root.navigate(false);
+                return accept;
+            }
+            reject
+        }
+
+        VerticalLayout {
+            // Bilah atas.
+            Rectangle {
+                height: 62px;
+                background: Theme.bar;
+                HorizontalLayout {
+                    padding-left: 18px;
+                    padding-right: 16px;
+                    spacing: 14px;
+                    HorizontalLayout {
+                        spacing: 10px;
+                        VerticalLayout {
+                            alignment: center;
+                            Rectangle {
+                                width: 34px;
+                                height: 34px;
+                                border-radius: 10px;
+                                background: Theme.accent;
+                                Icon {
+                                    svg: Icons.flame;
+                                    color: Theme.on-accent;
+                                    x: 8px;
+                                    y: 8px;
+                                }
+                            }
+                        }
+                        Text {
+                            text: "Lentera";
+                            color: Theme.text;
+                            font-size: 17px;
+                            font-weight: 700;
+                            vertical-alignment: center;
+                        }
+                    }
+                    if root.editing: VerticalLayout {
+                        alignment: center;
+                        Btn {
+                            text: "Kembali ke tayang";
+                            icon: Icons.back;
+                            clicked => {
+                                root.close-editor();
+                                keys.focus();
+                            }
+                        }
+                    }
+                    VerticalLayout {
+                        alignment: center;
+                        horizontal-stretch: 1;
+                        min-width: 260px;
+                        preferred-width: 440px;
+                        max-width: 520px;
+                        LineEdit {
+                            placeholder-text: "Cari lagu, ayat, atau isi";
+                            text <=> root.query;
+                            edited => {
+                                root.search-changed();
+                            }
+                        }
+                    }
+                    Rectangle {
+                        horizontal-stretch: 1;
+                    }
+                    if !root.editing: HorizontalLayout {
+                        spacing: 8px;
+                        VerticalLayout {
+                            alignment: center;
+                            Btn {
+                                text: root.output-visible ? "Tutup proyektor" : "Buka proyektor";
+                                icon: Icons.monitor;
+                                on: root.output-visible;
+                                clicked => {
+                                    root.toggle-projector();
+                                    keys.focus();
+                                }
+                            }
+                        }
+                        VerticalLayout {
+                            alignment: center;
+                            ComboBox {
+                                width: 230px;
+                                model: root.monitors;
+                                current-index <=> root.monitor-index;
+                                selected => {
+                                    root.monitor-changed(self.current-index);
+                                    keys.focus();
+                                }
+                            }
+                        }
+                        VerticalLayout {
+                            alignment: center;
+                            import-btn := Btn {
+                                text: "Impor";
+                                icon: Icons.import;
+                                clicked => {
+                                    import-menu.show();
+                                }
+                            }
+                        }
+                    }
+                    if root.editing && root.has-live: VerticalLayout {
+                        alignment: center;
+                        Rectangle {
+                            height: 40px;
+                            width: live-pill.preferred-width + 36px;
+                            border-radius: 12px;
+                            background: Theme.live-soft;
+                            border-width: 1px;
+                            border-color: #5A2226;
+                            HorizontalLayout {
+                                padding-left: 14px;
+                                spacing: 10px;
+                                VerticalLayout {
+                                    alignment: center;
+                                    Rectangle {
+                                        width: 8px;
+                                        height: 8px;
+                                        border-radius: 4px;
+                                        background: #FF5A60;
+                                    }
+                                }
+                                live-pill := Text {
+                                    text: root.blackout ? "Layar jemaat sedang gelap" : "Sedang tayang: " + root.live-meta;
+                                    color: #FFC9CB;
+                                    vertical-alignment: center;
+                                }
+                            }
+                        }
+                    }
+                }
+                Rectangle {
+                    y: parent.height - 1px;
+                    height: 1px;
+                    background: Theme.line;
+                }
+                import-menu := PopupWindow {
+                    x: parent.width - 260px;
+                    y: parent.height - 4px;
+                    width: 244px;
+                    Rectangle {
+                        background: Theme.raised;
+                        border-radius: 12px;
+                        border-width: 1px;
+                        border-color: Theme.border;
+                        VerticalLayout {
+                            padding: 6px;
+                            spacing: 2px;
+                            MenuRow {
+                                text: "Lirik lagu (.txt)";
+                                hint: "Baris kosong memisahkan slide";
+                                clicked => {
+                                    import-menu.close();
+                                    root.import-lyrics();
+                                }
+                            }
+                            MenuRow {
+                                text: "Ayat Alkitab (.tsv)";
+                                hint: "referensi [TAB] teks, UTF-8";
+                                clicked => {
+                                    import-menu.close();
+                                    root.import-verses();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                vertical-stretch: 1;
+
+                // Kolom kiri: susunan ibadah dan pustaka.
+                Rectangle {
+                    width: 310px;
+                    background: Theme.panel;
+                    VerticalLayout {
+                        padding: 14px;
+                        padding-top: 18px;
+                        spacing: 8px;
+                        SectionTitle {
+                            text: "Susunan ibadah";
+                            detail: root.service.length + " materi";
+                        }
+                        if root.service.length == 0: Text {
+                            text: "Belum ada materi. Tekan + di pustaka untuk menambahkan.";
+                            color: Theme.text-3;
+                            font-size: 13px;
+                            wrap: word-wrap;
+                        }
+                        ListView {
+                            vertical-stretch: 1;
+                            min-height: 120px;
+                            for row[i] in root.service: ServiceRowView {
+                                entry: row;
+                                index: i;
+                                selected: i == root.selected-service;
+                                on-air: i == root.live-service && !root.blackout;
+                                clicked => {
+                                    keys.focus();
+                                    root.select-service(i);
+                                }
+                                activated => {
+                                    root.activate-service(i);
+                                }
+                                up => {
+                                    root.move-service(i, -1);
+                                }
+                                down => {
+                                    root.move-service(i, 1);
+                                }
+                                remove => {
+                                    root.remove-service(i);
+                                }
+                            }
+                        }
+                        Rectangle {
+                            height: 1px;
+                            background: Theme.line;
+                        }
+                        HorizontalLayout {
+                            padding-top: 6px;
+                            padding-left: 6px;
+                            spacing: 8px;
+                            Text {
+                                text: "Pustaka";
+                                color: Theme.text;
+                                font-size: 15px;
+                                font-weight: 600;
+                                vertical-alignment: center;
+                                horizontal-stretch: 1;
+                            }
+                            Btn {
+                                text: "Materi baru";
+                                icon: Icons.plus;
+                                kind: "ghost";
+                                height: 34px;
+                                font-size: 13px;
+                                clicked => {
+                                    root.new-item();
+                                }
+                            }
+                        }
+                        HorizontalLayout {
+                            spacing: 6px;
+                            padding-left: 4px;
+                            Chip {
+                                text: "Semua";
+                                on: root.filter == 0;
+                                clicked => {
+                                    root.filter = 0;
+                                    root.filter-changed(0);
+                                }
+                            }
+                            Chip {
+                                text: "Lagu";
+                                on: root.filter == 1;
+                                clicked => {
+                                    root.filter = 1;
+                                    root.filter-changed(1);
+                                }
+                            }
+                            Chip {
+                                text: "Ayat";
+                                on: root.filter == 2;
+                                clicked => {
+                                    root.filter = 2;
+                                    root.filter-changed(2);
+                                }
+                            }
+                            Text {
+                                text: root.library-detail;
+                                color: Theme.text-3;
+                                font-size: 12px;
+                                horizontal-alignment: right;
+                                vertical-alignment: center;
+                                horizontal-stretch: 1;
+                            }
+                        }
+                        if root.library.length == 0: Text {
+                            text: root.query == "" ? "Pustaka masih kosong." : "Tidak ada yang cocok dengan pencarian.";
+                            color: Theme.text-3;
+                            font-size: 13px;
+                            wrap: word-wrap;
+                        }
+                        ListView {
+                            vertical-stretch: 1.5;
+                            min-height: 150px;
+                            for row in root.library: LibraryRowView {
+                                entry: row;
+                                selected: row.id == root.selected-id;
+                                clicked => {
+                                    keys.focus();
+                                    root.select-library(row.id);
+                                }
+                                activated => {
+                                    root.activate-library(row.id);
+                                }
+                                add => {
+                                    root.add-to-service(row.id);
+                                }
+                            }
+                        }
+                    }
+                    Rectangle {
+                        x: parent.width - 1px;
+                        width: 1px;
+                        background: Theme.line;
+                    }
+                }
+
+                // Tengah, mode tayang: semua slide materi terpilih.
+                if !root.editing: VerticalLayout {
+                    horizontal-stretch: 1;
+                    padding: 24px;
+                    padding-bottom: 14px;
+                    spacing: 16px;
+                    if root.has-current: HorizontalLayout {
+                        spacing: 12px;
+                        VerticalLayout {
+                            spacing: 4px;
+                            horizontal-stretch: 1;
+                            Text {
+                                text: root.current-meta;
+                                color: Theme.text-3;
+                                font-size: 13px;
+                            }
+                            Text {
+                                text: root.current-title;
+                                color: Theme.text;
+                                font-size: 24px;
+                                font-weight: 700;
+                                overflow: elide;
+                            }
+                        }
+                        VerticalLayout {
+                            alignment: end;
+                            Btn {
+                                text: "Edit materi";
+                                icon: Icons.edit;
+                                clicked => {
+                                    root.edit-current();
+                                }
+                            }
+                        }
+                    }
+                    if root.has-current && root.slides.length > 0: grid := ScrollView {
+                        vertical-stretch: 1;
+                        property <int> cols: Math.max(1, Math.floor((self.visible-width + 20px) / 220px));
+                        property <length> tile-w: (self.visible-width - (self.cols - 1) * 20px) / self.cols;
+                        property <length> tile-h: self.tile-w * 9 / 16 + 30px;
+                        content-width: self.visible-width;
+                        content-height: Math.ceil(root.slides.length / self.cols) * (self.tile-h + 20px);
+                        for tile[i] in root.slides: SlideTileView {
+                            x: Math.mod(i, grid.cols) * (grid.tile-w + 20px);
+                            y: Math.floor(i / grid.cols) * (grid.tile-h + 20px);
+                            width: grid.tile-w;
+                            tile: tile;
+                            number: i + 1;
+                            bg-index: root.bg-index;
+                            preview: i == root.preview-page;
+                            live: root.live-item-id == root.selected-id && i == root.live-page && !root.blackout;
+                            clicked => {
+                                keys.focus();
+                                root.select-slide(i);
+                            }
+                            activated => {
+                                root.activate-slide(i);
+                            }
+                        }
+                    }
+                    if root.has-current && root.slides.length == 0: VerticalLayout {
+                        vertical-stretch: 1;
+                        alignment: center;
+                        Text {
+                            text: "Materi ini masih kosong. Tekan Edit materi untuk mengisi teks.";
+                            color: Theme.text-3;
+                            horizontal-alignment: center;
+                        }
+                    }
+                    if !root.has-current: VerticalLayout {
+                        vertical-stretch: 1;
+                        alignment: center;
+                        spacing: 8px;
+                        Text {
+                            text: "Pilih materi dari susunan atau pustaka";
+                            color: Theme.text;
+                            font-size: 18px;
+                            font-weight: 600;
+                            horizontal-alignment: center;
+                        }
+                        Text {
+                            text: "Slide-nya akan tampil di sini untuk dipratinjau dan ditayangkan.";
+                            color: Theme.text-3;
+                            horizontal-alignment: center;
+                        }
+                    }
+                    if root.has-current: Text {
+                        text: "Klik slide untuk pratinjau, lalu Tayangkan. Klik dua kali untuk langsung menayangkan.";
+                        color: Theme.text-3;
+                        font-size: 13px;
+                        overflow: elide;
+                    }
+                }
+
+                // Tengah, mode edit.
+                if root.editing: VerticalLayout {
+                    horizontal-stretch: 1;
+                    padding: 24px;
+                    padding-bottom: 14px;
+                    spacing: 8px;
+                    Text {
+                        text: "Judul";
+                        color: Theme.text-2;
+                        font-size: 13px;
+                    }
+                    LineEdit {
+                        text <=> root.editor-title;
+                        font-size: 20px;
+                        height: 46px;
+                        init => {
+                            if root.focus-title {
+                                self.focus();
+                                self.select-all();
+                            }
+                        }
+                        edited => {
+                            root.editor-edited();
+                        }
+                    }
+                    HorizontalLayout {
+                        padding-top: 8px;
+                        padding-bottom: 6px;
+                        spacing: 6px;
+                        Text {
+                            text: "Jenis";
+                            color: Theme.text-2;
+                            font-size: 13px;
+                            vertical-alignment: center;
+                            width: 50px;
+                        }
+                        Chip {
+                            text: "Lirik lagu";
+                            on: root.editor-song;
+                            clicked => {
+                                root.set-song(true);
+                            }
+                        }
+                        Chip {
+                            text: "Ayat Alkitab";
+                            on: !root.editor-song;
+                            clicked => {
+                                root.set-song(false);
+                            }
+                        }
+                        Rectangle {
+                            horizontal-stretch: 1;
+                        }
+                    }
+                    Text {
+                        text: "Isi";
+                        color: Theme.text-2;
+                        font-size: 13px;
+                    }
+                    TextEdit {
+                        vertical-stretch: 1;
+                        text <=> root.editor-body;
+                        font-size: 16px;
+                        wrap: word-wrap;
+                        edited => {
+                            root.editor-edited();
+                        }
+                    }
+                    HorizontalLayout {
+                        spacing: 8px;
+                        Text {
+                            text: "Satu baris kosong memisahkan slide. Tersimpan otomatis setelah berhenti mengetik.";
+                            color: Theme.text-3;
+                            font-size: 13px;
+                            overflow: elide;
+                            horizontal-stretch: 1;
+                        }
+                    }
+                }
+
+                // Kolom kanan, mode tayang: pratinjau, tayang, dan kontrol.
+                if !root.editing: Rectangle {
+                    width: 340px;
+                    background: Theme.panel;
+                    ScrollView {
+                        content-width: self.visible-width;
+                        content-height: controls.preferred-height;
+                        controls := VerticalLayout {
+                            width: parent.width;
+                            padding: 18px;
+                            spacing: 10px;
+                            SectionTitle {
+                                text: "Pratinjau";
+                                detail: root.preview-meta;
+                                padding-left: 0px;
+                                padding-right: 0px;
+                            }
+                            Screen {
+                                height: self.width * 9 / 16;
+                                tile: root.preview;
+                                has-slide: root.has-preview;
+                                bg-index: root.bg-index;
+                                ring: Theme.accent;
+                                empty-text: "Pilih slide untuk dipratinjau";
+                            }
+                            Rectangle {
+                                height: 2px;
+                            }
+                            Btn {
+                                kind: "primary";
+                                text: "Tayangkan";
+                                icon: Icons.play;
+                                icon-filled: true;
+                                kbd: "F5";
+                                height: 52px;
+                                font-size: 16px;
+                                clicked => {
+                                    keys.focus();
+                                    root.go-live();
+                                }
+                            }
+                            Rectangle {
+                                height: 9px;
+                                Rectangle {
+                                    y: 4px;
+                                    height: 1px;
+                                    background: Theme.line;
+                                }
+                            }
+                            HorizontalLayout {
+                                spacing: 8px;
+                                VerticalLayout {
+                                    alignment: center;
+                                    Rectangle {
+                                        width: 9px;
+                                        height: 9px;
+                                        border-radius: 4.5px;
+                                        background: Theme.live;
+                                    }
+                                }
+                                Text {
+                                    text: "Tayang";
+                                    color: Theme.text;
+                                    font-size: 15px;
+                                    font-weight: 600;
+                                    vertical-alignment: center;
+                                }
+                                Text {
+                                    text: root.live-meta;
+                                    color: Theme.text-3;
+                                    font-size: 12px;
+                                    horizontal-alignment: right;
+                                    vertical-alignment: center;
+                                    horizontal-stretch: 1;
+                                    overflow: elide;
+                                }
+                            }
+                            Screen {
+                                height: self.width * 9 / 16;
+                                tile: root.live;
+                                has-slide: root.has-live;
+                                dark: root.blackout;
+                                bg-index: root.bg-index;
+                                ring: Theme.live;
+                                empty-text: "Belum ada yang tayang";
+                            }
+                            Rectangle {
+                                height: 2px;
+                            }
+                            GridLayout {
+                                spacing: 8px;
+                                Row {
+                                    Btn {
+                                        text: "Sebelumnya";
+                                        icon: Icons.left;
+                                        clicked => {
+                                            keys.focus();
+                                            root.navigate(false);
+                                        }
+                                    }
+                                    Btn {
+                                        text: "Berikutnya";
+                                        icon: Icons.right;
+                                        clicked => {
+                                            keys.focus();
+                                            root.navigate(true);
+                                        }
+                                    }
+                                }
+                                Row {
+                                    Btn {
+                                        text: root.blackout ? "Pulihkan" : "Gelapkan";
+                                        icon: root.blackout ? Icons.sun : Icons.moon;
+                                        kbd: "F6";
+                                        on: root.blackout;
+                                        clicked => {
+                                            keys.focus();
+                                            root.toggle-blackout();
+                                        }
+                                    }
+                                    Btn {
+                                        text: root.fullscreen ? "Jendela" : "Layar penuh";
+                                        icon: root.fullscreen ? Icons.minimize : Icons.maximize;
+                                        kbd: "F11";
+                                        clicked => {
+                                            keys.focus();
+                                            root.toggle-fullscreen();
+                                        }
+                                    }
+                                }
+                            }
+                            Rectangle {
+                                height: 4px;
+                            }
+                            Text {
+                                text: "Latar layar";
+                                color: Theme.text-2;
+                                font-size: 13px;
+                            }
+                            HorizontalLayout {
+                                spacing: 10px;
+                                for name[i] in Theme.slide-names: Swatch {
+                                    index: i;
+                                    on: i == root.bg-index;
+                                    clicked => {
+                                        root.background-changed(i);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Rectangle {
+                        x: 0;
+                        width: 1px;
+                        background: Theme.line;
+                    }
+                }
+
+                // Kolom kanan, mode edit: hasil slide.
+                if root.editing: Rectangle {
+                    width: 340px;
+                    background: Theme.panel;
+                    VerticalLayout {
+                        padding: 18px;
+                        spacing: 12px;
+                        SectionTitle {
+                            text: "Hasil slide";
+                            detail: root.editor-slides.length + " slide";
+                            padding-left: 0px;
+                            padding-right: 0px;
+                        }
+                        if root.editor-slides.length == 0: Text {
+                            text: "Belum ada slide. Tulis teks di kolom Isi.";
+                            color: Theme.text-3;
+                            font-size: 13px;
+                            wrap: word-wrap;
+                        }
+                        results := ScrollView {
+                            vertical-stretch: 1;
+                            property <length> tile-w: (self.visible-width - 12px) / 2;
+                            property <length> tile-h: self.tile-w * 9 / 16 + 22px;
+                            content-width: self.visible-width;
+                            content-height: Math.ceil(root.editor-slides.length / 2) * (self.tile-h + 12px);
+                            for tile[i] in root.editor-slides: Rectangle {
+                                x: Math.mod(i, 2) * (results.tile-w + 12px);
+                                y: Math.floor(i / 2) * (results.tile-h + 12px);
+                                width: results.tile-w;
+                                height: results.tile-h;
+                                Rectangle {
+                                    y: 0;
+                                    height: parent.width * 9 / 16;
+                                    border-radius: 10px;
+                                    border-width: 1px;
+                                    border-color: #2A303C;
+                                    clip: true;
+                                    background: Theme.slide-bg[root.bg-index];
+                                    SlideText {
+                                        width: parent.width;
+                                        height: parent.height;
+                                        text: tile.text;
+                                        lines: tile.lines;
+                                        chars: tile.chars;
+                                        ink: Theme.slide-ink[root.bg-index];
+                                    }
+                                }
+                                Text {
+                                    y: parent.width * 9 / 16 + 4px;
+                                    text: i + 1;
+                                    color: #C5CBD6;
+                                    font-size: 12px;
+                                    font-weight: 600;
+                                }
+                            }
+                        }
+                        Btn {
+                            kind: "primary";
+                            text: "Tambah ke susunan";
+                            icon: Icons.plus;
+                            height: 50px;
+                            font-size: 15px;
+                            clicked => {
+                                root.add-current-to-service();
+                            }
+                        }
+                        Btn {
+                            kind: "danger";
+                            text: "Hapus materi";
+                            icon: Icons.trash;
+                            clicked => {
+                                root.delete-current();
+                            }
+                        }
+                    }
+                    Rectangle {
+                        x: 0;
+                        width: 1px;
+                        background: Theme.line;
+                    }
+                }
+            }
+
+            // Bilah bawah: status, tombol cepat, dan pembaruan.
+            Rectangle {
+                height: 36px;
+                background: Theme.bar;
+                Rectangle {
+                    y: 0;
+                    height: 1px;
+                    background: Theme.line;
+                }
+                HorizontalLayout {
+                    padding-left: 18px;
+                    padding-right: 12px;
+                    spacing: 16px;
+                    HorizontalLayout {
+                        spacing: 7px;
+                        horizontal-stretch: 1;
+                        VerticalLayout {
+                            alignment: center;
+                            Icon {
+                                svg: root.status-ok ? Icons.check : Icons.info;
+                                color: root.status-ok ? Theme.ok : Theme.accent;
+                                width: 14px;
+                                height: 14px;
+                            }
+                        }
+                        Text {
+                            text: root.status;
+                            color: root.status-ok ? Theme.text-3 : Theme.text-2;
+                            font-size: 12px;
+                            vertical-alignment: center;
+                            overflow: elide;
+                            horizontal-stretch: 1;
+                        }
+                    }
+                    HorizontalLayout {
+                        spacing: 6px;
+                        VerticalLayout {
+                            alignment: center;
+                            Kbd {
+                                text: "PgDn";
+                            }
+                        }
+                        Text {
+                            text: "berikutnya";
+                            color: Theme.text-3;
+                            font-size: 12px;
+                            vertical-alignment: center;
+                        }
+                        VerticalLayout {
+                            alignment: center;
+                            padding-left: 8px;
+                            Kbd {
+                                text: "PgUp";
+                            }
+                        }
+                        Text {
+                            text: "sebelumnya";
+                            color: Theme.text-3;
+                            font-size: 12px;
+                            vertical-alignment: center;
+                        }
+                        VerticalLayout {
+                            alignment: center;
+                            padding-left: 8px;
+                            Kbd {
+                                text: "Esc";
+                            }
+                        }
+                        Text {
+                            text: "keluar layar penuh";
+                            color: Theme.text-3;
+                            font-size: 12px;
+                            vertical-alignment: center;
+                        }
+                    }
+                    if root.update-version != "": VerticalLayout {
+                        alignment: center;
+                        Rectangle {
+                            height: 28px;
+                            width: update-label.preferred-width + 44px;
+                            border-radius: 14px;
+                            background: update-touch.has-hover ? #3A3018 : Theme.accent-soft;
+                            border-width: 1px;
+                            border-color: Theme.accent;
+                            accessible-role: button;
+                            accessible-label: update-label.text;
+                            accessible-action-default => {
+                                root.update-now();
+                            }
+                            HorizontalLayout {
+                                padding-left: 12px;
+                                spacing: 6px;
+                                VerticalLayout {
+                                    alignment: center;
+                                    Icon {
+                                        svg: Icons.refresh;
+                                        color: #F7D58A;
+                                        width: 14px;
+                                        height: 14px;
+                                    }
+                                }
+                                update-label := Text {
+                                    text: "Perbarui ke " + root.update-version;
+                                    color: #F7D58A;
+                                    font-size: 12px;
+                                    font-weight: 600;
+                                    vertical-alignment: center;
+                                }
+                            }
+                            update-touch := TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => {
+                                    root.update-now();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Jendela yang dilihat jemaat (proyektor / layar kedua).
+export component OutputWindow inherits Window {
+    in property <SlideTile> tile;
+    in property <bool> has-slide;
+    in property <bool> dark;
+    in property <int> bg-index;
+    in property <bool> fullscreen;
+    callback go-live();
+    callback navigate(bool);
+    callback toggle-blackout();
+    callback toggle-fullscreen();
+    callback escape();
+
+    title: "Lentera · Proyektor";
+    preferred-width: 960px;
+    preferred-height: 540px;
+    background: root.dark ? #000000 : Theme.slide-bg[root.bg-index];
+
+    FocusScope {
+        key-pressed(event) => {
+            if event.text == Key.F5 {
+                root.go-live();
+                return accept;
+            }
+            if event.text == Key.F6 {
+                root.toggle-blackout();
+                return accept;
+            }
+            if event.text == Key.F11 {
+                root.toggle-fullscreen();
+                return accept;
+            }
+            if event.text == Key.Escape {
+                root.escape();
+                return accept;
+            }
+            if event.text == Key.PageDown || event.text == Key.RightArrow || event.text == Key.DownArrow || event.text == " " {
+                root.navigate(true);
+                return accept;
+            }
+            if event.text == Key.PageUp || event.text == Key.LeftArrow || event.text == Key.UpArrow {
+                root.navigate(false);
+                return accept;
+            }
+            reject
+        }
+        if root.has-slide && !root.dark: SlideText {
+            width: parent.width;
+            height: parent.height;
+            text: root.tile.text;
+            lines: root.tile.lines;
+            chars: root.tile.chars;
+            ink: Theme.slide-ink[root.bg-index];
+        }
+        TouchArea {
+            mouse-cursor: root.fullscreen ? MouseCursor.none : MouseCursor.default;
+            double-clicked => {
+                root.toggle-fullscreen();
+            }
+        }
+    }
+}

@@ -1040,6 +1040,7 @@ impl App {
             }
         });
         if placed.is_some() {
+            window_icons(self.output.window());
             // Operator tetap bisa memakai keyboard di jendela utama.
             self.ui.window().with_winit_window(|w| w.focus_window());
         } else if attempt < 40 {
@@ -1328,6 +1329,35 @@ impl App {
     fn snapshot(&self, _name: &str, _window: &slint::Window) {}
 }
 
+/// Nomor grup ikon di resource lentera.exe (ditulis oleh build.rs).
+#[cfg(windows)]
+const APP_ICON: u16 = 1;
+
+/// Memasang ikon title bar (16 px) dan taskbar (32 px) dari resource
+/// lentera.exe sesuai skala layar jendela, supaya Windows memakai gambar kecil
+/// yang memang digambar untuk ukuran itu, bukan ikon besar yang diperkecil.
+#[cfg(windows)]
+fn window_icons(window: &slint::Window) {
+    use winit::platform::windows::{IconExtWindows, WindowExtWindows};
+    use winit::window::Icon;
+    window.with_winit_window(|w| {
+        let size = |logical: f64| {
+            let px = (logical * w.scale_factor()).round() as u32;
+            Some(PhysicalSize::new(px, px))
+        };
+        if let Ok(icon) = Icon::from_resource(APP_ICON, size(16.0)) {
+            w.set_window_icon(Some(icon));
+        }
+        if let Ok(icon) = Icon::from_resource(APP_ICON, size(32.0)) {
+            w.set_taskbar_icon(Some(icon));
+        }
+    });
+}
+
+/// Di macOS ikon aplikasi berasal dari paket .app, bukan dari jendela.
+#[cfg(not(windows))]
+fn window_icons(_window: &slint::Window) {}
+
 fn run(args: &Args) -> Result<(), String> {
     if args.smoke && args.data_dir.is_none() {
         return Err("Pengujian UI wajib memakai --data-dir terpisah.".into());
@@ -1339,9 +1369,20 @@ fn run(args: &Args) -> Result<(), String> {
     let is_new = !path.exists();
     let library = Library::load(&path)?;
 
-    slint::BackendSelector::new()
+    let backend = slint::BackendSelector::new()
         .backend_name("winit".into())
-        .renderer_name("software".into())
+        .renderer_name("software".into());
+    // Ikon jendela sejak dibuat (operator dan proyektor). Ukuran pastinya
+    // dipasang lagi oleh `window_icons` setelah skala layar diketahui.
+    #[cfg(windows)]
+    let backend = backend.with_winit_window_attributes_hook(|attributes| {
+        use winit::platform::windows::{IconExtWindows, WindowAttributesExtWindows};
+        let icon = || winit::window::Icon::from_resource(APP_ICON, None).ok();
+        attributes
+            .with_window_icon(icon())
+            .with_taskbar_icon(icon())
+    });
+    backend
         .select()
         .map_err(|e| format!("Tampilan tidak bisa dimulai: {e}"))?;
 
@@ -1372,6 +1413,7 @@ fn run(args: &Args) -> Result<(), String> {
         let Some(app) = weak.upgrade() else {
             return;
         };
+        window_icons(app.ui.window());
         app.refresh_monitors();
         if is_new && app.monitors.borrow().len() > 1 {
             app.state.borrow_mut().library.monitor = 1;

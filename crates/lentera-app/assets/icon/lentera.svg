@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- Logo Lentera untuk ukuran 40 px ke atas. Ukuran 16–32 px memakai lentera-kecil.svg.
+       Setelah mengubah berkas ini, jalankan: python scripts/buat_ikon.py -->
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1E2434"/>
+      <stop offset="1" stop-color="#0B0D12"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="128" cy="148" r="118" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F2B441" stop-opacity="0.55"/>
+      <stop offset="0.45" stop-color="#F2B441" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#F2B441" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="metal" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFD683"/>
+      <stop offset="1" stop-color="#EBA338"/>
+    </linearGradient>
+    <linearGradient id="flame" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFE08A"/>
+      <stop offset="1" stop-color="#F28C28"/>
+    </linearGradient>
+    <linearGradient id="core" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFF7DC"/>
+      <stop offset="1" stop-color="#FFE3A0"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="240" height="240" rx="54" fill="url(#tile)"/>
+  <rect x="8" y="8" width="240" height="240" rx="54" fill="url(#glow)"/>
+  <rect x="8.75" y="8.75" width="238.5" height="238.5" rx="53.25" fill="none" stroke="#FFFFFF" stroke-opacity="0.09" stroke-width="1.5"/>
+  <!-- Gelang gantungan -->
+  <circle cx="128" cy="46" r="13" fill="none" stroke="#FFD683" stroke-width="9"/>
+  <!-- Tutup -->
+  <path d="M106 62 H150 L174 86 H82 Z" fill="url(#metal)" stroke="#FFD683" stroke-width="8" stroke-linejoin="round"/>
+  <!-- Kaca -->
+  <path d="M94 98 H162 C176 122 176 172 162 196 H94 C80 172 80 122 94 98 Z" fill="#F2B441" fill-opacity="0.16" stroke="url(#metal)" stroke-width="10" stroke-linejoin="round"/>
+  <!-- Api -->
+  <g transform="translate(103 108) scale(0.52)">
+    <path d="M48 0 C60 20 96 44 96 88 C96 117 74 140 48 140 C22 140 0 117 0 88 C0 64 14 48 26 38 C26 56 32 66 42 70 C36 44 38 20 48 0 Z" fill="url(#flame)"/>
+    <path d="M50 66 C60 80 68 92 68 106 C68 118 60 126 50 126 C40 126 32 118 32 106 C32 94 40 82 50 66 Z" fill="url(#core)"/>
+  </g>
+  <!-- Alas -->
+  <rect x="76" y="206" width="104" height="18" rx="9" fill="#EBA338"/>
+</svg>

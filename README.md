@@ -1,5 +1,7 @@
 # Lentera
 
+<img src="crates/lentera-app/assets/icon/lentera.svg" alt="Logo Lentera" width="96">
+
 Presentasi ibadah ringan untuk Windows dan macOS, dibangun dengan **Rust + Slint**. Fokus versi awal adalah lirik lagu, ayat teks, susunan ibadah, dan layar proyektor.
 
 **Status: beta 0.2.0.** Coba dahulu pada komputer dan proyektor tujuan sebelum dipakai dalam ibadah.

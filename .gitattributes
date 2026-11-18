@@ -5,3 +5,4 @@
 *.yml text eol=lf
 *.tsv text eol=lf
 *.manifest text eol=lf
+*.ico binary

@@ -91,6 +91,7 @@ jobs:
         run: |
           vpk pack --packId LenteraApp --packVersion "$VERSION" --packDir dist/app \
             --mainExe lentera.exe --packTitle Lentera --packAuthors Lentera \
+            --icon crates/lentera-app/assets/icon/lentera.ico \
             --releaseNotes dist/catatan.md --outputDir dist/releases
           ls -l dist/releases
 

@@ -98,4 +98,6 @@ cargo run -p lentera-app --release --features snapshot -- --data-dir ".\test-dat
 
 Argumen `--update-source <folder atau URL>` mengganti sumber pembaruan, untuk menguji paket buatan lokal.
 
+Logo ada di `crates/lentera-app/assets/icon/`: `lentera.svg` untuk ukuran 40 px ke atas dan di dalam aplikasi, `lentera-kecil.svg` (garis lebih tebal) untuk 16–32 px. Setelah mengubah salah satunya, buat ulang `lentera.ico` dengan `python scripts/buat_ikon.py` (butuh Pillow dan Chrome atau Edge) lalu commit hasilnya. `build.rs` menanam ikon itu dan info versi ke `lentera.exe` tanpa `rc.exe`; workflow rilis memakainya juga untuk `Setup.exe`.
+
 Kode sumber memakai lisensi MIT. Tampilan memakai Slint dengan lisensi Slint Royalty-free 2.0, yang mewajibkan atribusi di layar **Tentang**; jangan menghapus widget `AboutSlint` di `ui/app.slint`. Teks contoh adalah placeholder, bukan kumpulan lagu atau Alkitab berlisensi.

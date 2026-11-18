@@ -56,7 +56,6 @@ export global Theme {
 
 // Ikon garis 24×24 (perintah path SVG).
 export global Icons {
-    out property <string> flame: "M12 3c2.6 3 4 5.1 4 7.4a4 4 0 0 1-8 0C8 8.1 9.4 6 12 3z M9 17h6 M10 21h4";
     out property <string> search: "M11 4a7 7 0 1 0 0 14a7 7 0 1 0 0-14z M20 20l-3.5-3.5";
     out property <string> music: "M9 18V5l12-2v13 M6 15a3 3 0 1 0 0 6a3 3 0 1 0 0-6z M18 13a3 3 0 1 0 0 6a3 3 0 1 0 0-6z";
     out property <string> book: "M4 19.5A2.5 2.5 0 0 1 6.5 17H20 M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z";
@@ -873,17 +872,10 @@ export component MainWindow inherits Window {
                         spacing: 10px;
                         VerticalLayout {
                             alignment: center;
-                            Rectangle {
-                                width: 34px;
-                                height: 34px;
-                                border-radius: 10px;
-                                background: Theme.accent;
-                                Icon {
-                                    svg: Icons.flame;
-                                    color: Theme.on-accent;
-                                    x: 8px;
-                                    y: 8px;
-                                }
+                            Image {
+                                source: @image-url("../assets/icon/lentera.svg");
+                                width: 36px;
+                                height: 36px;
                             }
                         }
                         Text {
@@ -1055,19 +1047,10 @@ export component MainWindow inherits Window {
                                 spacing: 12px;
                                 VerticalLayout {
                                     alignment: center;
-                                    Rectangle {
-                                        width: 44px;
-                                        height: 44px;
-                                        border-radius: 12px;
-                                        background: Theme.accent;
-                                        Icon {
-                                            svg: Icons.flame;
-                                            color: Theme.on-accent;
-                                            width: 24px;
-                                            height: 24px;
-                                            x: 10px;
-                                            y: 10px;
-                                        }
+                                    Image {
+                                        source: @image-url("../assets/icon/lentera.svg");
+                                        width: 52px;
+                                        height: 52px;
                                     }
                                 }
                                 VerticalLayout {

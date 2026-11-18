@@ -1,5 +1,10 @@
 # Riwayat rilis
 
+## Belum dirilis
+
+- **Logo baru: lentera menyala.** Tampil di title bar, taskbar, shortcut Desktop dan Start Menu, installer, serta pojok kiri atas dan layar **Tentang** aplikasi. Sebelumnya Windows menampilkan ikon aplikasi generik.
+- `lentera.exe` kini membawa info versi (nama, deskripsi, versi, hak cipta) yang terlihat di Properties dan Task Manager.
+
 ## 0.2.0 — 17 November 2026 — beta
 
 Tampilan baru untuk Windows dan macOS, dibangun dengan Slint.

@@ -119,3 +119,16 @@ Sejak 0.2.0, `lentera.exe` yang dirilis adalah aplikasi Slint (`crates/lentera-a
 - Ukuran paket uji: 0.2.0 penuh 8,1 MB, delta 0.1.1 → 0.2.0 5,1 MB, ZIP portable 8,1 MB, `Setup.exe` 15,6 MB.
 
 Belum diuji: `Setup.exe` 0.2.0 (hanya versi portable), pembaruan dari GitHub Releases, SmartScreen, Mac sungguhan, proyektor sungguhan, dan pemakaian keyboard / mouse secara manual.
+
+## Rilis 0.2.1: logo dan ikon aplikasi — 18 November 2026
+
+Diuji di komputer pengembangan yang sama (Windows 11, dua monitor, skala 100%).
+
+- `cargo test --locked` 16 lulus; `cargo clippy -p lentera-app --all-targets` (juga dengan fitur `snapshot`) dan `cargo fmt --all --check` bersih. CI commit `7eac602` lulus di Windows dan macOS (run 44327335824 dan 44327581408).
+- `lentera.ico` berisi 16, 20, 24, 32, 40, 48, 64 (bitmap) dan 256 px (PNG). Ukuran 16–32 px digambar dari `lentera-kecil.svg`.
+- `lentera.exe`: ikon terbaca pada 16, 32, dan 256 px lewat `PrivateExtractIcons`; info versi FileDescription/ProductName "Lentera", FileVersion/ProductVersion 0.2.1.
+- Jendela operator yang berjalan memakai ikon 16×16 untuk title bar dan 32×32 untuk taskbar (dibaca dengan `WM_GETICON`). Uji alur UI lulus; tangkapan layar menunjukkan logo di bilah atas dan layar **Tentang**.
+- `vpk pack` 1.2.161 dengan `--icon` (paket uji `LenteraAppUji`, tidak dipasang): `Setup.exe`, `Update.exe`, dan peluncur `Lentera.exe` di paket memakai ikon Lentera; peluncur juga membawa info versi 0.2.1.
+- Shortcut Desktop dan Start Menu yang dibuat installer menunjuk ke `LenteraApp\current\lentera.exe`, jadi ikonnya ikut berganti setelah pembaruan terpasang (bisa tertunda oleh cache ikon Windows).
+
+Belum diuji: pembaruan 0.2.0 → 0.2.1 dari GitHub Releases, tampilan ikon pada skala tampilan selain 100%, dan Settings → Apps.

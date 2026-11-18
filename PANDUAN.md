@@ -11,7 +11,7 @@ Aplikasi presentasi ibadah berbasis Rust dan Slint untuk lirik, ayat, dan proyek
    - Atau klik tombolnya, lalu pilih **Yes**: Lentera ditutup, diperbarui, dan dibuka kembali. Proyektor ikut tertutup sebentar, jadi lakukan di luar ibadah.
 4. Untuk menghapus: Settings → Apps → **Lentera** → Uninstall. Data di `%LOCALAPPDATA%\Lentera` tidak ikut terhapus.
 
-Pengguna 0.1.1 menerima 0.2.0 lewat pembaruan otomatis di atas. Pengguna 0.1.0 (ZIP lama) cukup memasang installer sekali; data lama langsung terbaca.
+Pengguna 0.1.1 dan 0.2.0 menerima 0.2.1 lewat pembaruan otomatis di atas. Pengguna 0.1.0 (ZIP lama) cukup memasang installer sekali; data lama langsung terbaca.
 
 Versi macOS belum punya installer; bangun dari kode sumber (lihat **Untuk pengembang**).
 

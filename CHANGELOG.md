@@ -1,9 +1,12 @@
 # Riwayat rilis
 
-## Belum dirilis
+## 0.2.1 — 18 November 2026 — beta
+
+Lentera kini tampil dengan logonya sendiri di Windows.
 
 - **Logo baru: lentera menyala.** Tampil di title bar, taskbar, shortcut Desktop dan Start Menu, installer, serta pojok kiri atas dan layar **Tentang** aplikasi. Sebelumnya Windows menampilkan ikon aplikasi generik.
 - `lentera.exe` kini membawa info versi (nama, deskripsi, versi, hak cipta) yang terlihat di Properties dan Task Manager.
+- Fitur, data, dan tombol cepat sama dengan 0.2.0. Pengguna 0.1.1 dan 0.2.0 menerima versi ini lewat pembaruan otomatis. Bila shortcut di Desktop masih menampilkan ikon lama, Windows masih memakai cache ikonnya; ikon baru muncul setelah keluar-masuk akun atau restart.
 
 ## 0.2.0 — 17 November 2026 — beta
 

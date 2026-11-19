@@ -3,7 +3,9 @@
 
 mod update;
 
-use lentera_core::{Cursor, DataLock, Kind, LIBRARY_FILE, Library, Slide, Step, default_data_dir};
+use lentera_core::{
+    Cursor, DataLock, Kind, LOCK_FILE, Library, Opened, Slide, Step, Store, default_data_dir,
+};
 use std::{
     cell::RefCell,
     collections::HashMap,
@@ -77,7 +79,7 @@ struct App {
     controls: HashMap<u16, HWND>,
     font: HFONT,
     library: Library,
-    path: PathBuf,
+    store: Store,
     filtered: Vec<u64>,
     selected: Option<u64>,
     page: usize,
@@ -133,13 +135,14 @@ unsafe extern "system" fn enumerate_monitor(
 }
 
 impl App {
-    unsafe fn new(hwnd: HWND, path: PathBuf, smoke: bool) -> Result<Self, String> {
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-        }
-        let data_lock = DataLock::acquire(&path.with_extension("lock"))?;
-        let is_new = !path.exists();
-        let mut library = Library::load(&path)?;
+    unsafe fn new(hwnd: HWND, directory: PathBuf, smoke: bool) -> Result<Self, String> {
+        std::fs::create_dir_all(&directory).map_err(|e| e.to_string())?;
+        let data_lock = DataLock::acquire(&directory.join(LOCK_FILE))?;
+        let Opened {
+            store,
+            mut library,
+            fresh: is_new,
+        } = Store::open(&directory)?;
         let dpi = GetDpiForWindow(hwnd).max(96) as i32;
         let font = CreateFontW(
             -(10 * dpi + 36) / 72,
@@ -168,7 +171,7 @@ impl App {
         if is_new && monitors.len() > 1 {
             library.monitor = 1;
         }
-        let smoke_report = path.with_file_name("ui-smoke-result.json");
+        let smoke_report = directory.join("ui-smoke-result.json");
         let mut app = Self {
             _data_lock: data_lock,
             hwnd,
@@ -176,7 +179,7 @@ impl App {
             controls: HashMap::new(),
             font,
             library,
-            path,
+            store,
             filtered: Vec::new(),
             selected: None,
             page: 0,
@@ -616,7 +619,7 @@ impl App {
         }
     }
     unsafe fn persist(&self) -> bool {
-        match self.library.save(&self.path) {
+        match self.store.save(&self.library) {
             Ok(()) => true,
             Err(e) => {
                 message(
@@ -1110,7 +1113,9 @@ impl App {
                 set_text(self.c(TITLE), "Judul uji ✓");
                 self.dirty = true;
                 let saved = self.commit_editor();
-                let title = Library::load(&self.path)
+                let title = self
+                    .store
+                    .load()
                     .ok()
                     .and_then(|l| l.item(1).map(|i| i.title.clone()));
                 self.smoke_checks.push((
@@ -1119,7 +1124,7 @@ impl App {
                 ));
             }
             7 => {
-                let report = serde_json::json!({"ok":self.smoke_checks.iter().all(|(_,ok)|*ok),"checks":self.smoke_checks,"version":VERSION,"output_window":!self.output.is_null(),"monitors":self.monitors.len(),"data_saved":self.path.exists()});
+                let report = serde_json::json!({"ok":self.smoke_checks.iter().all(|(_,ok)|*ok),"checks":self.smoke_checks,"version":VERSION,"output_window":!self.output.is_null(),"monitors":self.monitors.len(),"data_saved":self.store.path().exists()});
                 let _ = std::fs::write(
                     &self.smoke_report,
                     serde_json::to_vec_pretty(&report).unwrap(),
@@ -1538,7 +1543,7 @@ unsafe fn run() -> Result<(), String> {
     if hwnd.is_null() {
         return Err("Jendela utama tidak bisa dibuat.".into());
     }
-    let app = App::new(hwnd, directory.join(LIBRARY_FILE), smoke)?;
+    let app = App::new(hwnd, directory, smoke)?;
     APP.with(|cell| *cell.borrow_mut() = Some(app));
     with_app(|a| {
         a.layout();

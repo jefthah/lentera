@@ -8,8 +8,10 @@ mod import;
 mod library;
 mod service;
 mod storage;
+mod store;
 
 pub use import::{MAX_IMPORT_BYTES, normalize_text, read_text_file};
 pub use library::{Item, Kind, Library, split_slides};
 pub use service::{Cursor, Slide, Step};
-pub use storage::{DataLock, LIBRARY_FILE, default_data_dir};
+pub use storage::{DataLock, LIBRARY_FILE, LOCK_FILE, default_data_dir};
+pub use store::{DEFAULT_PROFILE_NAME, Opened, PROFILE_DB, PROFILES_DIR, Profile, Store, profiles};

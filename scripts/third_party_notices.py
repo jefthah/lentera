@@ -32,6 +32,9 @@ attribution required by that license is shown in Lentera's About dialog.
 
 The Windows installer and updater (Setup.exe, Update.exe) are built by
 Velopack 1.2.161 (MIT License, https://github.com/velopack/velopack).
+
+Lentera includes SQLite (https://sqlite.org), compiled from source by the
+libsqlite3-sys crate. SQLite is in the public domain.
 """
 
 # Crate yang paketnya tidak menyertakan berkas lisensi. Teksnya diambil dari

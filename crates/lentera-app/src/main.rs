@@ -11,7 +11,7 @@ mod update;
 use std::{cell::RefCell, ffi::OsString, path::PathBuf, rc::Rc, time::Duration};
 
 use lentera_core::{
-    Cursor, DataLock, Item, Kind, LIBRARY_FILE, Library, Slide, Step, default_data_dir,
+    Cursor, DataLock, Item, Kind, LOCK_FILE, Library, Opened, Slide, Step, Store, default_data_dir,
     split_slides,
 };
 use rfd::{MessageButtons, MessageDialog, MessageDialogResult, MessageLevel};
@@ -111,7 +111,8 @@ fn dialog(
 
 struct State {
     library: Library,
-    path: PathBuf,
+    /// Basis data profil yang sedang dibuka.
+    store: Store,
     /// Materi yang terbuka di tengah (dan di editor).
     selected: Option<u64>,
     /// Baris susunan yang terpilih, bila materi dibuka dari susunan.
@@ -172,7 +173,7 @@ macro_rules! connect {
 }
 
 impl App {
-    fn new(library: Library, path: PathBuf, lock: DataLock) -> Result<Rc<Self>, String> {
+    fn new(library: Library, store: Store, lock: DataLock) -> Result<Rc<Self>, String> {
         let ui = MainWindow::new().map_err(|e| e.to_string())?;
         let output = OutputWindow::new().map_err(|e| e.to_string())?;
         let background = library.background as i32;
@@ -181,7 +182,7 @@ impl App {
             output,
             state: RefCell::new(State {
                 library,
-                path,
+                store,
                 selected: None,
                 selected_service: None,
                 page: 0,
@@ -453,7 +454,7 @@ impl App {
     fn persist(&self) -> bool {
         let result = {
             let st = self.state.borrow();
-            st.library.save(&st.path)
+            st.store.save(&st.library)
         };
         match result {
             Ok(()) => true,
@@ -1235,8 +1236,11 @@ impl App {
                 self.ui.set_editor_title("Judul uji ✓".into());
                 self.editor_edited();
                 let saved = self.commit_editor();
-                let path = self.state.borrow().path.clone();
-                let title = Library::load(&path)
+                let title = self
+                    .state
+                    .borrow()
+                    .store
+                    .load()
                     .ok()
                     .and_then(|l| l.item(1).map(|i| i.title.clone()));
                 self.check(
@@ -1276,7 +1280,7 @@ impl App {
         };
         let (output_visible, data_saved) = {
             let st = self.state.borrow();
-            (st.output_visible, st.path.exists())
+            (st.output_visible, st.store.path().exists())
         };
         let failed: Vec<&str> = smoke
             .checks
@@ -1364,10 +1368,13 @@ fn run(args: &Args) -> Result<(), String> {
     }
     let dir = args.data_dir.clone().unwrap_or_else(default_data_dir);
     std::fs::create_dir_all(&dir).map_err(|e| format!("Folder data tidak bisa dibuat: {e}"))?;
-    let path = dir.join(LIBRARY_FILE);
-    let lock = DataLock::acquire(&path.with_extension("lock"))?;
-    let is_new = !path.exists();
-    let library = Library::load(&path)?;
+    let lock = DataLock::acquire(&dir.join(LOCK_FILE))?;
+    // Profil pertama; dibuat (dan `library.json` lama dipindahkan) bila belum ada.
+    let Opened {
+        store,
+        library,
+        fresh: is_new,
+    } = Store::open(&dir)?;
 
     let backend = slint::BackendSelector::new()
         .backend_name("winit".into())
@@ -1386,7 +1393,7 @@ fn run(args: &Args) -> Result<(), String> {
         .select()
         .map_err(|e| format!("Tampilan tidak bisa dimulai: {e}"))?;
 
-    let app = App::new(library, path, lock)?;
+    let app = App::new(library, store, lock)?;
     app.connect();
     app.refresh_library();
     app.refresh_service();

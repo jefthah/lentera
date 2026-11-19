@@ -165,3 +165,16 @@ Belum dirilis. Diuji di komputer pengembangan yang sama (Windows 11, dua monitor
 - Dibuka manual dengan dua profil (folder profil yang dihapus uji alur dipindahkan kembali dari `profiles-deleted` ke `profiles`): layar **Pilih profil** langsung muncul, profil terakhir dibuka (Ibadah Umum) bertanda "Sedang dibuka", dan judul jendela "Lentera 0.2.1 · Ibadah Umum". Profil yang dipulihkan tampil lagi.
 
 Belum diuji: dialog konfirmasi (ganti profil saat tayang, hapus profil) yang dilewati uji alur, navigasi layar profil dengan keyboard saja dan pembaca layar, macOS (menunggu CI), serta data asli pengguna dengan beberapa profil.
+
+## Server login dan sinkron — 19 November 2026
+
+Belum dipakai aplikasi dan belum di-deploy. Diuji di komputer pengembangan (Windows 11) dengan Go 1.26.5 dan PostgreSQL 18.4 lokal (cluster sementara di port 54331, bukan layanan PostgreSQL yang terpasang).
+
+- `go vet ./...` dan `gofmt -l` bersih. `go test -count=1 ./...` dengan `TEST_DATABASE_URL`: 21 tes lulus.
+  - Login: kode dikirim sekali dalam 60 detik, kode salah mengurangi sisa percobaan, 5 kali salah membuang kode, kode hanya bisa dipakai sekali, sesi kedaluwarsa ditolak, sesi lama diperpanjang saat dipakai, akun nonaktif tidak bisa masuk, email gagal tidak menahan percobaan berikutnya.
+  - Profil: dibuat dengan id dari aplikasi, ganti nama yang lebih lama kalah, id milik akun lain ditolak, aturan nama, daftar per akun.
+  - Sinkron: dua perangkat saling menerima materi, susunan, dan latar; tanda hapus tanpa judul dan isi; perubahan terbaru menang dan perangkat yang kalah menerima versi pemenang; kiriman sendiri tidak dikirim balik; waktu lebih dari 10 menit di depan jam server diganti; susunan yang menyebut materi tak dikenal ditolak tanpa mengubah apa pun; halaman per jumlah dan ukuran; 8 perangkat bersamaan × 25 kiriman menghasilkan 200 revisi unik; peran `viewer` / `editor` / `owner`, profil terhapus (410), cursor di depan server (409), dan kiriman tidak valid ditolak utuh.
+  - HTTP: alur lengkap dari kode email sampai logout lewat endpoint `/v1`, JSON rusak (400), permintaan terlalu besar (413), dan batas laju (429).
+- Program `lentera-server.exe` (12,5 MB, `CGO_ENABLED=0`) dijalankan manual: `migrate up` / `status`, lalu `serve`. Lewat `curl`: health, minta kode (kode muncul di log), verifikasi, buat profil, sinkron satu materi, daftar profil dengan revisi 1, dan `401` tanpa token. Token tidak tercatat di log.
+
+Belum diuji: `go test -race` (butuh cgo; berjalan di CI Linux), pengiriman email lewat Resend, server di belakang Caddy, beban dengan 31.000 ayat lewat HTTP, dan aplikasi Lentera sebagai klien.

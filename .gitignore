@@ -10,3 +10,4 @@ library.json
 library.json.bak
 library.lock
 *.tmp-*
+/server/lentera-server

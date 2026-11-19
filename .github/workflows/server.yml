@@ -1,0 +1,62 @@
+name: Server Lentera
+
+# Server login dan sinkron (Go + PostgreSQL) di folder server/. Belum di-deploy dari sini.
+on:
+  push:
+    branches: [main, "feature/**"]
+    paths:
+      - "server/**"
+      - ".github/workflows/server.yml"
+  pull_request:
+    paths:
+      - "server/**"
+      - ".github/workflows/server.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Server (Go + PostgreSQL)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: lentera
+          POSTGRES_PASSWORD: lentera-ci
+          POSTGRES_DB: lentera
+        ports: [5432:5432]
+        options: >-
+          --health-cmd "pg_isready -U lentera -d lentera"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: server/go.mod
+          cache-dependency-path: server/go.sum
+
+      - name: Format
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then echo "$unformatted"; exit 1; fi
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Tes dengan PostgreSQL
+        env:
+          TEST_DATABASE_URL: postgres://lentera:lentera-ci@127.0.0.1:5432/lentera?sslmode=disable
+        run: go test -race -count=1 ./...
+
+      - name: Build
+        env:
+          CGO_ENABLED: "0"
+        run: go build -trimpath -ldflags='-s -w' -o lentera-server ./cmd/lentera-server

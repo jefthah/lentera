@@ -67,6 +67,7 @@ Tidak menyertakan database Alkitab lengkap atau lagu berlisensi. Ayat dimasukkan
 - [Panduan penggunaan dan format impor](PANDUAN.md)
 - [Riwayat rilis](CHANGELOG.md)
 - [Catatan pengujian](docs/PENGUJIAN.md)
+- [Protokol login dan sinkron](docs/SINKRON.md) (untuk pengembang; aplikasi belum memakainya)
 
 Repositori ini adalah workspace Cargo:
 
@@ -75,6 +76,7 @@ Repositori ini adalah workspace Cargo:
 | `crates/lentera-core` | Data, susunan ibadah, impor, penyimpanan, dan kunci folder data. Tanpa kode tampilan; dibangun dan diuji di Windows dan macOS. |
 | `crates/lentera-app` | Aplikasi Lentera dengan tampilan Slint untuk Windows dan macOS. Menghasilkan `lentera.exe` / `lentera`, yang dirilis sejak 0.2.0. |
 | `crates/lentera-win32` | Tampilan Win32/GDI versi 0.1 (hanya Windows). Tidak dirilis lagi; menghasilkan `lentera-win32.exe`. |
+| `server` | Server login dan sinkron (Go + PostgreSQL). Modul Go terpisah; belum dipakai aplikasi dan belum di-deploy. Lihat [README-nya](server/README.md). |
 | `prototypes/slint-spike` | Prototipe tampilan Slint. Crate terpisah; lihat [hasilnya](prototypes/slint-spike/HASIL.md). |
 
 Di Windows, pasang Rust stable `x86_64-pc-windows-msvc`, Microsoft C++ Build Tools, dan Windows SDK. Di macOS, pasang Rust stable dan Xcode Command Line Tools. Dari folder repositori:

@@ -30,6 +30,7 @@ Memerlukan **Windows 10/11 64-bit**. Antarmuka ditujukan untuk layar sekitar 102
 - **Kiri:** susunan ibadah (naik, turun, lepas) dan pustaka lirik / ayat dengan filter dan pencarian judul / isi.
 - **Tengah:** semua slide materi terpilih sebagai kartu. Klik untuk pratinjau, klik dua kali untuk langsung menayangkan.
 - **Kanan:** pratinjau, tombol **Tayangkan**, layar yang sedang tayang, tombol sebelumnya / berikutnya, gelapkan, layar penuh, dan tiga warna latar.
+- **Profil:** beberapa profil dalam satu komputer, masing-masing dengan pustaka dan susunan ibadahnya sendiri. Buat, ganti nama, hapus, dan berganti profil lewat tombol profil di bilah atas.
 - **Editor materi:** judul, jenis (lirik / ayat), dan isi, dengan hasil slide yang langsung terlihat. Tersimpan otomatis.
 - Jendela proyektor terpisah dengan pilihan monitor, layar penuh, dan blackout. Ukuran teks menyesuaikan layar.
 - Impor lirik TXT dan ayat TSV berformat UTF-8.
@@ -55,7 +56,7 @@ Program 0.2.0 berukuran sekitar 11 MB (0.1.1: 2,2 MB). Angka ini merupakan pengu
 
 ## Data dan batasan beta
 
-Data disimpan per profil dalam basis data SQLite di `%LOCALAPPDATA%\Lentera\profiles\<id profil>\library.db` (macOS: `~/Library/Application Support/Lentera`). Untuk sekarang ada satu profil, **Profil utama**. Isi `library.json` dari versi 0.2.1 atau sebelumnya dipindahkan otomatis saat pertama kali dibuka, dan berkas lamanya dibiarkan sebagai cadangan. Program terpasang terpisah di `%LOCALAPPDATA%\LenteraApp`, sehingga uninstall tidak menghapus data. Cadangan data saat Lentera terakhir dibuka berada di `library.db.bak`. Hanya satu proses dapat membuka folder data yang sama. Tutup jendela Lentera yang sudah terbuka sebelum menjalankan salinan lain dengan data yang sama.
+Data disimpan per profil dalam basis data SQLite di `%LOCALAPPDATA%\Lentera\profiles\<id profil>\library.db` (macOS: `~/Library/Application Support/Lentera`). Profil pertama bernama **Profil utama**; profil lain dibuat lewat layar **Pilih profil**, dan profil yang dihapus dipindahkan ke folder `profiles-deleted`. Isi `library.json` dari versi 0.2.1 atau sebelumnya dipindahkan otomatis saat pertama kali dibuka, dan berkas lamanya dibiarkan sebagai cadangan. Program terpasang terpisah di `%LOCALAPPDATA%\LenteraApp`, sehingga uninstall tidak menghapus data. Cadangan data saat Lentera terakhir dibuka berada di `library.db.bak`. Hanya satu proses dapat membuka folder data yang sama. Tutup jendela Lentera yang sudah terbuka sebelum menjalankan salinan lain dengan data yang sama.
 
 Pustaka menampilkan maksimal 500 hasil pertama. Gunakan pencarian untuk mempersempit materi. Belum tersedia video, latar gambar, PowerPoint, NDI, streaming, impor database EasyWorship, atau pengambilan rentang ayat otomatis.
 

@@ -154,3 +154,14 @@ Belum dirilis. Diuji di komputer pengembangan yang sama (Windows 11, dua monitor
   0.2.1 dijalankan dari folder instalasinya, jadi angkanya tidak sepenuhnya setara. Kesimpulannya hanya: tidak terlihat kenaikan RAM.
 
 Belum diuji: macOS (menunggu CI), pembaruan dari 0.2.1 terpasang ke versi ini dengan data asli, folder data di flashdisk atau folder jaringan, dan listrik padam saat menyimpan (hanya dijamin oleh transaksi SQLite, tidak disimulasikan).
+
+## Pilih profil — 19 November 2026
+
+Belum dirilis. Diuji di komputer pengembangan yang sama (Windows 11, dua monitor).
+
+- `cargo test --workspace --locked`: 26 lulus di `lentera-core`, termasuk 4 tes baru: profil baru kosong dan menyalin latar serta monitor; aturan nama (wajib diisi, paling panjang 40 karakter, unik tanpa membedakan huruf besar/kecil, spasi dirapikan, id berisi path ditolak); `Store::open` membuka profil yang terakhir dibuka; hapus profil memindahkan folder ke `profiles-deleted` dan profil terakhir tidak bisa dihapus. `cargo clippy` untuk `lentera-core`, `lentera-win32`, `lentera-app`, dan `lentera-app` dengan `snapshot` (`-D warnings`) serta `cargo fmt --all --check` bersih.
+- Uji alur UI `lentera` (build rilis dengan `snapshot`) di folder kosong: 17/17, termasuk 6 pemeriksaan baru: daftar profil, membuat profil "  Komisi Pemuda ✓ " (nama dirapikan, pustaka kosong, tayangan berhenti, monitor tetap), dua kartu profil, ganti nama Profil utama menjadi "Ibadah Umum", berganti kembali ke profil itu (materi hasil uji edit masih ada), dan menghapus profil Komisi Pemuda. `lentera-win32`: lulus.
+- Tangkapan layar diperiksa: layar **Pilih profil**, dan bilah atas pada 1024×640. Pada lebar itu tombol profil hanya menampilkan lingkaran dan tombol **Tutup proyektor** serta **Impor** tidak terpotong.
+- Dibuka manual dengan dua profil (folder profil yang dihapus uji alur dipindahkan kembali dari `profiles-deleted` ke `profiles`): layar **Pilih profil** langsung muncul, profil terakhir dibuka (Ibadah Umum) bertanda "Sedang dibuka", dan judul jendela "Lentera 0.2.1 · Ibadah Umum". Profil yang dipulihkan tampil lagi.
+
+Belum diuji: dialog konfirmasi (ganti profil saat tayang, hapus profil) yang dilewati uji alur, navigasi layar profil dengan keyboard saja dan pembaca layar, macOS (menunggu CI), serta data asli pengguna dengan beberapa profil.

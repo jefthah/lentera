@@ -48,6 +48,18 @@ impl Default for Library {
     }
 }
 
+impl Library {
+    /// Pustaka tanpa materi, untuk profil baru.
+    pub fn blank() -> Self {
+        Self {
+            next_id: 1,
+            items: Vec::new(),
+            service: Vec::new(),
+            ..Self::default()
+        }
+    }
+}
+
 pub fn split_slides(text: &str) -> Vec<String> {
     let normalized = text.replace("\r\n", "\n").replace('\r', "\n");
     let mut slides = Vec::new();

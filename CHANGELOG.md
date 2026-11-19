@@ -2,8 +2,14 @@
 
 ## Belum dirilis
 
-Persiapan akun dan profil: data kini tersimpan per profil dalam basis data SQLite. Tampilan dan cara pakai tidak berubah.
+Persiapan akun dan profil: satu komputer kini bisa memakai beberapa profil, masing-masing dengan pustaka lirik, ayat, dan susunan ibadahnya sendiri. Data tersimpan per profil dalam basis data SQLite.
 
+- **Pilih profil.** Tombol profil (lingkaran berhuruf awal dan nama profil) menggantikan tulisan "Lentera" di bilah atas dan membuka layar **Pilih profil**. Di sana profil bisa dibuka, dibuat (**Profil baru**), diganti namanya, dan dihapus. Nama profil juga tampil di judul jendela. Pada jendela yang lebih sempit dari 1200 px, tombol profil hanya menampilkan lingkarannya supaya tombol proyektor dan impor tidak terpotong.
+- Lentera membuka profil yang terakhir dipakai. Bila ada lebih dari satu profil, layar **Pilih profil** langsung muncul saat aplikasi dibuka.
+- Profil baru mulai dengan pustaka kosong; latar layar disalin dari profil yang sedang dibuka. Pilihan monitor proyektor mengikuti komputer, bukan profil, jadi tidak berubah saat berganti profil.
+- Nama profil wajib diisi, paling panjang 40 karakter, dan tidak boleh sama dengan profil lain (huruf besar/kecil dianggap sama).
+- Berganti profil saat ada slide yang tayang meminta konfirmasi, lalu menghentikan tayangan. Perubahan di editor disimpan dulu.
+- **Hapus profil** tidak menghapus berkas: folder profil dipindahkan ke `profiles-deleted` di folder data sehingga masih bisa dipulihkan secara manual. Profil yang sedang dibuka dan profil terakhir tidak bisa dihapus.
 - **Data lama pindah otomatis.** Saat pertama kali dibuka, isi `library.json` dipindahkan ke profil pertama, **Profil utama**, termasuk susunan ibadah, latar, dan pilihan monitor. `library.json` tidak diubah dan tetap ada sebagai cadangan. Bila berkas itu rusak, Lentera berhenti dengan pesan tanpa membuat profil.
 - Data baru berada di `profiles/<id profil>/library.db` di folder data. Setiap materi kini punya ID unik (UUID) serta waktu dibuat, diubah, dan dihapus, sebagai dasar sinkron antar perangkat nanti. Materi yang dihapus disimpan sebagai tanda hapus tanpa judul dan isi.
 - Penyimpanan hanya menulis materi yang berubah, dalam satu transaksi, jadi listrik padam saat menyimpan tidak meninggalkan data setengah tersimpan.

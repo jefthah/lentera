@@ -17,7 +17,7 @@ Versi macOS belum punya installer; bangun dari kode sumber (lihat **Untuk pengem
 
 ## Mengenal layar
 
-- **Bilah atas:** kolom pencarian, tombol **Buka / Tutup proyektor**, pilihan monitor proyektor, menu **Impor**, dan tombol **ⓘ** (Tentang Lentera).
+- **Bilah atas:** tombol profil (lingkaran berhuruf awal dan nama profil yang sedang dibuka), kolom pencarian, tombol **Buka / Tutup proyektor**, pilihan monitor proyektor, menu **Impor**, dan tombol **ⓘ** (Tentang Lentera).
 - **Kiri:** **Susunan ibadah** di atas, **Pustaka** di bawah. Filter **Semua / Lagu / Ayat** menyaring pustaka.
 - **Tengah:** semua slide materi terpilih. Slide berbingkai kuning sedang dipratinjau, slide berbingkai merah sedang tayang.
 - **Kanan:** **Pratinjau**, tombol **Tayangkan**, layar **Tayang** (yang sedang dilihat jemaat), tombol kontrol, dan **Latar layar**.
@@ -58,9 +58,22 @@ Gunakan menu **Impor** di bilah atas.
 
 Pustaka menampilkan maksimal 500 hasil pertama agar tetap responsif. Ketik referensi atau kata di kolom pencarian untuk mempersempit hasil. Aplikasi ini tidak menyertakan terjemahan Alkitab lengkap atau database lagu berlisensi. Gunakan materi yang Anda berhak gunakan.
 
+## Profil
+
+Setiap profil punya pustaka lirik, ayat, dan susunan ibadahnya sendiri, misalnya satu profil untuk ibadah umum dan satu untuk komisi pemuda. Tekan tombol profil di kiri atas untuk membuka layar **Pilih profil**:
+
+- Klik kartu profil untuk membukanya. Kartu berbingkai kuning adalah profil yang sedang dibuka. Tekan **Esc** atau **×** untuk kembali tanpa berganti.
+- **Profil baru** membuat profil dengan pustaka kosong lalu langsung membukanya. Latar layar disalin dari profil yang sedang dibuka.
+- Ikon pensil mengganti nama profil. Nama wajib diisi, paling panjang 40 karakter, dan tidak boleh sama dengan profil lain.
+- Ikon tempat sampah menghapus profil lain (bukan yang sedang dibuka). Folder profil dipindahkan ke `profiles-deleted` di folder data, jadi masih bisa dipulihkan: tutup Lentera lalu pindahkan foldernya kembali ke `profiles`.
+
+Lentera membuka profil yang terakhir dipakai. Bila ada lebih dari satu profil, layar **Pilih profil** muncul saat aplikasi dibuka. Pilihan monitor proyektor mengikuti komputer, jadi tidak berubah saat berganti profil. Bila ada slide yang sedang tayang, Lentera meminta konfirmasi dulu karena berganti profil menghentikan tayangan.
+
+Nama profil yang sedang dibuka juga tampil di judul jendela. Pada jendela yang lebih sempit dari 1200 px, tombol profil hanya menampilkan lingkarannya.
+
 ## Data dan cadangan
 
-Folder data ada di `%LOCALAPPDATA%\Lentera` (macOS: `~/Library/Application Support/Lentera`). Data disimpan per profil di `profiles\<id profil>\library.db`, sebuah basis data SQLite, termasuk susunan ibadah, pilihan monitor, dan latar. Untuk sekarang ada satu profil, **Profil utama**; memilih dan menambah profil menyusul.
+Folder data ada di `%LOCALAPPDATA%\Lentera` (macOS: `~/Library/Application Support/Lentera`). Data disimpan per profil di `profiles\<id profil>\library.db`, sebuah basis data SQLite, termasuk susunan ibadah, pilihan monitor, dan latar. Profil yang dihapus dipindahkan ke `profiles-deleted\<id profil>`.
 
 Saat versi ini pertama kali dibuka, isi `library.json` dari Lentera 0.2.1 atau sebelumnya dipindahkan otomatis ke Profil utama. `library.json` tidak diubah dan tidak dibaca lagi, sehingga tetap ada sebagai cadangan. Bila `library.json` rusak, Lentera berhenti dengan pesan dan tidak membuat profil.
 

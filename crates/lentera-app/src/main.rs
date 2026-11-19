@@ -11,7 +11,8 @@ mod update;
 use std::{cell::RefCell, ffi::OsString, path::PathBuf, rc::Rc, time::Duration};
 
 use lentera_core::{
-    Cursor, DataLock, Item, Kind, LOCK_FILE, Library, Opened, Slide, Step, Store, default_data_dir,
+    Cursor, DEFAULT_PROFILE_NAME, DELETED_PROFILES_DIR, DataLock, Item, Kind, LOCK_FILE, Library,
+    Opened, Slide, Step, Store, default_data_dir, profiles, remove_profile, rename_profile,
     split_slides,
 };
 use rfd::{MessageButtons, MessageDialog, MessageDialogResult, MessageLevel};
@@ -28,6 +29,8 @@ slint::include_modules!();
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const SAVE_DELAY: Duration = Duration::from_millis(1500);
 const SAVED: &str = "Tersimpan otomatis";
+/// Jumlah warna lingkaran profil (`Theme.avatar` di app.slint).
+const PROFILE_TONES: u32 = 6;
 
 struct Args {
     data_dir: Option<PathBuf>,
@@ -81,6 +84,21 @@ fn tile(text: &str) -> SlideTile {
 
 fn tiles(slides: &[String]) -> Vec<SlideTile> {
     slides.iter().map(|s| tile(s)).collect()
+}
+
+/// Huruf pertama nama profil, untuk lingkaran inisial.
+fn profile_initial(name: &str) -> String {
+    name.chars()
+        .find(|c| c.is_alphanumeric())
+        .map_or_else(|| "?".into(), |c| c.to_uppercase().collect())
+}
+
+/// Warna lingkaran profil. Diambil dari id, jadi tetap sama walau namanya diganti.
+fn profile_tone(id: &str) -> i32 {
+    let hash = id.bytes().fold(0x811c_9dc5_u32, |hash, byte| {
+        (hash ^ u32::from(byte)).wrapping_mul(0x0100_0193)
+    });
+    (hash % PROFILE_TONES) as i32
 }
 
 fn ui_id(id: u64) -> i32 {
@@ -151,6 +169,9 @@ struct App {
     service_rows: Rc<VecModel<ServiceRow>>,
     slide_tiles: Rc<VecModel<SlideTile>>,
     editor_tiles: Rc<VecModel<SlideTile>>,
+    profile_cards: Rc<VecModel<ProfileCard>>,
+    /// Folder data (berisi semua profil).
+    data_dir: PathBuf,
     monitors: RefCell<Vec<MonitorHandle>>,
     save_timer: Timer,
     status_timer: Timer,
@@ -173,7 +194,12 @@ macro_rules! connect {
 }
 
 impl App {
-    fn new(library: Library, store: Store, lock: DataLock) -> Result<Rc<Self>, String> {
+    fn new(
+        library: Library,
+        store: Store,
+        lock: DataLock,
+        data_dir: PathBuf,
+    ) -> Result<Rc<Self>, String> {
         let ui = MainWindow::new().map_err(|e| e.to_string())?;
         let output = OutputWindow::new().map_err(|e| e.to_string())?;
         let background = library.background as i32;
@@ -199,6 +225,8 @@ impl App {
             service_rows: Rc::new(VecModel::default()),
             slide_tiles: Rc::new(VecModel::default()),
             editor_tiles: Rc::new(VecModel::default()),
+            profile_cards: Rc::new(VecModel::default()),
+            data_dir,
             monitors: RefCell::default(),
             save_timer: Timer::default(),
             status_timer: Timer::default(),
@@ -212,6 +240,7 @@ impl App {
         ui.set_service(ModelRc::from(app.service_rows.clone()));
         ui.set_slides(ModelRc::from(app.slide_tiles.clone()));
         ui.set_editor_slides(ModelRc::from(app.editor_tiles.clone()));
+        ui.set_profiles(ModelRc::from(app.profile_cards.clone()));
         ui.set_bg_index(background);
         app.output.set_bg_index(background);
         Ok(app)
@@ -262,6 +291,11 @@ impl App {
         connect!(app.ui.on_import_lyrics, |a| a.import(false));
         connect!(app.ui.on_import_verses, |a| a.import(true));
         connect!(app.ui.on_update_now, |a| a.update_now());
+        connect!(app.ui.on_show_profiles, |a| a.show_profiles());
+        connect!(app.ui.on_close_profiles, |a| a.close_profiles());
+        connect!(app.ui.on_choose_profile, |a, id| a.choose_profile(&id));
+        connect!(app.ui.on_submit_profile_form, |a| a.submit_profile_form());
+        connect!(app.ui.on_delete_profile, |a, id| a.delete_profile(&id));
 
         connect!(app.output.on_go_live, |a| a.go_live());
         connect!(app.output.on_navigate, |a, forward| a.navigate(forward));
@@ -995,6 +1029,14 @@ impl App {
     }
 
     fn escape(self: &Rc<Self>) {
+        if self.ui.get_picking_profile() {
+            if self.ui.get_profile_form() != 0 {
+                self.ui.set_profile_form(0);
+            } else {
+                self.close_profiles();
+            }
+            return;
+        }
         let (visible, fullscreen) = {
             let st = self.state.borrow();
             (st.output_visible, st.fullscreen)
@@ -1073,6 +1115,250 @@ impl App {
         self.ui.set_bg_index(index as i32);
         self.output.set_bg_index(index as i32);
         self.persist();
+    }
+
+    /// Memilih materi pertama di susunan, atau di pustaka bila susunan kosong.
+    fn select_first(&self) {
+        let first = {
+            let st = self.state.borrow();
+            st.library
+                .service
+                .first()
+                .map(|id| (*id, Some(0)))
+                .or_else(|| st.library.items.first().map(|i| (i.id, None)))
+        };
+        match first {
+            Some((id, service)) => self.select(id, service),
+            None => {
+                self.load_editor();
+                self.refresh_current();
+            }
+        }
+    }
+
+    // ----- Profil -----
+
+    /// Nama dan lingkaran profil di bilah atas.
+    fn refresh_profile_label(&self) {
+        let (id, name) = {
+            let st = self.state.borrow();
+            (st.store.id().to_owned(), st.store.name().to_owned())
+        };
+        self.ui.set_profile_initial(profile_initial(&name).into());
+        self.ui.set_profile_tone(profile_tone(&id));
+        self.ui.set_profile_name(name.into());
+    }
+
+    /// Kartu di layar pilih profil. Mengembalikan jumlah profil.
+    fn refresh_profiles(&self) -> usize {
+        let list = match profiles(&self.data_dir) {
+            Ok(list) => list,
+            Err(e) => {
+                self.ui.set_profile_form_error(e.into());
+                return 0;
+            }
+        };
+        let st = self.state.borrow();
+        let cards: Vec<ProfileCard> = list
+            .iter()
+            .map(|p| {
+                let current = p.id == st.store.id();
+                // Profil yang terbuka dihitung dari memori, yang mungkin lebih baru.
+                let count = if current {
+                    st.library.items.len()
+                } else {
+                    p.items
+                };
+                ProfileCard {
+                    id: p.id.as_str().into(),
+                    name: p.name.as_str().into(),
+                    initial: profile_initial(&p.name).into(),
+                    detail: if current {
+                        format!("Sedang dibuka · {count} materi")
+                    } else {
+                        format!("{count} materi")
+                    }
+                    .into(),
+                    tone: profile_tone(&p.id),
+                    current,
+                }
+            })
+            .collect();
+        drop(st);
+        let count = cards.len();
+        self.profile_cards.set_vec(cards);
+        count
+    }
+
+    fn show_profiles(&self) {
+        self.refresh_profiles();
+        self.ui.set_profile_form(0);
+        self.ui.set_profile_form_error(SharedString::new());
+        self.ui.set_picking_profile(true);
+    }
+
+    fn close_profiles(&self) {
+        self.ui.set_profile_form(0);
+        self.ui.set_picking_profile(false);
+    }
+
+    /// `true` bila boleh berganti profil: tidak ada yang tayang, atau operator
+    /// setuju tayangan dihentikan. Uji alur otomatis tidak ditanya.
+    fn may_stop_live(&self) -> bool {
+        if self.state.borrow().live.is_none() || self.smoke.borrow().is_some() {
+            return true;
+        }
+        dialog(
+            Some(self.ui.window()),
+            MessageLevel::Warning,
+            "Ganti profil",
+            "Slide yang sedang tayang akan dihentikan dan layar proyektor menjadi kosong.\n\n\
+             Lanjutkan?",
+            MessageButtons::YesNo,
+        ) == MessageDialogResult::Yes
+    }
+
+    fn choose_profile(&self, id: &str) {
+        if id == self.state.borrow().store.id() {
+            self.close_profiles();
+            return;
+        }
+        if !self.may_stop_live() || !self.commit_editor() {
+            return;
+        }
+        match Store::open_profile(&self.data_dir, id) {
+            Ok(opened) => self.use_profile(opened),
+            Err(e) => {
+                dialog(
+                    Some(self.ui.window()),
+                    MessageLevel::Error,
+                    "Profil tidak bisa dibuka",
+                    &e,
+                    MessageButtons::Ok,
+                );
+            }
+        }
+    }
+
+    /// Formulir profil baru (1) atau ganti nama (2).
+    fn submit_profile_form(&self) {
+        let name = self.ui.get_profile_form_name();
+        let result = match self.ui.get_profile_form() {
+            1 => {
+                if !self.may_stop_live() || !self.commit_editor() {
+                    return;
+                }
+                let created = {
+                    let st = self.state.borrow();
+                    Store::create_profile(&self.data_dir, &name, &st.library)
+                };
+                created.map(|opened| self.use_profile(opened))
+            }
+            2 => {
+                let target = self.ui.get_profile_form_target();
+                let renamed = {
+                    let mut st = self.state.borrow_mut();
+                    if target.as_str() == st.store.id() {
+                        st.store.rename(&name)
+                    } else {
+                        rename_profile(&self.data_dir, &target, &name)
+                    }
+                };
+                renamed.map(|()| {
+                    self.refresh_profile_label();
+                    self.refresh_profiles();
+                    self.ui.set_profile_form(0);
+                })
+            }
+            _ => Ok(()),
+        };
+        match result {
+            Ok(()) => self.ui.set_profile_form_error(SharedString::new()),
+            Err(e) => self.ui.set_profile_form_error(e.into()),
+        }
+    }
+
+    fn delete_profile(&self, id: &str) {
+        if id == self.state.borrow().store.id() {
+            self.ui.set_profile_form_error(
+                "Profil yang sedang dibuka tidak bisa dihapus. Buka profil lain dulu.".into(),
+            );
+            return;
+        }
+        let name = (0..self.profile_cards.row_count())
+            .filter_map(|row| self.profile_cards.row_data(row))
+            .find(|card| card.id.as_str() == id)
+            .map(|card| card.name.to_string())
+            .unwrap_or_default();
+        let answer = dialog(
+            Some(self.ui.window()),
+            MessageLevel::Warning,
+            "Hapus profil",
+            &format!(
+                "Hapus profil \"{name}\"?\n\n\
+                 Lirik, ayat, dan susunan ibadah di profil ini tidak akan tampil lagi di \
+                 Lentera. Berkasnya dipindahkan ke folder {DELETED_PROFILES_DIR} di folder \
+                 data, jadi masih bisa dipulihkan secara manual."
+            ),
+            MessageButtons::YesNo,
+        );
+        if answer == MessageDialogResult::Yes {
+            self.remove_profile_now(id);
+        }
+    }
+
+    fn remove_profile_now(&self, id: &str) {
+        match remove_profile(&self.data_dir, id) {
+            Ok(()) => {
+                self.refresh_profiles();
+                self.status("Profil dihapus.", true);
+            }
+            Err(e) => {
+                dialog(
+                    Some(self.ui.window()),
+                    MessageLevel::Error,
+                    "Profil tidak bisa dihapus",
+                    &e,
+                    MessageButtons::Ok,
+                );
+            }
+        }
+    }
+
+    /// Mengganti profil yang terbuka. Pilihan monitor ikut perangkat, bukan
+    /// profil, supaya layar proyektor tidak berpindah saat berganti profil.
+    fn use_profile(&self, opened: Opened) {
+        self.save_timer.stop();
+        let background = {
+            let mut st = self.state.borrow_mut();
+            let monitor = st.library.monitor;
+            st.store = opened.store;
+            st.library = opened.library;
+            st.library.monitor = monitor;
+            st.selected = None;
+            st.selected_service = None;
+            st.page = 0;
+            st.live = None;
+            st.live_service = None;
+            st.blackout = false;
+            st.dirty = false;
+            st.editing = false;
+            st.filtered.clear();
+            st.library.background as i32
+        };
+        self.ui.set_editing(false);
+        self.ui.set_query(SharedString::new());
+        self.ui.set_bg_index(background);
+        self.output.set_bg_index(background);
+        self.persist();
+        self.refresh_library();
+        self.refresh_service();
+        self.refresh_live();
+        self.select_first();
+        self.refresh_profile_label();
+        self.close_profiles();
+        let name = self.state.borrow().store.name().to_owned();
+        self.status(&format!("Profil {name} dibuka."), true);
     }
 
     // ----- Pembaruan dan penutupan -----
@@ -1261,9 +1547,83 @@ impl App {
                     !self.ui.get_editing() && self.slide_tiles.row_count() == 3,
                 );
                 self.snapshot("ui-smoke-output.png", self.output.window());
-                self.ui.invoke_show_about();
             }
             10 => {
+                self.show_profiles();
+                let first = self.profile_cards.row_data(0);
+                self.check(
+                    "profiles_listed",
+                    self.profile_cards.row_count() == 1
+                        && first.is_some_and(|c| c.current && c.name == DEFAULT_PROFILE_NAME),
+                );
+                // Membuat profil saat ada yang tayang: tayangan berhenti,
+                // monitor proyektor tetap.
+                let monitor = self.state.borrow().library.monitor;
+                self.ui.set_profile_form(1);
+                self.ui.set_profile_form_name("  Komisi Pemuda ✓ ".into());
+                self.submit_profile_form();
+                let st = self.state.borrow();
+                let ok = st.store.name() == "Komisi Pemuda ✓"
+                    && st.library.items.is_empty()
+                    && st.live.is_none()
+                    && st.library.monitor == monitor;
+                drop(st);
+                self.check(
+                    "profile_created",
+                    ok && !self.ui.get_picking_profile()
+                        && self.library_rows.row_count() == 0
+                        && self.ui.get_profile_name() == "Komisi Pemuda ✓",
+                );
+            }
+            11 => {
+                self.show_profiles();
+                self.check("profile_cards", self.profile_cards.row_count() == 2);
+                self.snapshot("ui-smoke-profil.png", self.ui.window());
+            }
+            12 => {
+                let id_of = |name: &str| {
+                    profiles(&self.data_dir)
+                        .ok()
+                        .and_then(|list| list.into_iter().find(|p| p.name == name))
+                        .map(|p| p.id)
+                        .unwrap_or_default()
+                };
+                let first = id_of(DEFAULT_PROFILE_NAME);
+                self.ui.set_profile_form(2);
+                self.ui.set_profile_form_target(first.as_str().into());
+                self.ui.set_profile_form_name("Ibadah Umum".into());
+                self.submit_profile_form();
+                self.check("profile_renamed", id_of("Ibadah Umum") == first);
+                self.choose_profile(&first);
+                let title = self.state.borrow().library.item(1).map(|i| i.title.clone());
+                self.check(
+                    "profile_switched",
+                    self.state.borrow().store.id() == first
+                        && title.as_deref() == Some("Judul uji ✓")
+                        && !self.ui.get_picking_profile(),
+                );
+            }
+            13 => {
+                let other = profiles(&self.data_dir)
+                    .ok()
+                    .and_then(|list| list.into_iter().find(|p| p.name == "Komisi Pemuda ✓"))
+                    .map(|p| p.id)
+                    .unwrap_or_default();
+                self.remove_profile_now(&other);
+                self.check(
+                    "profile_removed",
+                    profiles(&self.data_dir).is_ok_and(|list| list.len() == 1),
+                );
+                // Ukuran jendela terkecil yang didukung.
+                self.ui
+                    .window()
+                    .set_size(slint::LogicalSize::new(1024.0, 640.0));
+            }
+            14 => {
+                self.snapshot("ui-smoke-sempit.png", self.ui.window());
+                self.ui.invoke_show_about();
+            }
+            15 => {
                 self.snapshot("ui-smoke-tentang.png", self.ui.window());
             }
             _ => {
@@ -1393,24 +1753,19 @@ fn run(args: &Args) -> Result<(), String> {
         .select()
         .map_err(|e| format!("Tampilan tidak bisa dimulai: {e}"))?;
 
-    let app = App::new(library, store, lock)?;
+    let app = App::new(library, store, lock, dir.clone())?;
     app.connect();
     app.refresh_library();
     app.refresh_service();
     app.refresh_live();
-    let first = {
-        let st = app.state.borrow();
-        st.library
-            .service
-            .first()
-            .map(|id| (*id, Some(0)))
-            .or_else(|| st.library.items.first().map(|i| (i.id, None)))
-    };
-    match first {
-        Some((id, service)) => app.select(id, service),
-        None => app.refresh_current(),
-    }
+    app.select_first();
+    app.refresh_profile_label();
     app.persist();
+    // Lebih dari satu profil: tanyakan dulu siapa yang memakai. Profil yang
+    // terakhir dibuka sudah terbuka di belakangnya.
+    if !args.smoke && app.refresh_profiles() > 1 {
+        app.show_profiles();
+    }
     app.ui.show().map_err(|e| e.to_string())?;
 
     let weak = Rc::downgrade(&app);

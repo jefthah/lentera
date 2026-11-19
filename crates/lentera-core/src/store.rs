@@ -35,6 +35,11 @@ pub const PROFILES_DIR: &str = "profiles";
 pub const PROFILE_DB: &str = "library.db";
 /// Nama profil yang dibuat otomatis saat pertama kali dibuka.
 pub const DEFAULT_PROFILE_NAME: &str = "Profil utama";
+/// Folder tujuan profil yang dihapus. Isinya tidak dibaca Lentera lagi, tetapi
+/// masih bisa dipulihkan dengan memindahkannya kembali ke [`PROFILES_DIR`].
+pub const DELETED_PROFILES_DIR: &str = "profiles-deleted";
+/// Panjang maksimum nama profil, dalam karakter.
+pub const PROFILE_NAME_MAX: usize = 40;
 
 /// Versi skema basis data (`PRAGMA user_version`).
 const SCHEMA_VERSION: i32 = 1;
@@ -60,7 +65,7 @@ CREATE TABLE service (
 );
 ";
 
-/// Profil di perangkat ini.
+/// Ringkasan satu profil di perangkat ini, untuk daftar pilihan profil.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Profile {
     /// UUID v7, sekaligus nama foldernya.
@@ -68,6 +73,10 @@ pub struct Profile {
     pub name: String,
     /// Milidetik sejak 1970 (UTC).
     pub created_at: i64,
+    /// Terakhir dibuka di perangkat ini (milidetik sejak 1970, UTC).
+    pub opened_at: i64,
+    /// Jumlah materi (tanpa yang dihapus).
+    pub items: usize,
 }
 
 /// Hasil [`Store::open`].
@@ -84,8 +93,10 @@ pub struct Opened {
 #[derive(Debug)]
 pub struct Store {
     conn: Connection,
+    data_dir: PathBuf,
     path: PathBuf,
-    profile: Profile,
+    id: String,
+    name: String,
     /// Keadaan yang terakhir tersimpan, untuk menulis hanya yang berubah.
     saved: RefCell<Snapshot>,
 }
@@ -152,14 +163,49 @@ pub fn profiles(data_dir: &Path) -> Result<Vec<Profile>, String> {
     Ok(list)
 }
 
+/// Mengganti nama profil yang sedang tidak dibuka. Untuk profil yang sedang
+/// dibuka, pakai [`Store::rename`].
+pub fn rename_profile(data_dir: &Path, id: &str, name: &str) -> Result<(), String> {
+    let name = check_name(data_dir, name, Some(id))?;
+    let path = profile_db(data_dir, id)?;
+    let conn = connect(&path)?;
+    read_profile(&conn, id, &path)?.ok_or_else(|| format!("Profil {id} tidak ditemukan."))?;
+    set_meta(&conn, "name", &name).map_err(|e| db_error(&path, e))
+}
+
+/// Memindahkan profil ke [`DELETED_PROFILES_DIR`]. Profil terakhir tidak bisa
+/// dihapus. Pemanggil tidak boleh sedang membuka profil ini.
+pub fn remove_profile(data_dir: &Path, id: &str) -> Result<(), String> {
+    let path = profile_db(data_dir, id)?;
+    let list = profiles(data_dir)?;
+    if !list.iter().any(|p| p.id == id) {
+        return Err(format!("Profil {id} tidak ditemukan."));
+    }
+    if list.len() < 2 {
+        return Err("Profil terakhir tidak bisa dihapus.".into());
+    }
+    let trash = data_dir.join(DELETED_PROFILES_DIR);
+    fs::create_dir_all(&trash).map_err(|e| format!("Profil tidak bisa dihapus.\n{e}"))?;
+    let mut target = trash.join(id);
+    if target.exists() {
+        target = trash.join(format!("{id}-{}", now_ms()));
+    }
+    let folder = path.parent().unwrap_or(&path);
+    fs::rename(folder, &target).map_err(|e| format!("Profil tidak bisa dihapus.\n{e}"))
+}
+
 impl Store {
-    /// Membuka profil pertama di folder data. Bila belum ada profil, dibuat
-    /// [`DEFAULT_PROFILE_NAME`]: isinya dipindahkan dari `library.json` lama
-    /// bila ada, atau berisi materi contoh. `library.json` tidak diubah.
+    /// Membuka profil yang terakhir dibuka di folder data. Bila belum ada
+    /// profil, dibuat [`DEFAULT_PROFILE_NAME`]: isinya dipindahkan dari
+    /// `library.json` lama bila ada, atau berisi materi contoh. `library.json`
+    /// tidak diubah.
     ///
     /// Pemanggil harus sudah memegang [`DataLock`](crate::DataLock) folder ini.
     pub fn open(data_dir: &Path) -> Result<Opened, String> {
-        if let Some(profile) = profiles(data_dir)?.into_iter().next() {
+        let last = profiles(data_dir)?
+            .into_iter()
+            .max_by_key(|p| (p.opened_at, p.created_at));
+        if let Some(profile) = last {
             return Self::open_profile(data_dir, &profile.id);
         }
         let legacy = data_dir.join(LIBRARY_FILE);
@@ -176,24 +222,28 @@ impl Store {
         })
     }
 
-    /// Membuka profil yang sudah ada berdasarkan id-nya.
+    /// Membuka profil yang sudah ada berdasarkan id-nya, lalu mencatatnya
+    /// sebagai profil terakhir dibuka.
     pub fn open_profile(data_dir: &Path, id: &str) -> Result<Opened, String> {
-        let path = data_dir.join(PROFILES_DIR).join(id).join(PROFILE_DB);
+        let path = profile_db(data_dir, id)?;
         let conn = connect(&path)?;
         let profile = read_profile(&conn, id, &path)?
             .ok_or_else(|| format!("Profil {id} belum selesai dibuat."))?;
         let store = Self {
             conn,
+            data_dir: data_dir.into(),
             path,
-            profile,
+            id: profile.id,
+            name: profile.name,
             saved: RefCell::default(),
         };
         let library = store.load()?;
         *store.saved.borrow_mut() = Snapshot::of(&library, true);
         // Cadangan isi profil saat berhasil dibuka. Aman disalin karena tidak
         // ada transaksi yang berjalan dan folder data sedang dikunci. Gagal
-        // membuat cadangan tidak menghalangi pembukaan.
+        // membuat cadangan atau mencatat waktu buka tidak menghalangi pembukaan.
         let _ = backup(&store.path);
+        let _ = set_meta(&store.conn, "opened_at", &now_ms().to_string());
         Ok(Opened {
             store,
             library,
@@ -201,9 +251,35 @@ impl Store {
         })
     }
 
-    /// Membuat profil kosong. Profil baru terdaftar di [`profiles`] setelah
-    /// [`Store::save`] pertama berhasil.
-    pub fn create(data_dir: &Path, name: &str) -> Result<Self, String> {
+    /// Membuat profil baru tanpa materi dan langsung membukanya. Latar dan
+    /// monitor diambil dari `like` (biasanya pustaka yang sedang dibuka).
+    pub fn create_profile(data_dir: &Path, name: &str, like: &Library) -> Result<Opened, String> {
+        let name = check_name(data_dir, name, None)?;
+        let store = Self::create(data_dir, &name)?;
+        let library = Library {
+            background: like.background,
+            monitor: like.monitor,
+            ..Library::blank()
+        };
+        if let Err(e) = store.save(&library) {
+            // Profil yang belum tersimpan tidak terdaftar; bersihkan foldernya.
+            let folder = store.path.parent().map(Path::to_path_buf);
+            drop(store);
+            if let Some(folder) = folder {
+                let _ = fs::remove_dir_all(folder);
+            }
+            return Err(e);
+        }
+        Ok(Opened {
+            store,
+            library,
+            fresh: false,
+        })
+    }
+
+    /// Membuat basis data profil. Profil baru terdaftar di [`profiles`]
+    /// setelah [`Store::save`] pertama berhasil.
+    fn create(data_dir: &Path, name: &str) -> Result<Self, String> {
         let id = Uuid::now_v7().to_string();
         let dir = data_dir.join(PROFILES_DIR).join(&id);
         fs::create_dir_all(&dir).map_err(|e| format!("Folder profil tidak bisa dibuat.\n{e}"))?;
@@ -215,23 +291,36 @@ impl Store {
             .and_then(|()| tx.pragma_update(None, "user_version", SCHEMA_VERSION))
             .and_then(|()| set_meta(&tx, "name", name))
             .and_then(|()| set_meta(&tx, "created_at", &created_at.to_string()))
+            .and_then(|()| set_meta(&tx, "opened_at", &created_at.to_string()))
             .map_err(|e| db_error(&path, e))?;
         tx.commit().map_err(|e| db_error(&path, e))?;
         configure(&conn).map_err(|e| db_error(&path, e))?;
         Ok(Self {
             conn,
+            data_dir: data_dir.into(),
             path,
-            profile: Profile {
-                id,
-                name: name.into(),
-                created_at,
-            },
+            id,
+            name: name.into(),
             saved: RefCell::new(Snapshot::default()),
         })
     }
 
-    pub fn profile(&self) -> &Profile {
-        &self.profile
+    /// Id profil yang sedang dibuka.
+    pub fn id(&self) -> &str {
+        &self.id
+    }
+
+    /// Nama profil yang sedang dibuka.
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Mengganti nama profil yang sedang dibuka.
+    pub fn rename(&mut self, name: &str) -> Result<(), String> {
+        let name = check_name(&self.data_dir, name, Some(&self.id))?;
+        set_meta(&self.conn, "name", &name).map_err(|e| db_error(&self.path, e))?;
+        self.name = name;
+        Ok(())
     }
 
     /// Lokasi berkas basis data profil.
@@ -429,14 +518,60 @@ fn read_profile(conn: &Connection, id: &str, path: &Path) -> Result<Option<Profi
     if get_meta(conn, "ready").map_err(err)?.as_deref() != Some("1") {
         return Ok(None);
     }
+    let number = |key| -> Result<i64, String> {
+        Ok(get_meta(conn, key)
+            .map_err(err)?
+            .and_then(|value| value.parse().ok())
+            .unwrap_or(0))
+    };
+    let created_at = number("created_at")?;
+    let items: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM items WHERE deleted_at IS NULL",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(err)?;
     Ok(Some(Profile {
         id: id.into(),
         name: get_meta(conn, "name").map_err(err)?.unwrap_or_default(),
-        created_at: get_meta(conn, "created_at")
-            .map_err(err)?
-            .and_then(|value| value.parse().ok())
-            .unwrap_or(0),
+        created_at,
+        opened_at: number("opened_at")?.max(created_at),
+        items: items.max(0) as usize,
     }))
+}
+
+/// Lokasi basis data profil. `id` harus nama satu folder, bukan jalur.
+fn profile_db(data_dir: &Path, id: &str) -> Result<PathBuf, String> {
+    let plain = !id.is_empty()
+        && !id.starts_with('.')
+        && Path::new(id).file_name().and_then(|n| n.to_str()) == Some(id);
+    if !plain {
+        return Err(format!("Id profil tidak valid: {id}"));
+    }
+    Ok(data_dir.join(PROFILES_DIR).join(id).join(PROFILE_DB))
+}
+
+/// Merapikan dan memeriksa nama profil: tidak kosong, tidak terlalu panjang,
+/// dan belum dipakai profil lain (huruf besar/kecil dianggap sama).
+fn check_name(data_dir: &Path, name: &str, except: Option<&str>) -> Result<String, String> {
+    let name = name.split_whitespace().collect::<Vec<_>>().join(" ");
+    if name.is_empty() {
+        return Err("Nama profil belum diisi.".into());
+    }
+    if name.chars().count() > PROFILE_NAME_MAX {
+        return Err(format!(
+            "Nama profil paling panjang {PROFILE_NAME_MAX} karakter."
+        ));
+    }
+    let lower = name.to_lowercase();
+    let taken = profiles(data_dir)?
+        .iter()
+        .any(|p| Some(p.id.as_str()) != except && p.name.to_lowercase() == lower);
+    if taken {
+        return Err(format!("Sudah ada profil bernama \"{name}\"."));
+    }
+    Ok(name)
 }
 
 fn get_meta(conn: &Connection, key: &str) -> rusqlite::Result<Option<String>> {
@@ -520,6 +655,19 @@ mod tests {
         }
     }
 
+    fn ids(data_dir: &Path) -> Vec<String> {
+        profiles(data_dir)
+            .unwrap()
+            .into_iter()
+            .map(|p| p.id)
+            .collect()
+    }
+
+    fn pause() {
+        // Waktu dicatat dalam milidetik; beri jarak supaya urutannya pasti.
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+
     fn row(store: &Store, id: u64) -> (String, String, String, i64, i64, Option<i64>) {
         store
             .conn
@@ -547,14 +695,14 @@ mod tests {
         let opened = Store::open(&dir.0).unwrap();
         assert!(opened.fresh);
         assert_eq!(opened.library, Library::default());
-        assert_eq!(opened.store.profile().name, DEFAULT_PROFILE_NAME);
-        let id = opened.store.profile().id.clone();
+        assert_eq!(opened.store.name(), DEFAULT_PROFILE_NAME);
+        let id = opened.store.id().to_owned();
         assert_eq!(Uuid::parse_str(&id).unwrap().get_version_num(), 7);
         drop(opened);
 
         let again = Store::open(&dir.0).unwrap();
         assert!(!again.fresh);
-        assert_eq!(again.store.profile().id, id);
+        assert_eq!(again.store.id(), id);
         assert_eq!(again.library, Library::default());
         assert_eq!(profiles(&dir.0).unwrap().len(), 1);
     }
@@ -668,10 +816,7 @@ mod tests {
         drop(Store::create(&dir.0, "Terputus").unwrap());
         assert!(profiles(&dir.0).unwrap().is_empty());
         let opened = Store::open(&dir.0).unwrap();
-        assert_eq!(
-            profiles(&dir.0).unwrap(),
-            vec![opened.store.profile().clone()]
-        );
+        assert_eq!(ids(&dir.0), vec![opened.store.id().to_owned()]);
         opened
             .store
             .conn
@@ -704,5 +849,123 @@ mod tests {
         });
         assert!(store.save(&library).is_err());
         assert_eq!(store.load().unwrap(), Library::default());
+    }
+
+    #[test]
+    fn new_profile_starts_empty_and_keeps_screen_settings() {
+        let dir = TempDir::new("create");
+        let first = Store::open(&dir.0).unwrap();
+        let like = Library {
+            background: 2,
+            monitor: 1,
+            ..first.library.clone()
+        };
+        let made = Store::create_profile(&dir.0, "  Komisi   Pemuda ", &like).unwrap();
+        assert_eq!(made.store.name(), "Komisi Pemuda");
+        assert!(made.library.items.is_empty() && made.library.service.is_empty());
+        assert_eq!((made.library.background, made.library.monitor), (2, 1));
+        let list = profiles(&dir.0).unwrap();
+        assert_eq!(list.len(), 2);
+        let counts: Vec<(String, usize)> = list.into_iter().map(|p| (p.name, p.items)).collect();
+        assert!(counts.contains(&(DEFAULT_PROFILE_NAME.to_owned(), 2)));
+        assert!(counts.contains(&("Komisi Pemuda".to_owned(), 0)));
+        drop(made);
+        let again = Store::open_profile(&dir.0, &ids(&dir.0)[1]).unwrap();
+        assert_eq!(
+            again.library,
+            Library {
+                background: 2,
+                monitor: 1,
+                ..Library::blank()
+            }
+        );
+    }
+
+    #[test]
+    fn profile_names_must_be_filled_short_and_unique() {
+        let dir = TempDir::new("names");
+        let mut first = Store::open(&dir.0).unwrap();
+        let like = first.library.clone();
+        assert!(
+            Store::create_profile(&dir.0, " \t ", &like)
+                .unwrap_err()
+                .contains("belum diisi")
+        );
+        let long = "x".repeat(PROFILE_NAME_MAX + 1);
+        assert!(
+            Store::create_profile(&dir.0, &long, &like)
+                .unwrap_err()
+                .contains("paling panjang")
+        );
+        assert!(
+            Store::create_profile(&dir.0, "profil UTAMA", &like)
+                .unwrap_err()
+                .contains("Sudah ada")
+        );
+        assert_eq!(ids(&dir.0).len(), 1);
+        // Nama sendiri boleh dipakai lagi dengan huruf berbeda.
+        first.store.rename("PROFIL utama ✓").unwrap();
+        assert_eq!(first.store.name(), "PROFIL utama ✓");
+        let other = Store::create_profile(&dir.0, "Ibadah Umum", &like).unwrap();
+        let other_id = other.store.id().to_owned();
+        drop(other);
+        assert!(
+            first
+                .store
+                .rename("ibadah umum")
+                .unwrap_err()
+                .contains("Sudah ada")
+        );
+        assert!(rename_profile(&dir.0, &other_id, "profil utama ✓").is_err());
+        rename_profile(&dir.0, &other_id, "Ibadah Pagi").unwrap();
+        let names: Vec<String> = profiles(&dir.0)
+            .unwrap()
+            .into_iter()
+            .map(|p| p.name)
+            .collect();
+        assert_eq!(names, vec!["PROFIL utama ✓", "Ibadah Pagi"]);
+        assert!(rename_profile(&dir.0, "../luar", "x").is_err());
+    }
+
+    #[test]
+    fn open_returns_the_profile_opened_last() {
+        let dir = TempDir::new("last");
+        let first = Store::open(&dir.0).unwrap();
+        let first_id = first.store.id().to_owned();
+        pause();
+        let second = Store::create_profile(&dir.0, "Kedua", &first.library).unwrap();
+        let second_id = second.store.id().to_owned();
+        drop((first, second));
+        assert_eq!(Store::open(&dir.0).unwrap().store.id(), second_id);
+        pause();
+        drop(Store::open_profile(&dir.0, &first_id).unwrap());
+        assert_eq!(Store::open(&dir.0).unwrap().store.id(), first_id);
+    }
+
+    #[test]
+    fn removed_profiles_move_aside_and_the_last_one_stays() {
+        let dir = TempDir::new("remove");
+        let first = Store::open(&dir.0).unwrap();
+        let first_id = first.store.id().to_owned();
+        let second = Store::create_profile(&dir.0, "Kedua", &first.library).unwrap();
+        let second_id = second.store.id().to_owned();
+        drop((first, second));
+        remove_profile(&dir.0, &second_id).unwrap();
+        assert_eq!(ids(&dir.0), vec![first_id.clone()]);
+        assert!(
+            dir.0
+                .join(DELETED_PROFILES_DIR)
+                .join(&second_id)
+                .join(PROFILE_DB)
+                .is_file()
+        );
+        assert!(
+            remove_profile(&dir.0, &first_id)
+                .unwrap_err()
+                .contains("terakhir")
+        );
+        assert!(remove_profile(&dir.0, &second_id).is_err());
+        assert!(remove_profile(&dir.0, "..").is_err());
+        assert_eq!(Store::open(&dir.0).unwrap().store.id(), first_id);
     }
 }

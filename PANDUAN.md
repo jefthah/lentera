@@ -60,7 +60,11 @@ Pustaka menampilkan maksimal 500 hasil pertama agar tetap responsif. Ketik refer
 
 ## Data dan cadangan
 
-Data tersimpan di `%LOCALAPPDATA%\Lentera\library.json` (macOS: `~/Library/Application Support/Lentera`), termasuk susunan ibadah, pilihan monitor, dan latar. `library.json.bak` menyimpan versi sebelum penyimpanan terakhir. Cadangan ini bukan riwayat lengkap; salin folder data secara berkala, terutama sebelum impor besar. Aplikasi tidak mengganti data rusak dengan pustaka kosong. Hanya satu proses dapat membuka folder data yang sama.
+Folder data ada di `%LOCALAPPDATA%\Lentera` (macOS: `~/Library/Application Support/Lentera`). Data disimpan per profil di `profiles\<id profil>\library.db`, sebuah basis data SQLite, termasuk susunan ibadah, pilihan monitor, dan latar. Untuk sekarang ada satu profil, **Profil utama**; memilih dan menambah profil menyusul.
+
+Saat versi ini pertama kali dibuka, isi `library.json` dari Lentera 0.2.1 atau sebelumnya dipindahkan otomatis ke Profil utama. `library.json` tidak diubah dan tidak dibaca lagi, sehingga tetap ada sebagai cadangan. Bila `library.json` rusak, Lentera berhenti dengan pesan dan tidak membuat profil.
+
+Setiap penyimpanan berlangsung dalam satu transaksi, jadi listrik padam saat menyimpan tidak meninggalkan data setengah tersimpan. `library.db.bak` berisi data profil saat Lentera terakhir dibuka; untuk memulihkannya, tutup Lentera lalu ganti `library.db` dengan salinan `library.db.bak`. Cadangan ini bukan riwayat lengkap; salin folder data secara berkala, terutama sebelum impor besar. Aplikasi tidak mengganti data rusak dengan pustaka kosong. Hanya satu proses dapat membuka folder data yang sama.
 
 Untuk menyimpan di lokasi lain, jalankan `lentera.exe --data-dir "D:\Data Ibadah"`. Setelah pembaruan lewat tombol **Perbarui**, Lentera dibuka kembali dengan folder data yang sama. Tutup aplikasi sebelum menyalin atau memulihkan cadangan. Layar tayang menyimpan salinan slide sehingga mengedit materi tidak langsung mengubah slide yang sedang ditampilkan.
 
@@ -73,7 +77,7 @@ Untuk menyimpan di lokasi lain, jalankan `lentera.exe --data-dir "D:\Data Ibadah
 
 ## Untuk pengembang
 
-Logika data, susunan ibadah, impor, dan penyimpanan ada di `crates/lentera-core` beserta pengujiannya. Aplikasi ada di `crates/lentera-app`: logika di `src/main.rs`, tata letak dan tema di `ui/app.slint`, pembaruan otomatis (Velopack) di `src/update.rs`. Tampilan digambar dengan renderer software Slint, tanpa browser tertanam atau server lokal. Tampilan Win32 lama ada di `crates/lentera-win32` dan tidak dirilis lagi. Rilis Windows dibuat oleh workflow `.github/workflows/rilis.yml` saat tag versi di-push.
+Logika data, susunan ibadah, impor, dan penyimpanan ada di `crates/lentera-core` beserta pengujiannya. Penyimpanan SQLite per profil dan pemindahan `library.json` ada di `src/store.rs`; skemanya diberi versi lewat `PRAGMA user_version`. Aplikasi ada di `crates/lentera-app`: logika di `src/main.rs`, tata letak dan tema di `ui/app.slint`, pembaruan otomatis (Velopack) di `src/update.rs`. Tampilan digambar dengan renderer software Slint, tanpa browser tertanam atau server lokal. Tampilan Win32 lama ada di `crates/lentera-win32` dan tidak dirilis lagi. Rilis Windows dibuat oleh workflow `.github/workflows/rilis.yml` saat tag versi di-push.
 
 Di Windows, pasang Rust stable dengan target `x86_64-pc-windows-msvc` serta Microsoft C++ Build Tools / Windows SDK. Di macOS, pasang Rust stable dan Xcode Command Line Tools. Dari folder proyek:
 

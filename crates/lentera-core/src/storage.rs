@@ -4,8 +4,13 @@ use std::{
     path::{Path, PathBuf},
 };
 
-/// Nama berkas pustaka di dalam folder data.
+/// Berkas pustaka Lentera ≤ 0.2.x. Sejak profil, isinya dipindahkan sekali ke
+/// profil pertama (lihat [`Store::open`](crate::Store::open)).
 pub const LIBRARY_FILE: &str = "library.json";
+
+/// Berkas kunci di folder data. Namanya sama dengan versi lama, supaya Lentera
+/// lama dan baru tidak bisa membuka folder yang sama bersamaan.
+pub const LOCK_FILE: &str = "library.lock";
 
 /// Folder data bawaan untuk sistem operasi yang sedang berjalan:
 ///

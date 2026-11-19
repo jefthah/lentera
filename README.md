@@ -55,7 +55,7 @@ Program 0.2.0 berukuran sekitar 11 MB (0.1.1: 2,2 MB). Angka ini merupakan pengu
 
 ## Data dan batasan beta
 
-Data disimpan di `%LOCALAPPDATA%\Lentera\library.json` (macOS: `~/Library/Application Support/Lentera`). Program terpasang terpisah di `%LOCALAPPDATA%\LenteraApp`, sehingga uninstall tidak menghapus data. Cadangan versi sebelum penyimpanan terakhir berada di `library.json.bak`. Hanya satu proses dapat membuka folder data yang sama. Tutup jendela Lentera yang sudah terbuka sebelum menjalankan salinan lain dengan data yang sama.
+Data disimpan per profil dalam basis data SQLite di `%LOCALAPPDATA%\Lentera\profiles\<id profil>\library.db` (macOS: `~/Library/Application Support/Lentera`). Untuk sekarang ada satu profil, **Profil utama**. Isi `library.json` dari versi 0.2.1 atau sebelumnya dipindahkan otomatis saat pertama kali dibuka, dan berkas lamanya dibiarkan sebagai cadangan. Program terpasang terpisah di `%LOCALAPPDATA%\LenteraApp`, sehingga uninstall tidak menghapus data. Cadangan data saat Lentera terakhir dibuka berada di `library.db.bak`. Hanya satu proses dapat membuka folder data yang sama. Tutup jendela Lentera yang sudah terbuka sebelum menjalankan salinan lain dengan data yang sama.
 
 Pustaka menampilkan maksimal 500 hasil pertama. Gunakan pencarian untuk mempersempit materi. Belum tersedia video, latar gambar, PowerPoint, NDI, streaming, impor database EasyWorship, atau pengambilan rentang ayat otomatis.
 

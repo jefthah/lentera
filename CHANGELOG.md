@@ -1,5 +1,15 @@
 # Riwayat rilis
 
+## Belum dirilis
+
+Persiapan akun dan profil: data kini tersimpan per profil dalam basis data SQLite. Tampilan dan cara pakai tidak berubah.
+
+- **Data lama pindah otomatis.** Saat pertama kali dibuka, isi `library.json` dipindahkan ke profil pertama, **Profil utama**, termasuk susunan ibadah, latar, dan pilihan monitor. `library.json` tidak diubah dan tetap ada sebagai cadangan. Bila berkas itu rusak, Lentera berhenti dengan pesan tanpa membuat profil.
+- Data baru berada di `profiles/<id profil>/library.db` di folder data. Setiap materi kini punya ID unik (UUID) serta waktu dibuat, diubah, dan dihapus, sebagai dasar sinkron antar perangkat nanti. Materi yang dihapus disimpan sebagai tanda hapus tanpa judul dan isi.
+- Penyimpanan hanya menulis materi yang berubah, dalam satu transaksi, jadi listrik padam saat menyimpan tidak meninggalkan data setengah tersimpan.
+- `library.db.bak` berisi data saat Lentera terakhir dibuka (sebelumnya `library.json.bak` berisi versi sebelum penyimpanan terakhir).
+- Program bertambah sekitar 1,1 MB karena SQLite ikut dibangun ke dalamnya. Pemakaian RAM tidak terlihat bertambah.
+
 ## 0.2.1 — 18 November 2026 — beta
 
 Lentera kini tampil dengan logonya sendiri di Windows.

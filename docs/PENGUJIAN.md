@@ -132,3 +132,25 @@ Diuji di komputer pengembangan yang sama (Windows 11, dua monitor, skala 100%).
 - Shortcut Desktop dan Start Menu yang dibuat installer menunjuk ke `LenteraApp\current\lentera.exe`, jadi ikonnya ikut berganti setelah pembaruan terpasang (bisa tertunda oleh cache ikon Windows).
 
 Belum diuji: pembaruan 0.2.0 → 0.2.1 dari GitHub Releases, tampilan ikon pada skala tampilan selain 100%, dan Settings → Apps.
+
+## Penyimpanan SQLite per profil — 19 November 2026
+
+Belum dirilis. Diuji di komputer pengembangan yang sama (Windows 11, dua monitor), build rilis tanpa fitur `snapshot`.
+
+- `cargo test -p lentera-core --locked`: 22 lulus, termasuk 6 tes baru untuk penyimpanan: profil pertama berisi materi contoh; `library.json` dipindahkan tanpa diubah dan tidak dipindahkan dua kali; `library.json` rusak tidak membuat profil; hanya materi yang berubah yang ditulis, materi terhapus menjadi tanda hapus, id lokal tidak dipakai ulang, dan cadangan berisi keadaan saat dibuka; profil yang pembuatannya terputus diabaikan dan profil dari versi lebih baru menolak dibuka; pustaka tidak valid tidak disimpan. `cargo clippy --workspace --all-targets` (juga `lentera-app` dengan `snapshot`) dan `cargo fmt --all --check` bersih.
+- Uji alur UI di folder kosong: `lentera` 11/11, `lentera-win32` 9/9. Satu profil terbentuk dengan materi contoh.
+- Pemindahan `library.json` 5,1 MB (2 materi contoh + 31.000 ayat sintetis): uji alur `lentera` 11/11 dan `lentera-win32` 9/9. Isi basis data dibandingkan dengan JSON: 31.002 materi sama persis (kecuali materi 1 yang memang diubah uji alur), susunan, latar, dan monitor sama, setiap materi punya UUID v7 unik, dan `library.json` tidak berubah. `library.db` 5,8 MB; `library.db.bak` terbentuk saat dibuka ulang.
+- Salinan `library.json` asli pengguna (3 materi) dibuka biasa lalu ditutup: ketiga materi, susunan, latar, dan monitor pindah sama persis; salinan JSON byte-identik. Folder data asli tidak dipakai.
+- Ukuran `lentera.exe`: 12.350.976 byte (0.2.1: 11.176.448 byte, +1,1 MB untuk SQLite). `lentera-win32.exe`: 3.408.896 byte.
+- Puncak working set selama uji alur (diambil tiap 30 ms; kasar):
+
+| Data | Versi ini | 0.2.1 terpasang |
+|---|---:|---:|
+| Folder kosong | 36,8 MiB | 43,6 MiB |
+| 31.000 ayat, saat pemindahan | 45,4 MiB | 52,9 MiB (JSON) |
+| 31.000 ayat, dibuka ulang dari SQLite | 47,1 MiB | — |
+| Win32, folder kosong / 31.000 ayat | 16,3 / 30,2 MiB | — |
+
+  0.2.1 dijalankan dari folder instalasinya, jadi angkanya tidak sepenuhnya setara. Kesimpulannya hanya: tidak terlihat kenaikan RAM.
+
+Belum diuji: macOS (menunggu CI), pembaruan dari 0.2.1 terpasang ke versi ini dengan data asli, folder data di flashdisk atau folder jaringan, dan listrik padam saat menyimpan (hanya dijamin oleh transaksi SQLite, tidak disimulasikan).

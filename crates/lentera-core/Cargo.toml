@@ -10,3 +10,6 @@ publish = false
 [dependencies]
 serde.workspace = true
 serde_json.workspace = true
+# Pustaka per profil (lihat src/store.rs).
+rusqlite.workspace = true
+uuid.workspace = true

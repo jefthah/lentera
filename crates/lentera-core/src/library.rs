@@ -1,18 +1,14 @@
 use serde::{Deserialize, Serialize};
-use std::{
-    fs,
-    io::Write,
-    path::{Path, PathBuf},
-};
+use std::{fs, path::Path};
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Kind {
     #[default]
     Song,
     Verse,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Item {
     pub id: u64,
     pub kind: Kind,
@@ -26,7 +22,7 @@ impl Item {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Library {
     pub version: u32,
@@ -105,6 +101,8 @@ impl Library {
         item.content = content.replace("\r\n", "\n");
         true
     }
+    /// Membaca `library.json` Lentera ≤ 0.2.x. Bila berkas tidak ada, hasilnya
+    /// pustaka contoh. Penyimpanan sekarang memakai [`Store`](crate::Store).
     pub fn load(path: &Path) -> Result<Self, String> {
         if !path.exists() {
             return Ok(Self::default());
@@ -129,23 +127,6 @@ impl Library {
             return Err("Susunan mengacu ke materi yang hilang.".into());
         }
         Ok(())
-    }
-    pub fn save(&self, path: &Path) -> Result<(), String> {
-        self.validate()?;
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-        }
-        let temp: PathBuf = path.with_extension(format!("tmp-{}", std::process::id()));
-        let bytes = serde_json::to_vec_pretty(self).map_err(|e| e.to_string())?;
-        let mut file = fs::File::create(&temp).map_err(|e| e.to_string())?;
-        file.write_all(&bytes)
-            .and_then(|_| file.sync_all())
-            .map_err(|e| e.to_string())?;
-        drop(file);
-        if path.exists() {
-            fs::copy(path, path.with_extension("json.bak")).map_err(|e| e.to_string())?;
-        }
-        fs::rename(&temp, path).map_err(|e| format!("Gagal menyimpan: {e}"))
     }
     /// Parse the entire TSV before mutating the library, so malformed imports are atomic.
     pub fn import_verses(&mut self, input: &str) -> Result<usize, String> {
@@ -265,27 +246,19 @@ mod tests {
         assert!(library.search(Some(Kind::Verse), "BERSYUKUR").is_empty());
     }
     #[test]
-    fn save_roundtrip_backup_and_corruption_protection() {
+    fn load_reads_old_files_and_keeps_corrupt_ones() {
         let directory = std::env::temp_dir().join(format!("lentera-test-{}", std::process::id()));
+        fs::create_dir_all(&directory).unwrap();
         let path = directory.join("library.json");
+        assert_eq!(Library::load(&path).unwrap(), Library::default());
         let mut library = Library::default();
-        library.save(&path).unwrap();
         library.items[0].title = "Judul baru".into();
-        library.save(&path).unwrap();
-        assert_eq!(Library::load(&path).unwrap().items[0].title, "Judul baru");
-        assert_ne!(
-            Library::load(&path.with_extension("json.bak"))
-                .unwrap()
-                .items[0]
-                .title,
-            "Judul baru"
-        );
+        fs::write(&path, serde_json::to_vec(&library).unwrap()).unwrap();
+        assert_eq!(Library::load(&path).unwrap(), library);
         fs::write(&path, b"broken").unwrap();
         assert!(Library::load(&path).is_err());
         assert_eq!(fs::read(&path).unwrap(), b"broken");
-        fs::remove_file(path).unwrap();
-        fs::remove_file(directory.join("library.json.bak")).unwrap();
-        fs::remove_dir(directory).unwrap();
+        fs::remove_dir_all(directory).unwrap();
     }
     #[test]
     fn editor_update_cleans_title_and_line_endings() {

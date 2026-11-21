@@ -2,8 +2,9 @@ name: Server Lentera
 
 # Server login dan sinkron (Go + PostgreSQL) di folder server/. Belum di-deploy dari sini.
 on:
+  # Branch fitur diuji lewat PR-nya, jadi push hanya memicu run di main.
   push:
-    branches: [main, "feature/**"]
+    branches: [main]
     paths:
       - "server/**"
       - ".github/workflows/server.yml"
@@ -12,6 +13,11 @@ on:
       - "server/**"
       - ".github/workflows/server.yml"
   workflow_dispatch:
+
+# Push baru ke PR yang sama membatalkan run lama yang belum selesai.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read

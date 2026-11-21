@@ -1,6 +1,8 @@
 # Riwayat rilis
 
-## Belum dirilis
+## 0.3.0 — 21 November 2026 — beta
+
+Ayat Alkitab cukup diketik referensinya, dan satu komputer bisa memakai beberapa profil.
 
 **Alkitab:** impor satu terjemahan sekali, lalu cukup ketik referensi seperti `Yoh 3:16-18` dan tekan Enter untuk menayangkannya.
 
@@ -13,7 +15,7 @@
 - Terjemahan disimpan di `alkitab.db` di folder data, berlaku untuk semua profil di komputer ini, dan tidak ikut sinkron. Tombol tempat sampah menghapusnya lagi.
 - Lentera tetap tidak menyertakan teks Alkitab. Gunakan terjemahan yang Anda berhak pakai.
 
-**Akun dan profil:** satu komputer kini bisa memakai beberapa profil, masing-masing dengan pustaka lirik, ayat, dan susunan ibadahnya sendiri. Data tersimpan per profil dalam basis data SQLite.
+**Profil:** satu komputer kini bisa memakai beberapa profil, masing-masing dengan pustaka lirik, ayat, dan susunan ibadahnya sendiri. Data tersimpan per profil dalam basis data SQLite.
 
 - **Pilih profil.** Tombol profil (lingkaran berhuruf awal dan nama profil) menggantikan tulisan "Lentera" di bilah atas dan membuka layar **Pilih profil**. Di sana profil bisa dibuka, dibuat (**Profil baru**), diganti namanya, dan dihapus. Nama profil juga tampil di judul jendela. Pada jendela yang lebih sempit dari 1200 px, tombol profil hanya menampilkan lingkarannya supaya tombol proyektor dan impor tidak terpotong.
 - Lentera membuka profil yang terakhir dipakai. Bila ada lebih dari satu profil, layar **Pilih profil** langsung muncul saat aplikasi dibuka.
@@ -26,6 +28,8 @@
 - Penyimpanan hanya menulis materi yang berubah, dalam satu transaksi, jadi listrik padam saat menyimpan tidak meninggalkan data setengah tersimpan.
 - `library.db.bak` berisi data saat Lentera terakhir dibuka (sebelumnya `library.json.bak` berisi versi sebelum penyimpanan terakhir).
 - Program bertambah sekitar 1,1 MB karena SQLite ikut dibangun ke dalamnya. Pemakaian RAM tidak terlihat bertambah.
+
+**Memperbarui:** pengguna 0.1.1, 0.2.0, dan 0.2.1 menerima versi ini lewat pembaruan otomatis; pengguna 0.1.0 memasang installer sekali. Pustaka lama pindah ke **Profil utama** saat 0.3.0 pertama kali dibuka. Program kini sekitar 12,8 MB (0.2.1: 11,2 MB).
 
 ## 0.2.1 — 18 November 2026 — beta
 

@@ -207,3 +207,19 @@ Belum dirilis. Diuji di komputer pengembangan yang sama (Windows 11, dua monitor
 - Tangkapan layar diperiksa: tab Alkitab kosong, form impor, tab dengan `Yoh 3:16-18` dan daftar ayat, serta slide proyektor dengan nomor ayat kecil. Pada 1024×640 daftar ayat sempit tetapi masih terbaca.
 
 Belum diuji: berkas Alkitab asli (OpenSong dan Zefania dari sumber lain bisa berbeda strukturnya), dialog pilih berkas dan konfirmasi hapus terjemahan yang dilewati uji alur, proyektor 4:3, daftar ayat dengan keyboard saja dan pembaca layar, pemakaian RAM dengan Alkitab lengkap, dan macOS (menunggu CI).
+
+## Rilis 0.3.0 — 21 November 2026
+
+Berisi penyimpanan SQLite per profil, layar Pilih profil, dan tab Alkitab dari bagian-bagian di atas. Diuji di komputer pengembangan yang sama (Windows 11).
+
+- Versi workspace 0.3.0 (`Cargo.lock`: 3 crate Lentera) dan `app.manifest` 0.3.0.0.
+- `cargo test --workspace --locked`: 50 lulus. `cargo clippy` untuk `lentera-core`, `lentera-win32`, dan `lentera-app` (`-D warnings`) serta `cargo fmt --all --check` bersih. `THIRD-PARTY-NOTICES.txt` disusun ulang: 300 crate, tidak berubah.
+- Build rilis `lentera.exe`: 12.792.832 byte (0.2.1: 11.176.448 byte). FileVersion / ProductVersion 0.3.0, FileDescription "Lentera".
+- Uji alur UI build rilis di folder kosong: 24/24, versi 0.3.0. `lentera-win32`: 9/9.
+- **Pemindahan data asli.** Salinan `library.json` dari Lentera 0.2.1 yang terpasang di komputer ini (4 materi, 1 baris susunan) dibuka dengan `--data-dir` pada folder salinan:
+  - Judul jendela "Lentera 0.3.0 · Profil utama", lalu ditutup normal (kode keluar 0).
+  - `profiles/<id>/library.db` dibuat. Keempat materi sama persis (id, jenis, judul, isi), begitu juga susunan, latar, dan pilihan monitor. UUID unik, `PRAGMA integrity_check` = ok, `user_version` 1.
+  - `library.json` tidak berubah (hash sama).
+  - Dibuka kedua kali: profil yang sama terbuka, `library.db.bak` dibuat, tidak ada profil ganda.
+
+Belum diuji: pembaruan otomatis 0.2.1 → 0.3.0 lewat GitHub Releases di instalasi asli (baru bisa setelah rilis diterbitkan), macOS (menunggu CI), dan tab Alkitab dengan berkas terjemahan asli.

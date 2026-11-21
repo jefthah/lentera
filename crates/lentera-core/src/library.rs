@@ -31,7 +31,15 @@ pub struct Library {
     pub service: Vec<u64>,
     pub background: usize,
     pub monitor: usize,
+    /// Materi sementara yang tidak disimpan, misalnya ayat Alkitab yang sedang
+    /// dilihat. Lihat [`Library::set_scratch`].
+    #[serde(skip)]
+    pub scratch: Vec<Item>,
 }
+
+/// Id materi sementara dimulai dari angka ini, jauh di atas id materi biasa,
+/// dan masih muat di `i32` untuk tampilan.
+pub const SCRATCH_ID_START: u64 = 1 << 30;
 
 impl Default for Library {
     fn default() -> Self {
@@ -44,6 +52,7 @@ impl Default for Library {
                     content: "Masukkan teks ayat dari terjemahan\nyang Anda berhak gunakan.\n\nAnda juga bisa mengimpor ayat\ndari berkas TSV UTF-8.".into() },
             ],
             service: vec![1, 2], background: 0, monitor: 0,
+            scratch: Vec::new(),
         }
     }
 }
@@ -81,8 +90,40 @@ pub fn split_slides(text: &str) -> Vec<String> {
 }
 
 impl Library {
+    /// Materi biasa atau materi sementara dengan id ini.
     pub fn item(&self, id: u64) -> Option<&Item> {
-        self.items.iter().find(|i| i.id == id)
+        self.items.iter().chain(&self.scratch).find(|i| i.id == id)
+    }
+    /// Menambah materi sementara: bisa dipratinjau dan ditayangkan seperti
+    /// materi biasa, tetapi tidak tampil di pustaka dan tidak disimpan.
+    /// Materi sementara lain dibuang, kecuali `keep` (misalnya yang sedang
+    /// tayang).
+    pub fn set_scratch(
+        &mut self,
+        kind: Kind,
+        title: String,
+        content: String,
+        keep: Option<u64>,
+    ) -> u64 {
+        // Id baru selalu lebih besar dari id sebelumnya, supaya id yang sudah
+        // dibuang tidak menunjuk materi lain.
+        let id = self
+            .scratch
+            .iter()
+            .map(|i| i.id + 1)
+            .max()
+            .unwrap_or(SCRATCH_ID_START);
+        self.scratch.retain(|i| Some(i.id) == keep);
+        self.scratch.push(Item {
+            id,
+            kind,
+            title,
+            content,
+        });
+        id
+    }
+    pub fn is_scratch(id: u64) -> bool {
+        id >= SCRATCH_ID_START
     }
     pub fn add(&mut self, kind: Kind, title: String, content: String) -> u64 {
         let id = self.next_id;
@@ -97,6 +138,7 @@ impl Library {
     }
     pub fn remove(&mut self, id: u64) {
         self.items.retain(|i| i.id != id);
+        self.scratch.retain(|i| i.id != id);
         self.service.retain(|i| *i != id);
     }
     /// Menyimpan isi editor ke materi. Judul kosong menjadi "Tanpa judul".
@@ -281,6 +323,32 @@ mod tests {
         assert!(library.update(1, " Judul ", ""));
         assert_eq!(library.items[0].title, "Judul");
         assert!(!library.update(99, "x", "y"));
+    }
+    #[test]
+    fn scratch_items_show_like_items_but_stay_out_of_the_library() {
+        let mut library = Library::default();
+        let first = library.set_scratch(
+            Kind::Verse,
+            "Yohanes 3:16 (TB)".into(),
+            "A
+
+B"
+            .into(),
+            None,
+        );
+        assert!(Library::is_scratch(first) && !Library::is_scratch(1));
+        assert_eq!(library.item(first).unwrap().slides(), ["A", "B"]);
+        assert_eq!(library.slide(first, 1).unwrap().text, "B");
+        assert!(library.search(None, "Yohanes").is_empty());
+        library.validate().unwrap();
+        // Yang lama dibuang, kecuali yang diminta tetap ada.
+        let second = library.set_scratch(Kind::Verse, "B".into(), "B".into(), Some(first));
+        let third = library.set_scratch(Kind::Verse, "C".into(), "C".into(), Some(first));
+        assert!(library.item(first).is_some() && library.item(second).is_none());
+        assert_ne!(third, first);
+        library.set_scratch(Kind::Verse, "D".into(), "D".into(), None);
+        assert_eq!(library.scratch.len(), 1);
+        assert!(library.item(first).is_none());
     }
     #[test]
     fn invalid_ids_and_future_formats_are_rejected() {

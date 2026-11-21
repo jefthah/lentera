@@ -178,3 +178,32 @@ Belum dipakai aplikasi dan belum di-deploy. Diuji di komputer pengembangan (Wind
 - Program `lentera-server.exe` (12,5 MB, `CGO_ENABLED=0`) dijalankan manual: `migrate up` / `status`, lalu `serve`. Lewat `curl`: health, minta kode (kode muncul di log), verifikasi, buat profil, sinkron satu materi, daftar profil dengan revisi 1, dan `401` tanpa token. Token tidak tercatat di log.
 
 Belum diuji: `go test -race` (butuh cgo; berjalan di CI Linux), pengiriman email lewat Resend, server di belakang Caddy, beban dengan 31.000 ayat lewat HTTP, dan aplikasi Lentera sebagai klien.
+
+## Alkitab — 21 November 2026
+
+Belum dirilis. Diuji di komputer pengembangan yang sama (Windows 11, dua monitor), hanya dengan teks buatan. Tidak ada terjemahan Alkitab asli yang dipakai.
+
+- `cargo test --workspace --locked`: 50 lulus di `lentera-core`, termasuk 24 tes baru:
+  - Kitab: tabel 66 kitab lengkap dengan nama dan singkatan unik; nama Indonesia, Inggris, singkatan TB, dan angka Romawi; awal nama harus menunjuk satu kitab (`Fil` → Filipi, `Ye` menyebut tiga pilihan).
+  - Referensi: satu ayat, rentang, lintas pasal, koma, titik koma, satu dan beberapa pasal, kitab satu pasal (`Yud 3`), nama kitab saja, referensi yang masih diketik (`Yoh 3:`), pesan galat, label yang rapi, dan rentang yang dipendekkan sampai ayat terakhir.
+  - Impor: OpenSong menurut nama kitab dengan ayat gabungan `5-6` dan kitab di luar 66 dilewati; OpenSong dengan 66 nama tak dikenal memakai urutan; Zefania dengan nomor kitab, bagian `INFORMATION`, dan catatan kaki dibuang; TSV dua bentuk dengan BOM dan baris judul; galat yang menyebut nomor baris.
+  - `alkitab.db`: tambah, singkatan ganda ditolak, buka ulang, lookup rentang / daftar / ayat gabungan, galat (kitab tidak ada, pasal dan ayat di luar jangkauan), hapus terjemahan beserta ayatnya, dan skema yang lebih baru ditolak.
+  - Slide: nomor ayat kecil, 1–3 ayat per slide dengan slide baru di pasal baru, ayat panjang mendapat slide sendiri, dan pemotongan baris tidak menghilangkan kata.
+  - Materi sementara tampil seperti materi biasa tetapi tidak tersimpan di pustaka, dan id-nya tidak dipakai ulang.
+- `cargo clippy` untuk `lentera-core`, `lentera-win32`, `lentera-app`, dan `lentera-app` dengan `snapshot` (`-D warnings`) serta `cargo fmt --all --check` bersih.
+- Uji alur UI `lentera`: 24/24 di build debug dengan `snapshot` dan di build rilis, termasuk 7 pemeriksaan baru: tab Alkitab kosong; membaca berkas TSV buatan (36 ayat, singkatan usulan "AU"); menyimpannya sebagai "UJI"; `yoh 3:16-18` menampilkan slide dan daftar 36 ayat; Shift+klik ayat 20 menjadi `Yoh 3:16-20` dengan 5 ayat tersorot; menayangkannya tanpa masuk pustaka; **+ Susunan** menyimpan "Yohanes 3:16-20 (UJI)" ke pustaka dan susunan, dan layar tayang pindah ke materi yang tersimpan. `lentera-win32`: lulus.
+- Program rilis 12,8 MB (12.792.832 byte). `THIRD-PARTY-NOTICES.txt` tidak berubah karena `roxmltree` sudah dipakai Slint.
+- Kecepatan, build rilis, dengan teks sintetis 33.575 ayat dalam 66 kitab:
+
+  | Langkah | Waktu |
+  |---|---:|
+  | Membaca OpenSong XML 3,9 MB / Zefania XML 4,4 MB | 24 / 26 ms |
+  | Menyimpan satu terjemahan ke `alkitab.db` | 42 ms |
+  | 100 kali lookup referensi | 22 ms |
+  | Satu lookup 300 ayat | 0,27 ms |
+  | Menghapus terjemahan (termasuk `VACUUM`) | 82 ms |
+
+  `alkitab.db` berisi dua terjemahan sintetis berukuran 9,0 MB.
+- Tangkapan layar diperiksa: tab Alkitab kosong, form impor, tab dengan `Yoh 3:16-18` dan daftar ayat, serta slide proyektor dengan nomor ayat kecil. Pada 1024×640 daftar ayat sempit tetapi masih terbaca.
+
+Belum diuji: berkas Alkitab asli (OpenSong dan Zefania dari sumber lain bisa berbeda strukturnya), dialog pilih berkas dan konfirmasi hapus terjemahan yang dilewati uji alur, proyektor 4:3, daftar ayat dengan keyboard saja dan pembaca layar, pemakaian RAM dengan Alkitab lengkap, dan macOS (menunggu CI).

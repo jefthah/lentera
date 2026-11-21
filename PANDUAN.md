@@ -18,7 +18,7 @@ Versi macOS belum punya installer; bangun dari kode sumber (lihat **Untuk pengem
 ## Mengenal layar
 
 - **Bilah atas:** tombol profil (lingkaran berhuruf awal dan nama profil yang sedang dibuka), kolom pencarian, tombol **Buka / Tutup proyektor**, pilihan monitor proyektor, menu **Impor**, dan tombol **ⓘ** (Tentang Lentera).
-- **Kiri:** **Susunan ibadah** di atas, **Pustaka** di bawah. Filter **Semua / Lagu / Ayat** menyaring pustaka.
+- **Kiri:** **Susunan ibadah** di atas, lalu tab **Pustaka** dan **Alkitab**. Di Pustaka, filter **Semua / Lagu / Ayat** menyaring materi. Tab Alkitab dijelaskan di bagian **Alkitab**.
 - **Tengah:** semua slide materi terpilih. Slide berbingkai kuning sedang dipratinjau, slide berbingkai merah sedang tayang.
 - **Kanan:** **Pratinjau**, tombol **Tayangkan**, layar **Tayang** (yang sedang dilihat jemaat), tombol kontrol, dan **Latar layar**.
 - **Bilah bawah:** pesan status, tombol cepat, dan tombol pembaruan bila ada.
@@ -47,16 +47,56 @@ Dengan satu monitor, jendela proyektor terbuka sebagai jendela biasa. Dengan dua
 | Esc | Keluar layar penuh; tekan lagi untuk menyembunyikan proyektor |
 | Ctrl+S | Simpan sekarang |
 | Ctrl+N | Materi baru sesuai filter |
+| Enter di kotak referensi Alkitab | Tayangkan ayat yang diketik |
+
+## Alkitab
+
+Lentera tidak membawa teks Alkitab. Impor sekali terjemahan yang Anda berhak pakai; setelah itu ayat cukup ditayangkan dengan mengetik referensinya.
+
+**Mengimpor terjemahan.** Buka tab **Alkitab** di kolom kiri lalu tekan **Impor Alkitab**, atau pilih menu **Impor → Alkitab lengkap**. Pilih berkas OpenSong XML, Zefania XML, atau TSV UTF-8 (formatnya di bawah). Lentera menyebut jumlah kitab dan ayat yang terbaca. Periksa **Singkatan** (ditulis di judul ayat, misalnya TB; paling panjang 12 karakter dan belum dipakai terjemahan lain) dan **Nama terjemahan**, lalu tekan **Simpan**. Terjemahan berikutnya diimpor lewat ikon impor di samping pilihan terjemahan.
+
+**Menayangkan ayat.**
+
+1. Pilih terjemahan, lalu ketik referensi di kotak di bawahnya, misalnya `Yoh 3:16-18`. Slide ayatnya langsung tampil di tengah untuk dipratinjau, dan di bawah kotak tampil jumlah ayat dan slide.
+2. Tekan **Enter** untuk menayangkan slide pertama, lalu lanjutkan dengan **Berikutnya** seperti materi lain.
+3. Di bawahnya tampil seluruh ayat dalam pasal itu. Klik ayat untuk memilihnya, **Shift+klik** ayat lain untuk memilih rentang, atau klik dua kali untuk langsung menayangkan. Ayat yang dipilih tersorot dan referensinya ditulis di kotak.
+
+| Ketik | Hasil |
+|---|---|
+| `Yoh 3:16` atau `Yoh 3.16` | Satu ayat |
+| `Yoh 3:16-18` | Rentang ayat |
+| `Yoh 3:16-4:2` | Rentang yang melewati pasal |
+| `Rm 8:28, 31-39` | Beberapa bagian dalam satu pasal |
+| `Yoh 3:16; 4:1` | Bagian dari beberapa pasal |
+| `Mzm 23` / `Mzm 1-2` | Satu pasal / beberapa pasal penuh |
+| `Yud 3` | Ayat 3, untuk kitab yang hanya satu pasal |
+| `Yoh` | Pasal 1 tampil di daftar; ketik atau klik ayatnya |
+
+Nama kitab boleh ditulis lengkap (`Yohanes`), dengan singkatan TB (`Kej`, `Mzm`, `1Kor`, `Why`), dengan angka Romawi (`II Kor`), dalam bahasa Inggris (`John`, `Ps`), atau dengan awal nama yang jelas (`Fil`). Huruf besar/kecil tidak berpengaruh. Bila awal nama bisa berarti beberapa kitab (misalnya `Ye`), Lentera menyebut pilihannya. Rentang yang melewati ayat terakhir dipendekkan (`Yoh 3:16-99` menjadi `Yoh 3:16-36`). Sekali tampil paling banyak 300 ayat.
+
+**Slide ayat.** **Otomatis** membagi 1–3 ayat per slide menurut panjangnya, dengan nomor ayat kecil di depan setiap ayat. **1 ayat/slide** memberi tepat satu ayat per slide. Pasal baru selalu dimulai di slide baru. Baris dipotong supaya teks sebesar mungkin di layar 16:9.
+
+**Menyimpan ke susunan.** Ayat yang dilihat atau ditayangkan dari tab Alkitab tidak masuk pustaka. Tekan **+ Susunan** untuk menyimpannya ke pustaka profil sebagai materi Ayat, misalnya "Yohanes 3:16-18 (TB)", sekaligus menambahkannya ke susunan ibadah. **Edit materi** juga menyimpannya ke pustaka dulu; setelah itu teksnya bisa diubah seperti materi lain. Ayat yang sama tidak disimpan dua kali.
+
+**Menghapus terjemahan.** Ikon tempat sampah di samping pilihan terjemahan menghapus terjemahan itu dari komputer setelah konfirmasi. Materi ayat yang sudah disimpan di pustaka tidak ikut terhapus.
+
+**Format berkas Alkitab:**
+
+- **OpenSong XML** (`<bible>` / `<b n="…">` / `<c n="…">` / `<v n="…">`): kitab dikenali dari namanya, dalam bahasa Indonesia atau Inggris. Bila namanya tidak dikenal tetapi berkas berisi tepat 66 kitab, urutannya yang dipakai.
+- **Zefania XML** (`XMLBIBLE` / `BIBLEBOOK bnumber` / `CHAPTER` / `VERS`): kitab dikenali dari nomornya. Nama dan singkatan diambil dari bagian `INFORMATION` bila ada. Catatan kaki dan rujukan silang dibuang.
+- **TSV UTF-8**, satu ayat per baris: `kitab[TAB]pasal[TAB]ayat[TAB]teks`, dengan kitab berupa nomor 1–66 atau nama / singkatan; atau `referensi[TAB]teks`, dengan referensi satu ayat seperti `Yoh 3:16`. Baris judul kolom di awal, baris kosong, dan baris yang diawali `#` dilewati.
+
+Ayat gabungan seperti `5-6` didukung. Kitab di luar 66 kitab (misalnya Deuterokanonika), nomor ayat ganda, dan ayat kosong dilewati, dan jumlahnya disebutkan sebelum menyimpan. Bila ada baris TSV yang salah, Lentera menyebut nomor barisnya dan tidak menyimpan apa pun. Batas ukuran berkas 32 MB.
 
 ## Impor lirik dan ayat
 
-Gunakan menu **Impor** di bilah atas.
+Gunakan menu **Impor** di bilah atas. Untuk satu terjemahan Alkitab lengkap, pakai **Impor → Alkitab lengkap** (lihat **Alkitab**); impor di bawah ini menambahkan materi ke pustaka profil.
 
 **Lirik lagu (.txt):** berkas UTF-8; nama berkas menjadi judul. Pisahkan bagian lirik dengan baris kosong. Tersedia `contoh-lirik.txt`.
 
 **Ayat Alkitab (.tsv):** satu ayat per baris, dengan format `referensi[TAB]teks`. `[TAB]` berarti karakter tab, bukan tulisan literal. Tersedia `contoh-ayat.tsv`. Jika perlu baris baru di dalam satu ayat, tulis `\n` pada kolom teks. Baris yang diawali `#` diabaikan. Duplikat referensi + isi dilewati. Seluruh berkas diperiksa sebelum data ditambahkan. Batas ukuran impor adalah 32 MB.
 
-Pustaka menampilkan maksimal 500 hasil pertama agar tetap responsif. Ketik referensi atau kata di kolom pencarian untuk mempersempit hasil. Aplikasi ini tidak menyertakan terjemahan Alkitab lengkap atau database lagu berlisensi. Gunakan materi yang Anda berhak gunakan.
+Pustaka menampilkan maksimal 500 hasil pertama agar tetap responsif. Ketik referensi atau kata di kolom pencarian untuk mempersempit hasil. Aplikasi ini tidak menyertakan teks Alkitab atau database lagu berlisensi. Gunakan materi yang Anda berhak gunakan.
 
 ## Profil
 
@@ -75,6 +115,8 @@ Nama profil yang sedang dibuka juga tampil di judul jendela. Pada jendela yang l
 
 Folder data ada di `%LOCALAPPDATA%\Lentera` (macOS: `~/Library/Application Support/Lentera`). Data disimpan per profil di `profiles\<id profil>\library.db`, sebuah basis data SQLite, termasuk susunan ibadah, pilihan monitor, dan latar. Profil yang dihapus dipindahkan ke `profiles-deleted\<id profil>`.
 
+Terjemahan Alkitab yang diimpor disimpan di `alkitab.db` di folder data, satu untuk semua profil di komputer ini, dan tidak ikut terhapus bersama profil. Berkas ini tidak punya cadangan `.bak`; simpan berkas aslinya supaya bisa diimpor ulang.
+
 Saat versi ini pertama kali dibuka, isi `library.json` dari Lentera 0.2.1 atau sebelumnya dipindahkan otomatis ke Profil utama. `library.json` tidak diubah dan tidak dibaca lagi, sehingga tetap ada sebagai cadangan. Bila `library.json` rusak, Lentera berhenti dengan pesan dan tidak membuat profil.
 
 Setiap penyimpanan berlangsung dalam satu transaksi, jadi listrik padam saat menyimpan tidak meninggalkan data setengah tersimpan. `library.db.bak` berisi data profil saat Lentera terakhir dibuka; untuk memulihkannya, tutup Lentera lalu ganti `library.db` dengan salinan `library.db.bak`. Cadangan ini bukan riwayat lengkap; salin folder data secara berkala, terutama sebelum impor besar. Aplikasi tidak mengganti data rusak dengan pustaka kosong. Hanya satu proses dapat membuka folder data yang sama.
@@ -83,14 +125,14 @@ Untuk menyimpan di lokasi lain, jalankan `lentera.exe --data-dir "D:\Data Ibadah
 
 ## Ruang lingkup versi ini
 
-- Lirik, ayat teks, pencarian, editor, susunan ibadah, pratinjau, keluaran terpisah, layar penuh, blackout, dan tiga warna latar.
+- Lirik, ayat teks, tab Alkitab dengan referensi dan terjemahan yang diimpor, pencarian, editor, susunan ibadah, pratinjau, keluaran terpisah, layar penuh, blackout, dan tiga warna latar.
 - Windows 10/11 **64-bit** dengan installer dan pembaruan otomatis. macOS dari kode sumber. Antarmuka ditujukan untuk layar minimal sekitar 1024×640.
-- Belum mencakup video, latar gambar, PowerPoint, NDI, streaming, pencarian rentang ayat otomatis, atau impor database EasyWorship.
+- Belum mencakup video, latar gambar, PowerPoint, NDI, streaming, pencarian kata di seluruh Alkitab, atau impor database EasyWorship.
 - Belum ada sertifikat penandatanganan aplikasi. Jangan gunakan untuk layanan langsung sebelum latihan dan pengujian di komputer / proyektor tujuan.
 
 ## Untuk pengembang
 
-Logika data, susunan ibadah, impor, dan penyimpanan ada di `crates/lentera-core` beserta pengujiannya. Penyimpanan SQLite per profil dan pemindahan `library.json` ada di `src/store.rs`; skemanya diberi versi lewat `PRAGMA user_version`. Aplikasi ada di `crates/lentera-app`: logika di `src/main.rs`, tata letak dan tema di `ui/app.slint`, pembaruan otomatis (Velopack) di `src/update.rs`. Tampilan digambar dengan renderer software Slint, tanpa browser tertanam atau server lokal. Tampilan Win32 lama ada di `crates/lentera-win32` dan tidak dirilis lagi. Rilis Windows dibuat oleh workflow `.github/workflows/rilis.yml` saat tag versi di-push. Server login dan sinkron (Go + PostgreSQL, belum dipakai aplikasi) ada di `server/`; protokolnya di `docs/SINKRON.md`.
+Logika data, susunan ibadah, impor, dan penyimpanan ada di `crates/lentera-core` beserta pengujiannya. Penyimpanan SQLite per profil dan pemindahan `library.json` ada di `src/store.rs`; skemanya diberi versi lewat `PRAGMA user_version`. Alkitab ada di `src/bible/`: daftar 66 kitab, pembaca referensi, impor OpenSong / Zefania / TSV, pembagian slide ayat, dan `alkitab.db`. Aplikasi ada di `crates/lentera-app`: logika di `src/main.rs`, tata letak dan tema di `ui/app.slint`, pembaruan otomatis (Velopack) di `src/update.rs`. Tampilan digambar dengan renderer software Slint, tanpa browser tertanam atau server lokal. Tampilan Win32 lama ada di `crates/lentera-win32` dan tidak dirilis lagi. Rilis Windows dibuat oleh workflow `.github/workflows/rilis.yml` saat tag versi di-push. Server login dan sinkron (Go + PostgreSQL, belum dipakai aplikasi) ada di `server/`; protokolnya di `docs/SINKRON.md`.
 
 Di Windows, pasang Rust stable dengan target `x86_64-pc-windows-msvc` serta Microsoft C++ Build Tools / Windows SDK. Di macOS, pasang Rust stable dan Xcode Command Line Tools. Dari folder proyek:
 

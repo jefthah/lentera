@@ -2,7 +2,18 @@
 
 ## Belum dirilis
 
-Persiapan akun dan profil: satu komputer kini bisa memakai beberapa profil, masing-masing dengan pustaka lirik, ayat, dan susunan ibadahnya sendiri. Data tersimpan per profil dalam basis data SQLite.
+**Alkitab:** impor satu terjemahan sekali, lalu cukup ketik referensi seperti `Yoh 3:16-18` dan tekan Enter untuk menayangkannya.
+
+- **Tab Alkitab** di kolom kiri, di samping Pustaka. Pilih terjemahan lalu ketik referensi; slide ayatnya langsung tampil di tengah untuk dipratinjau. **Enter** menayangkan slide pertama.
+- Referensi yang dikenali: `Yoh 3:16`, `Yoh 3:16-18`, `Yoh 3.16`, `Yoh 3:16-4:2`, `Rm 8:28, 31-39`, `Yoh 3:16; 4:1`, satu pasal (`Mzm 23`), beberapa pasal (`Mzm 1-2`), dan `Yud 3` untuk kitab yang hanya satu pasal. Nama kitab boleh ditulis lengkap, dengan singkatan TB (`Kej`, `Mzm`, `1Kor`, `Why`), dengan angka Romawi (`II Kor`), atau dalam bahasa Inggris (`John`, `Ps`). Bila nama kitab belum jelas (misalnya `Ye`), Lentera menyebut pilihannya. Rentang yang melewati ayat terakhir dipendekkan (`Yoh 3:16-99` menjadi `Yoh 3:16-36`).
+- Daftar ayat satu pasal di bawah kotak referensi: klik ayat untuk memilihnya, **Shift+klik** untuk memilih rentang, klik dua kali untuk langsung menayangkan.
+- Slide dibagi otomatis 1–3 ayat menurut panjangnya, dengan nomor ayat kecil di depan setiap ayat. Pilihan **1 ayat/slide** juga tersedia. Baris dipotong supaya teks sebesar mungkin di layar 16:9.
+- Ayat yang dilihat atau ditayangkan tidak masuk pustaka. **+ Susunan** menyimpannya ke pustaka profil sebagai materi Ayat, misalnya "Yohanes 3:16-18 (TB)", lalu menambahkannya ke susunan ibadah. **Edit materi** juga menyimpannya ke pustaka dulu. Ayat yang sama tidak disimpan dua kali.
+- **Impor Alkitab** lewat tombol di tab Alkitab atau menu **Impor → Alkitab lengkap**: OpenSong XML, Zefania XML, atau TSV UTF-8 (`kitab [TAB] pasal [TAB] ayat [TAB] teks`, atau `referensi [TAB] teks`). Ayat gabungan seperti `5-6` didukung. Kitab di luar 66 kitab, nomor ganda, dan ayat kosong dilewati dan jumlahnya disebutkan. Singkatan (misalnya TB) dan nama terjemahan diisi sebelum disimpan.
+- Terjemahan disimpan di `alkitab.db` di folder data, berlaku untuk semua profil di komputer ini, dan tidak ikut sinkron. Tombol tempat sampah menghapusnya lagi.
+- Lentera tetap tidak menyertakan teks Alkitab. Gunakan terjemahan yang Anda berhak pakai.
+
+**Akun dan profil:** satu komputer kini bisa memakai beberapa profil, masing-masing dengan pustaka lirik, ayat, dan susunan ibadahnya sendiri. Data tersimpan per profil dalam basis data SQLite.
 
 - **Pilih profil.** Tombol profil (lingkaran berhuruf awal dan nama profil) menggantikan tulisan "Lentera" di bilah atas dan membuka layar **Pilih profil**. Di sana profil bisa dibuka, dibuat (**Profil baru**), diganti namanya, dan dihapus. Nama profil juga tampil di judul jendela. Pada jendela yang lebih sempit dari 1200 px, tombol profil hanya menampilkan lingkarannya supaya tombol proyektor dan impor tidak terpotong.
 - Lentera membuka profil yang terakhir dipakai. Bila ada lebih dari satu profil, layar **Pilih profil** langsung muncul saat aplikasi dibuka.

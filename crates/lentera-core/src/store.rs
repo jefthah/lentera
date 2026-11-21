@@ -387,6 +387,7 @@ impl Store {
             service,
             background: number("background")?,
             monitor: number("monitor")?,
+            scratch: Vec::new(),
         };
         library.validate()?;
         Ok(library)

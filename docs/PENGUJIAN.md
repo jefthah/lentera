@@ -363,3 +363,48 @@ Belum diuji:
 - Kecerahan dan keterbacaan di proyektor sebenarnya.
 - macOS.
 - PNG asli (baru PNG buatan tes) dan JPEG CMYK.
+
+## Latar per materi — 22 November 2026
+
+Belum dirilis. Setiap materi pustaka bisa memakai gambar latar sendiri. Materi tanpa gambar sendiri memakai latar umum (warna atau gambar, seperti di bagian "Latar gambar" di atas). Diuji di komputer pengembangan yang sama.
+
+Cara kerja:
+
+- `Item.background` berisi nama gambar di folder `backgrounds` profil, atau `None` untuk latar umum. Nilainya disimpan di kolom baru `items.background`, dan mengubahnya juga memperbarui `updated_at` materi. Nama yang menunjuk ke luar folder latar diabaikan saat dibaca.
+- Skema profil naik ke versi 2. Profil versi 1 (Lentera 0.3.0–0.4.0) diperbarui saat dibuka dengan `ALTER TABLE items ADD COLUMN background TEXT` dalam satu transaksi, sebelum pustaka dibaca. Cadangan `library.db.bak` dibuat sesudahnya, jadi juga berskema 2. Lentera 0.4.0 menolak profil versi 2 dengan pesan "dibuat oleh Lentera versi yang lebih baru"; penolakan versi yang lebih baru sudah diuji di tes unit.
+- Aplikasi menghitung dua latar terpisah:
+  - latar materi terpilih, untuk slide di tengah, pratinjau, dan hasil editor;
+  - latar materi yang tayang, untuk layar Tayang dan proyektor.
+- Materi sementara (ayat Alkitab yang belum di pustaka) selalu memakai latar umum. Tombol latar menyimpannya ke pustaka dulu, seperti **Edit materi**.
+- Hanya gambar yang sedang dipakai (latar umum, materi terpilih, materi tayang) yang disimpan di memori, jadi paling banyak tiga gambar. Gambar materi yang hilang atau rusak dilepas dari materi itu, dengan pesan.
+- Menghapus gambar dari galeri melepasnya dari semua materi dan dari latar umum. Dialog konfirmasi menyebut keduanya dan jumlah materinya.
+- Tombol latar berupa chip kecil di samping keterangan di atas judul: "Latar umum" atau "Latar: nama". Di lebar minimum 1024 px teksnya dipendekkan, sedangkan **Edit materi** kini tidak pernah dipotong.
+
+Verifikasi:
+
+- `cargo test -p lentera-core --locked`: 80 tes lulus, termasuk 2 tes baru:
+  - latar per materi di `Library`: pasang, lepas, hitung pemakai, materi sementara, dan `library.json` lama;
+  - simpan dan baca latar materi, nama di luar folder, serta pembaruan profil skema 1 ke 2 dengan isi tetap.
+- `cargo fmt --all --check` dan `cargo clippy` untuk `lentera-core`, `lentera-app` (dengan dan tanpa `snapshot`), dan `lentera-win32` (`--all-targets -D warnings`) bersih.
+- Build rilis `lentera.exe`: 13.324.288 byte (0.4.0: 12.891.136 byte; dengan latar umum saja: 13.290.496 byte).
+- Uji alur UI build rilis di folder kosong: 31/31. Dua pemeriksaan baru, dan pemeriksaan hapus diperluas:
+  - materi terpilih diberi gambar sendiri saat latar umum berupa warna;
+  - materi itu ditayangkan, lalu dikembalikan ke latar umum;
+  - menghapus gambar yang menjadi latar umum sekaligus latar materi melepas keduanya dan mengosongkan memori gambar.
+- `lentera-win32` (profil `ci`): 9/9.
+- **Aplikasi** (build `ci`, jendela 1360×840, folder data kosong, 2 gambar asli; klik lewat `PostMessage`):
+  - Chip "Latar umum" membuka galeri **Latar materi** untuk lagu contoh. Setelah gambar diklik, slide dan pratinjau memakai gambar itu, layar Tayang yang kosong tetap memakai latar umum, status "Latar materi ini: …", dan tombol **Pakai latar umum** muncul.
+  - Lagu ditayangkan, lalu ayat dipilih dan latar umum diganti gambar lain. Ayat memakai latar umum yang baru, sedangkan lagu yang tayang tetap memakai gambarnya sendiri di layar Tayang dan proyektor.
+  - Setelah **Berikutnya** dua kali, tayangan pindah ke ayat dan latarnya ikut menjadi latar umum.
+  - Setelah aplikasi dibuka ulang, lagu tetap "Latar: …".
+  - Gambar yang menjadi latar umum dan latar lagu dihapus. Dialog menyebut keduanya; lagu kembali ke latar umum, latar umum kembali ke warna, dan berkasnya hilang dari folder.
+  - Temuan saat uji, sudah diperbaiki:
+    - chip awalnya melebar memenuhi baris;
+    - keterangan galeri latar umum tiga baris dan mendorong gambar ke bawah, kini dua baris;
+    - di 1024 px **Edit materi** terpotong.
+
+Belum diuji:
+
+- Memori saat latar umum, materi terpilih, dan materi tayang memakai tiga gambar berbeda. Perkiraannya sekitar 6 MiB per gambar; belum diukur.
+- Membuka profil berskema 2 dengan Lentera 0.4.0 yang terpasang.
+- PC dengan RAM 2–4 GB, proyektor sebenarnya, dan macOS.

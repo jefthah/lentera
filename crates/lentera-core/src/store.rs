@@ -41,8 +41,10 @@ pub const DELETED_PROFILES_DIR: &str = "profiles-deleted";
 /// Panjang maksimum nama profil, dalam karakter.
 pub const PROFILE_NAME_MAX: usize = 40;
 
-/// Versi skema basis data (`PRAGMA user_version`).
-const SCHEMA_VERSION: i32 = 1;
+/// Versi skema basis data (`PRAGMA user_version`). Versi 2 menambah
+/// `items.background`; profil versi 1 diperbarui saat dibuka (lihat
+/// [`upgrade`]).
+const SCHEMA_VERSION: i32 = 2;
 
 const SCHEMA: &str = "
 CREATE TABLE meta (
@@ -57,7 +59,8 @@ CREATE TABLE items (
     content    TEXT NOT NULL,
     created_at INTEGER NOT NULL,              -- milidetik sejak 1970 (UTC)
     updated_at INTEGER NOT NULL,
-    deleted_at INTEGER                        -- terisi = tanda hapus
+    deleted_at INTEGER,                       -- terisi = tanda hapus
+    background TEXT                           -- gambar latar sendiri; NULL = latar umum
 );
 CREATE TABLE service (
     position INTEGER PRIMARY KEY,
@@ -231,6 +234,7 @@ impl Store {
         let conn = connect(&path)?;
         let profile = read_profile(&conn, id, &path)?
             .ok_or_else(|| format!("Profil {id} belum selesai dibuat."))?;
+        upgrade(&conn, &path)?;
         let store = Self {
             conn,
             data_dir: data_dir.into(),
@@ -339,7 +343,7 @@ impl Store {
         let mut stmt = self
             .conn
             .prepare(
-                "SELECT id, kind, title, content FROM items
+                "SELECT id, kind, title, content, background FROM items
                  WHERE deleted_at IS NULL ORDER BY id",
             )
             .map_err(err)?;
@@ -350,16 +354,19 @@ impl Store {
                     row.get::<_, String>(1)?,
                     row.get::<_, String>(2)?,
                     row.get::<_, String>(3)?,
+                    row.get::<_, Option<String>>(4)?,
                 ))
             })
             .map_err(err)?;
         for row in rows {
-            let (id, kind, title, content) = row.map_err(err)?;
+            let (id, kind, title, content, background) = row.map_err(err)?;
             items.push(crate::Item {
                 id: to_id(id)?,
                 kind: kind_from(&kind)?,
                 title,
                 content,
+                // Nama yang tidak sah diabaikan, seperti latar umum.
+                background: background.filter(|name| crate::background::valid_name(name)),
             });
         }
         // Termasuk tanda hapus, supaya id lokal tidak pernah dipakai ulang.
@@ -414,13 +421,15 @@ impl Store {
         {
             let mut insert = tx
                 .prepare(
-                    "INSERT INTO items (id, uid, kind, title, content, created_at, updated_at)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6)",
+                    "INSERT INTO items
+                         (id, uid, kind, title, content, background, created_at, updated_at)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?7)",
                 )
                 .map_err(err)?;
             let mut update = tx
                 .prepare(
-                    "UPDATE items SET kind = ?2, title = ?3, content = ?4, updated_at = ?5
+                    "UPDATE items SET kind = ?2, title = ?3, content = ?4, background = ?5,
+                         updated_at = ?6
                      WHERE id = ?1",
                 )
                 .map_err(err)?;
@@ -435,11 +444,17 @@ impl Store {
                         kind,
                         item.title,
                         item.content,
+                        item.background,
                         now
                     ]),
-                    Some(old) if *old != print => {
-                        update.execute(params![id, kind, item.title, item.content, now])
-                    }
+                    Some(old) if *old != print => update.execute(params![
+                        id,
+                        kind,
+                        item.title,
+                        item.content,
+                        item.background,
+                        now
+                    ]),
                     Some(_) => Ok(0),
                 };
                 written.map_err(err)?;
@@ -511,6 +526,28 @@ fn connect(path: &Path) -> Result<Connection, String> {
 fn configure(conn: &Connection) -> rusqlite::Result<()> {
     conn.pragma_update(None, "foreign_keys", true)?;
     conn.pragma_update(None, "synchronous", 2)
+}
+
+/// Memperbarui skema profil lama ke [`SCHEMA_VERSION`] dalam satu transaksi.
+/// Profil yang sudah diperbarui tidak bisa dibuka Lentera versi lama, yang
+/// menolaknya dengan pesan "dibuat oleh Lentera versi yang lebih baru".
+fn upgrade(conn: &Connection, path: &Path) -> Result<(), String> {
+    let err = |e| db_error(path, e);
+    let version: i32 = conn
+        .pragma_query_value(None, "user_version", |row| row.get(0))
+        .map_err(err)?;
+    if version >= SCHEMA_VERSION {
+        return Ok(());
+    }
+    let tx = conn.unchecked_transaction().map_err(err)?;
+    if version < 2 {
+        // Gambar latar per materi.
+        tx.execute_batch("ALTER TABLE items ADD COLUMN background TEXT;")
+            .map_err(err)?;
+    }
+    tx.pragma_update(None, "user_version", SCHEMA_VERSION)
+        .map_err(err)?;
+    tx.commit().map_err(err)
 }
 
 /// Membaca identitas profil. `None` berarti pembuatannya belum selesai.
@@ -608,6 +645,7 @@ fn fingerprint(item: &crate::Item) -> u64 {
     item.kind.hash(&mut hasher);
     item.title.hash(&mut hasher);
     item.content.hash(&mut hasher);
+    item.background.hash(&mut hasher);
     hasher.finish()
 }
 
@@ -859,6 +897,7 @@ mod tests {
             kind: Kind::Song,
             title: "Ganda".into(),
             content: String::new(),
+            background: None,
         });
         assert!(store.save(&library).is_err());
         assert_eq!(store.load().unwrap(), Library::default());
@@ -891,6 +930,57 @@ mod tests {
                 monitor: 1,
                 ..Library::blank()
             }
+        );
+    }
+
+    #[test]
+    fn item_backgrounds_are_saved_and_old_profiles_are_upgraded() {
+        let dir = TempDir::new("latar-materi");
+        let Opened {
+            store, mut library, ..
+        } = Store::open(&dir.0).unwrap();
+        assert!(library.set_item_background(1, Some("Salib.jpg".into())));
+        store.save(&library).unwrap();
+        let loaded = store.load().unwrap();
+        assert_eq!(loaded.items[0].background.as_deref(), Some("Salib.jpg"));
+        assert_eq!(loaded.items[1].background, None);
+        // Hanya latarnya yang berubah: tetap tersimpan.
+        library.set_item_background(1, None);
+        store.save(&library).unwrap();
+        assert_eq!(store.load().unwrap(), library);
+        // Nama yang menunjuk ke luar folder latar tidak pernah dipakai.
+        store
+            .conn
+            .execute(
+                "UPDATE items SET background = '../library.db' WHERE id = 2",
+                [],
+            )
+            .unwrap();
+        assert_eq!(store.load().unwrap().items[1].background, None);
+
+        // Profil skema 1 (Lentera 0.3–0.4) diperbarui saat dibuka; isinya tetap.
+        let id = store.id().to_owned();
+        store
+            .conn
+            .execute_batch("ALTER TABLE items DROP COLUMN background; PRAGMA user_version = 1;")
+            .unwrap();
+        drop(store);
+        assert_eq!(ids(&dir.0), vec![id.clone()]);
+        let Opened {
+            store, mut library, ..
+        } = Store::open_profile(&dir.0, &id).unwrap();
+        let version: i32 = store
+            .conn
+            .pragma_query_value(None, "user_version", |row| row.get(0))
+            .unwrap();
+        assert_eq!(version, SCHEMA_VERSION);
+        assert_eq!(library.items.len(), 2);
+        assert!(library.items.iter().all(|i| i.background.is_none()));
+        library.set_item_background(2, Some("Salib.jpg".into()));
+        store.save(&library).unwrap();
+        assert_eq!(
+            store.load().unwrap().items[1].background.as_deref(),
+            Some("Salib.jpg")
         );
     }
 

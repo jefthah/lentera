@@ -14,6 +14,11 @@ pub struct Item {
     pub kind: Kind,
     pub title: String,
     pub content: String,
+    /// Gambar latar khusus materi ini, dari folder latar profil (lihat
+    /// [`crate::background`]). `None` berarti mengikuti latar umum
+    /// ([`Library::background`] dan [`Library::background_image`]).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background: Option<String>,
 }
 
 impl Item {
@@ -56,9 +61,11 @@ impl Default for Library {
             version: 1, next_id: 3,
             items: vec![
                 Item { id: 1, kind: Kind::Song, title: "Selamat datang di Lentera".into(),
-                    content: "Siapkan hati untuk beribadah\nBersama memuji dan bersyukur\n\nKasih Tuhan menyertai kita\nHari ini dan selamanya".into() },
+                    content: "Siapkan hati untuk beribadah\nBersama memuji dan bersyukur\n\nKasih Tuhan menyertai kita\nHari ini dan selamanya".into(),
+                    background: None },
                 Item { id: 2, kind: Kind::Verse, title: "Ayat contoh — ganti dengan referensi".into(),
-                    content: "Masukkan teks ayat dari terjemahan\nyang Anda berhak gunakan.\n\nAnda juga bisa mengimpor ayat\ndari berkas TSV UTF-8.".into() },
+                    content: "Masukkan teks ayat dari terjemahan\nyang Anda berhak gunakan.\n\nAnda juga bisa mengimpor ayat\ndari berkas TSV UTF-8.".into(),
+                    background: None },
             ],
             service: vec![1, 2], background: 0, background_image: None, monitor: 0,
             scratch: Vec::new(),
@@ -157,6 +164,7 @@ impl Library {
             kind,
             title,
             content,
+            background: None,
         });
         id
     }
@@ -171,8 +179,40 @@ impl Library {
             kind,
             title,
             content,
+            background: None,
         });
         id
+    }
+    /// Gambar latar khusus satu materi pustaka; `None` kembali ke latar umum.
+    /// Materi sementara tidak punya latar sendiri. `false` bila materinya
+    /// tidak ada atau latarnya sudah sama.
+    pub fn set_item_background(&mut self, id: u64, name: Option<String>) -> bool {
+        match self.items.iter_mut().find(|i| i.id == id) {
+            Some(item) if item.background != name => {
+                item.background = name;
+                true
+            }
+            _ => false,
+        }
+    }
+    /// Jumlah materi yang memakai gambar latar `name` sebagai latar sendiri.
+    pub fn background_users(&self, name: &str) -> usize {
+        self.items
+            .iter()
+            .filter(|i| i.background.as_deref() == Some(name))
+            .count()
+    }
+    /// Materi yang memakai gambar `name` kembali ke latar umum, misalnya
+    /// karena gambarnya dihapus. Hasilnya jumlah materi yang berubah.
+    pub fn forget_item_background(&mut self, name: &str) -> usize {
+        let mut changed = 0;
+        for item in &mut self.items {
+            if item.background.as_deref() == Some(name) {
+                item.background = None;
+                changed += 1;
+            }
+        }
+        changed
     }
     pub fn remove(&mut self, id: u64) {
         self.items.retain(|i| i.id != id);
@@ -309,6 +349,7 @@ mod tests {
                 kind: Kind::Song,
                 title: String::new(),
                 content: text.into(),
+                background: None,
             };
             assert_eq!(item.slide_count(), item.slides().len(), "{text:?}");
         }
@@ -443,5 +484,26 @@ B"
         library = Library::default();
         library.version = 99;
         assert!(library.validate().is_err());
+    }
+    #[test]
+    fn items_can_have_their_own_background() {
+        let mut library = Library::default();
+        let salib = Some("Salib.jpg".to_owned());
+        assert!(library.set_item_background(1, salib.clone()));
+        assert!(!library.set_item_background(1, salib.clone()));
+        assert!(library.set_item_background(2, salib.clone()));
+        assert!(!library.set_item_background(99, salib.clone()));
+        // Materi sementara selalu memakai latar umum.
+        let scratch = library.set_scratch(Kind::Verse, "A".into(), "A".into(), None);
+        assert!(!library.set_item_background(scratch, salib.clone()));
+        assert_eq!(library.item(scratch).unwrap().background, None);
+        assert_eq!(library.background_users("Salib.jpg"), 2);
+        assert_eq!(library.forget_item_background("Salib.jpg"), 2);
+        assert_eq!(library.background_users("Salib.jpg"), 0);
+        assert!(library.items.iter().all(|i| i.background.is_none()));
+        // library.json lama tidak punya kolom ini.
+        let old: Item =
+            serde_json::from_str(r#"{"id":1,"kind":"Song","title":"A","content":"B"}"#).unwrap();
+        assert_eq!(old.background, None);
     }
 }

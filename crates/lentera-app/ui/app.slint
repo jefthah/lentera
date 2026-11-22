@@ -1340,6 +1340,7 @@ export component MainWindow inherits Window {
     callback delete-current();
     callback save-now();
     callback import-lyrics();
+    callback import-easyworship();
     callback import-verses();
     callback update-now();
     callback show-profiles();
@@ -1381,6 +1382,14 @@ export component MainWindow inherits Window {
 
     public function show-about() {
         about-popup.show();
+    }
+
+    public function show-import-menu() {
+        import-menu.show();
+    }
+
+    public function close-import-menu() {
+        import-menu.close();
     }
 
     title: "Lentera " + root.version + (root.profile-name == "" ? "" : " · " + root.profile-name);
@@ -1596,7 +1605,7 @@ export component MainWindow inherits Window {
                 import-menu := PopupWindow {
                     x: parent.width - 312px;
                     y: parent.height - 4px;
-                    width: 244px;
+                    width: 264px;
                     Rectangle {
                         background: Theme.raised;
                         border-radius: 12px;
@@ -1614,6 +1623,14 @@ export component MainWindow inherits Window {
                                 }
                             }
                             MenuRow {
+                                text: "Lagu dari EasyWorship";
+                                hint: "Semua lagu sekaligus, EW 2009 sampai 8";
+                                clicked => {
+                                    import-menu.close();
+                                    root.import-easyworship();
+                                }
+                            }
+                            MenuRow {
                                 text: "Ayat Alkitab (.tsv)";
                                 hint: "referensi [TAB] teks, UTF-8";
                                 clicked => {
@@ -1623,7 +1640,7 @@ export component MainWindow inherits Window {
                             }
                             MenuRow {
                                 text: "Alkitab lengkap";
-                                hint: "Untuk tab Alkitab: OpenSong, Zefania, TSV";
+                                hint: "OpenSong, Zefania, TSV, EasyWorship";
                                 clicked => {
                                     import-menu.close();
                                     root.bible-import();

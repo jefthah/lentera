@@ -18,9 +18,10 @@ use std::{
 };
 
 use lentera_core::bible::{self, Bible, ImportedBible, Lookup, Packing, Translation};
+use lentera_core::easyworship;
 use lentera_core::{
     Cursor, DEFAULT_PROFILE_NAME, DELETED_PROFILES_DIR, DataLock, Item, Kind, LOCK_FILE, Library,
-    Opened, Slide, Step, Store, default_data_dir, profiles, read_text_file, remove_profile,
+    Opened, Slide, SongImport, Step, Store, default_data_dir, profiles, remove_profile,
     rename_profile, split_slides,
 };
 use rfd::{MessageButtons, MessageDialog, MessageDialogResult, MessageLevel};
@@ -362,6 +363,7 @@ impl App {
         connect!(app.ui.on_delete_current, |a| a.delete_current());
         connect!(app.ui.on_save_now, |a| a.save_now());
         connect!(app.ui.on_import_lyrics, |a| a.import(false));
+        connect!(app.ui.on_import_easyworship, |a| a.import_easyworship());
         connect!(app.ui.on_import_verses, |a| a.import(true));
         connect!(app.ui.on_update_now, |a| a.update_now());
         connect!(app.ui.on_show_profiles, |a| a.show_profiles());
@@ -950,6 +952,120 @@ impl App {
         }
     }
 
+    /// Mengimpor semua lagu dari database EasyWorship sekaligus, setelah
+    /// jumlahnya ditunjukkan dan disetujui. Berkas EasyWorship hanya dibaca.
+    fn import_easyworship(&self) {
+        if !self.commit_editor() {
+            return;
+        }
+        let mut picker = rfd::FileDialog::new()
+            .set_title("Pilih database lagu EasyWorship (Songs.db)")
+            .add_filter("Database lagu EasyWorship (Songs.db)", &["db"])
+            .add_filter("Semua berkas", &["*"])
+            .set_parent(&self.ui.window().window_handle());
+        if let Some(dir) = easyworship::song_locations()
+            .first()
+            .and_then(|file| file.parent())
+        {
+            picker = picker.set_directory(dir);
+        }
+        let Some(path) = picker.pick_file() else {
+            return;
+        };
+        let database = match easyworship::read_songs(&path) {
+            Ok(database) => database,
+            Err(e) => {
+                dialog(
+                    Some(self.ui.window()),
+                    MessageLevel::Error,
+                    "Impor EasyWorship gagal",
+                    &e,
+                    MessageButtons::Ok,
+                );
+                return;
+            }
+        };
+        let found = database.songs.len();
+        let (plan, profile) = {
+            let st = self.state.borrow();
+            let songs = database.songs.into_iter().map(|s| (s.title, s.content));
+            (
+                st.library.plan_song_import(songs),
+                st.store.name().to_owned(),
+            )
+        };
+        let file = path.file_name().unwrap_or_default().to_string_lossy();
+        let mut text = format!(
+            "{}: {} lagu ditemukan di {file}.\n",
+            database.edition.name(),
+            count(found)
+        );
+        if plan.songs.is_empty() {
+            text.push_str(&format!(
+                "\nSemua lagu itu sudah ada di pustaka profil \u{201c}{profile}\u{201d}."
+            ));
+            dialog(
+                Some(self.ui.window()),
+                MessageLevel::Info,
+                "Impor lagu EasyWorship",
+                &text,
+                MessageButtons::Ok,
+            );
+            return;
+        }
+        text.push_str(&format!(
+            "\n\u{2022} {} lagu baru ditambahkan ke profil \u{201c}{profile}\u{201d}.",
+            count(plan.songs.len())
+        ));
+        if plan.existing > 0 {
+            text.push_str(&format!(
+                "\n\u{2022} {} lagu sudah ada di pustaka dan dilewati.",
+                count(plan.existing)
+            ));
+        }
+        if plan.renamed > 0 {
+            text.push_str(&format!(
+                "\n\u{2022} {} lagu judulnya sudah dipakai lagu dengan lirik lain, jadi \
+                 diberi nomor, misalnya \u{201c}Kasih (2)\u{201d}.",
+                count(plan.renamed)
+            ));
+        }
+        if database.empty > 0 {
+            text.push_str(&format!(
+                "\n\u{2022} {} lagu tanpa lirik dilewati.",
+                count(database.empty)
+            ));
+        }
+        text.push_str("\n\nLabel bagian seperti \u{201c}Verse 1\u{201d} dan \u{201c}Chorus\u{201d} tidak ikut. Impor sekarang?");
+        let answer = dialog(
+            Some(self.ui.window()),
+            MessageLevel::Info,
+            "Impor lagu EasyWorship",
+            &text,
+            MessageButtons::YesNo,
+        );
+        if answer == MessageDialogResult::Yes {
+            self.add_imported_songs(plan);
+        }
+    }
+
+    /// Menambahkan lagu hasil impor ke pustaka, memilih lagu pertama, dan
+    /// menyimpan. Mengembalikan jumlah lagu yang ditambahkan.
+    fn add_imported_songs(&self, plan: SongImport) -> usize {
+        let added = self.state.borrow_mut().library.add_songs(plan);
+        self.refresh_library();
+        if let Some(&first) = added.first() {
+            self.select(first, None);
+        }
+        if self.persist() {
+            self.status(
+                &format!("{} lagu EasyWorship diimpor.", count(added.len())),
+                true,
+            );
+        }
+        added.len()
+    }
+
     // ----- Alkitab -----
 
     /// Menyimpan materi sementara (ayat Alkitab) ke pustaka. Bila ayat yang
@@ -1268,16 +1384,19 @@ impl App {
         if !self.commit_editor() || !self.open_bible() {
             return;
         }
-        let Some(path) = rfd::FileDialog::new()
+        let mut picker = rfd::FileDialog::new()
             .set_title("Impor Alkitab")
             .add_filter(
-                "Alkitab (OpenSong / Zefania XML, TSV)",
-                &["xml", "tsv", "txt"],
+                "Alkitab (OpenSong / Zefania XML, TSV, EasyWorship)",
+                &["xml", "tsv", "txt", "ewb"],
             )
             .add_filter("Semua berkas", &["*"])
-            .set_parent(&self.ui.window().window_handle())
-            .pick_file()
-        else {
+            .set_parent(&self.ui.window().window_handle());
+        // Alkitab EasyWorship ada di folder tersembunyi; buka di sana bila ada.
+        if let Some(dir) = easyworship::bible_locations().first() {
+            picker = picker.set_directory(dir);
+        }
+        let Some(path) = picker.pick_file() else {
             return;
         };
         if let Err(e) = self.bible_read_file(&path) {
@@ -1293,7 +1412,7 @@ impl App {
 
     /// Membaca berkas Alkitab lalu membuka formulir impor di tab Alkitab.
     fn bible_read_file(&self, path: &Path) -> Result<(), String> {
-        let imported = bible::parse_bible(&read_text_file(path)?)?;
+        let imported = bible::read_bible_file(path)?;
         let file = path
             .file_name()
             .unwrap_or_default()
@@ -2274,9 +2393,48 @@ impl App {
             }
             17 => {
                 self.snapshot("ui-smoke-sempit.png", self.ui.window());
-                self.ui.invoke_show_about();
+                // Impor banyak lagu (jalur yang sama dengan impor
+                // EasyWorship): yang sudah ada dilewati, judul kembar diberi
+                // nomor, lalu tersimpan.
+                let title = "Lagu Impor Uji";
+                let songs = [
+                    (title, "Baris satu\n\nBaris dua"),
+                    (title, "Lirik versi lain"),
+                    ("LAGU IMPOR UJI", "baris satu, baris dua"),
+                ]
+                .map(|(t, c)| (t.to_owned(), c.to_owned()));
+                let plan = self.state.borrow().library.plan_song_import(songs);
+                let counted = (plan.songs.len(), plan.existing, plan.renamed) == (2, 1, 1);
+                let added = self.add_imported_songs(plan);
+                let saved = self
+                    .state
+                    .borrow()
+                    .store
+                    .load()
+                    .ok()
+                    .is_some_and(|l| l.items.iter().any(|i| i.title == "Lagu Impor Uji (2)"));
+                let selected = self.state.borrow().selected;
+                let first_selected = selected
+                    .and_then(|id| {
+                        self.state
+                            .borrow()
+                            .library
+                            .item(id)
+                            .map(|i| i.title.clone())
+                    })
+                    .is_some_and(|t| t == title);
+                self.check(
+                    "songs_imported",
+                    counted && added == 2 && saved && first_selected,
+                );
+                self.ui.invoke_show_import_menu();
             }
             18 => {
+                self.snapshot("ui-smoke-impor.png", self.ui.window());
+                self.ui.invoke_close_import_menu();
+                self.ui.invoke_show_about();
+            }
+            19 => {
                 self.snapshot("ui-smoke-tentang.png", self.ui.window());
             }
             _ => {

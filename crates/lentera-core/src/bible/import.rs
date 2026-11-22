@@ -1,14 +1,18 @@
-//! Membaca berkas Alkitab: OpenSong XML, Zefania XML, dan TSV.
+//! Membaca berkas Alkitab: OpenSong XML, Zefania XML, TSV, dan EasyWorship
+//! (lihat [`crate::easyworship`]).
 
 use super::Verse;
 use super::books::{BOOKS, BookMatch, find_book};
 use super::reference;
+use crate::read_text_file;
 use roxmltree::{Document, Node, ParsingOptions};
+use std::path::Path;
 
 /// Isi berkas Alkitab yang sudah dibaca, sebelum disimpan.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ImportedBible {
-    /// Format berkas, untuk ditampilkan: "OpenSong XML", "Zefania XML", "TSV".
+    /// Format berkas, untuk ditampilkan: "OpenSong XML", "Zefania XML", "TSV",
+    /// "EasyWorship 2009", "EasyWorship 6–8".
     pub format: &'static str,
     /// Nama terjemahan dari isi berkas, bila ada.
     pub name: Option<String>,
@@ -35,11 +39,29 @@ impl ImportedBible {
 /// Seluruh berkas diperiksa dulu; tidak ada yang disimpan bila ada galat.
 pub fn parse_bible(input: &str) -> Result<ImportedBible, String> {
     let input = input.trim_start_matches('\u{feff}');
-    let mut bible = if input.trim_start().starts_with('<') {
+    finish(if input.trim_start().starts_with('<') {
         parse_xml(input)?
     } else {
         parse_tsv(input)?
-    };
+    })
+}
+
+/// Membaca berkas Alkitab. Berkas `.ewb` dibaca sebagai Alkitab EasyWorship,
+/// berkas lain sebagai teks (lihat [`parse_bible`]).
+pub fn read_bible_file(path: &Path) -> Result<ImportedBible, String> {
+    let ewb = path
+        .extension()
+        .is_some_and(|e| e.eq_ignore_ascii_case("ewb"));
+    if ewb {
+        crate::easyworship::read_bible(path)
+    } else {
+        parse_bible(&read_text_file(path)?)
+    }
+}
+
+/// Mengurutkan ayat, membuang ayat kosong dan nomor ganda, lalu memastikan
+/// masih ada ayat.
+pub(crate) fn finish(mut bible: ImportedBible) -> Result<ImportedBible, String> {
     let before = bible.verses.len();
     bible.verses.retain(|v| !v.text.is_empty());
     bible.verses.sort_by_key(|v| (v.book, v.chapter, v.verse));
@@ -52,7 +74,7 @@ pub fn parse_bible(input: &str) -> Result<ImportedBible, String> {
 }
 
 /// Merapikan spasi: baris baru dan spasi ganda menjadi satu spasi.
-fn clean(text: &str) -> String {
+pub(crate) fn clean(text: &str) -> String {
     text.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 

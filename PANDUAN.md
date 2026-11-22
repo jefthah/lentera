@@ -53,7 +53,7 @@ Dengan satu monitor, jendela proyektor terbuka sebagai jendela biasa. Dengan dua
 
 Lentera tidak membawa teks Alkitab. Impor sekali terjemahan yang Anda berhak pakai; setelah itu ayat cukup ditayangkan dengan mengetik referensinya.
 
-**Mengimpor terjemahan.** Buka tab **Alkitab** di kolom kiri lalu tekan **Impor Alkitab**, atau pilih menu **Impor → Alkitab lengkap**. Pilih berkas OpenSong XML, Zefania XML, atau TSV UTF-8 (formatnya di bawah). Lentera menyebut jumlah kitab dan ayat yang terbaca. Periksa **Singkatan** (ditulis di judul ayat, misalnya TB; paling panjang 12 karakter dan belum dipakai terjemahan lain) dan **Nama terjemahan**, lalu tekan **Simpan**. Terjemahan berikutnya diimpor lewat ikon impor di samping pilihan terjemahan.
+**Mengimpor terjemahan.** Buka tab **Alkitab** di kolom kiri lalu tekan **Impor Alkitab**, atau pilih menu **Impor → Alkitab lengkap**. Pilih berkas OpenSong XML, Zefania XML, TSV UTF-8, atau Alkitab EasyWorship `.ewb` (formatnya di bawah). Lentera menyebut jumlah kitab dan ayat yang terbaca. Periksa **Singkatan** (ditulis di judul ayat, misalnya TB; paling panjang 12 karakter dan belum dipakai terjemahan lain) dan **Nama terjemahan**, lalu tekan **Simpan**. Terjemahan berikutnya diimpor lewat ikon impor di samping pilihan terjemahan.
 
 **Menayangkan ayat.**
 
@@ -85,6 +85,7 @@ Nama kitab boleh ditulis lengkap (`Yohanes`), dengan singkatan TB (`Kej`, `Mzm`,
 - **OpenSong XML** (`<bible>` / `<b n="…">` / `<c n="…">` / `<v n="…">`): kitab dikenali dari namanya, dalam bahasa Indonesia atau Inggris. Bila namanya tidak dikenal tetapi berkas berisi tepat 66 kitab, urutannya yang dipakai.
 - **Zefania XML** (`XMLBIBLE` / `BIBLEBOOK bnumber` / `CHAPTER` / `VERS`): kitab dikenali dari nomornya. Nama dan singkatan diambil dari bagian `INFORMATION` bila ada. Catatan kaki dan rujukan silang dibuang.
 - **TSV UTF-8**, satu ayat per baris: `kitab[TAB]pasal[TAB]ayat[TAB]teks`, dengan kitab berupa nomor 1–66 atau nama / singkatan; atau `referensi[TAB]teks`, dengan referensi satu ayat seperti `Yoh 3:16`. Baris judul kolom di awal, baris kosong, dan baris yang diawali `#` dilewati.
+- **EasyWorship `.ewb`**, dari EasyWorship 2009 sampai 8. Berkasnya ada di `C:\ProgramData\Softouch\EasyWorship.v8\Plugins\Bibles` (EasyWorship 8; `EasyWorship.v7` untuk versi 7, `EasyWorship` untuk 2009). Folder `ProgramData` tersembunyi, jadi Lentera membuka pemilih berkas langsung di sana bila ada. Nama dan singkatan terjemahan diambil dari berkas EasyWorship 6–8; untuk 2009 isi sendiri. Berkas hanya dibaca, tidak diubah.
 
 Ayat gabungan seperti `5-6` didukung. Kitab di luar 66 kitab (misalnya Deuterokanonika), nomor ayat ganda, dan ayat kosong dilewati, dan jumlahnya disebutkan sebelum menyimpan. Bila ada baris TSV yang salah, Lentera menyebut nomor barisnya dan tidak menyimpan apa pun. Batas ukuran berkas 32 MB.
 
@@ -94,9 +95,22 @@ Gunakan menu **Impor** di bilah atas. Untuk satu terjemahan Alkitab lengkap, pak
 
 **Lirik lagu (.txt):** berkas UTF-8; nama berkas menjadi judul. Pisahkan bagian lirik dengan baris kosong. Tersedia `contoh-lirik.txt`.
 
+**Lagu dari EasyWorship:** mengimpor semua lagu EasyWorship 2009, 6, 7, atau 8 sekaligus, langsung dari databasenya.
+
+1. Pilih **Impor → Lagu dari EasyWorship**. Pemilih berkas terbuka di folder database EasyWorship di komputer ini bila ada:
+   - EasyWorship 6–8: `C:\Users\Public\Documents\Softouch\EasyWorship\Default\v6.1\Databases\Data\Songs.db` (`SongWords.db` harus ada di folder yang sama).
+   - EasyWorship 2009: `C:\Users\Public\Documents\Softouch\EasyWorship\Default\Databases\Data\Songs.DB` (bersama `Songs.MB`).
+
+   Untuk mengimpor dari komputer lain, salin seluruh folder `Data` itu (misalnya ke flashdisk), lalu pilih `Songs.db` di salinannya.
+2. Lentera menyebut berapa lagu yang ditemukan, berapa yang baru, berapa yang sudah ada, dan berapa yang judulnya diberi nomor. Tekan **Yes** untuk mengimpor.
+
+Lagu yang judul dan liriknya sudah ada di pustaka profil dilewati; tanda baca, spasi, huruf besar/kecil, dan nomor seperti "(2)" di belakang judul tidak dihitung. Impor yang sama boleh diulang tanpa membuat lagu ganda. Lagu dengan judul yang sudah dipakai tetapi liriknya berbeda diberi nomor: "Kasih (2)", "Kasih (3)". Bila punya beberapa versi EasyWorship, impor dari versi terbaru dulu supaya versi lirik lama yang mendapat nomor.
+
+Pembagian slide dari EasyWorship dipertahankan. Label bagian seperti "Verse 1", "Chorus", "Reff", dan "End" dibuang; baris lirik lain tetap ikut. Lagu tanpa lirik dilewati. Huruf tebal, warna, dan pengaturan tampilan EasyWorship tidak ikut. Berkas EasyWorship hanya dibaca dan tidak pernah diubah; EasyWorship boleh tetap terbuka.
+
 **Ayat Alkitab (.tsv):** satu ayat per baris, dengan format `referensi[TAB]teks`. `[TAB]` berarti karakter tab, bukan tulisan literal. Tersedia `contoh-ayat.tsv`. Jika perlu baris baru di dalam satu ayat, tulis `\n` pada kolom teks. Baris yang diawali `#` diabaikan. Duplikat referensi + isi dilewati. Seluruh berkas diperiksa sebelum data ditambahkan. Batas ukuran impor adalah 32 MB.
 
-Pustaka menampilkan maksimal 500 hasil pertama agar tetap responsif. Ketik referensi atau kata di kolom pencarian untuk mempersempit hasil. Aplikasi ini tidak menyertakan teks Alkitab atau database lagu berlisensi. Gunakan materi yang Anda berhak gunakan.
+Pustaka menampilkan maksimal 500 hasil pertama agar tetap responsif; setelah impor besar, jumlahnya tertulis seperti "500 dari 607". Ketik judul, referensi, atau kata di kolom pencarian untuk menemukan materi lain. Aplikasi ini tidak menyertakan teks Alkitab atau database lagu berlisensi. Gunakan materi yang Anda berhak gunakan.
 
 ## Profil
 
@@ -127,12 +141,13 @@ Untuk menyimpan di lokasi lain, jalankan `lentera.exe --data-dir "D:\Data Ibadah
 
 - Lirik, ayat teks, tab Alkitab dengan referensi dan terjemahan yang diimpor, pencarian, editor, susunan ibadah, pratinjau, keluaran terpisah, layar penuh, blackout, dan tiga warna latar.
 - Windows 10/11 **64-bit** dengan installer dan pembaruan otomatis. macOS dari kode sumber. Antarmuka ditujukan untuk layar minimal sekitar 1024×640.
-- Belum mencakup video, latar gambar, PowerPoint, NDI, streaming, pencarian kata di seluruh Alkitab, atau impor database EasyWorship.
+- Impor lagu dan Alkitab EasyWorship 2009–8. Jadwal, tema, latar, dan media EasyWorship belum ikut.
+- Belum mencakup video, latar gambar, PowerPoint, NDI, streaming, atau pencarian kata di seluruh Alkitab.
 - Belum ada sertifikat penandatanganan aplikasi. Jangan gunakan untuk layanan langsung sebelum latihan dan pengujian di komputer / proyektor tujuan.
 
 ## Untuk pengembang
 
-Logika data, susunan ibadah, impor, dan penyimpanan ada di `crates/lentera-core` beserta pengujiannya. Penyimpanan SQLite per profil dan pemindahan `library.json` ada di `src/store.rs`; skemanya diberi versi lewat `PRAGMA user_version`. Alkitab ada di `src/bible/`: daftar 66 kitab, pembaca referensi, impor OpenSong / Zefania / TSV, pembagian slide ayat, dan `alkitab.db`. Aplikasi ada di `crates/lentera-app`: logika di `src/main.rs`, tata letak dan tema di `ui/app.slint`, pembaruan otomatis (Velopack) di `src/update.rs`. Tampilan digambar dengan renderer software Slint, tanpa browser tertanam atau server lokal. Tampilan Win32 lama ada di `crates/lentera-win32` dan tidak dirilis lagi. Rilis Windows dibuat oleh workflow `.github/workflows/rilis.yml` saat tag versi di-push. CI (`inti.yml`) berjalan untuk setiap PR dan push ke `main`; build ujinya memakai profil `ci` (release tanpa LTO) dan cache Rust yang diisi dari `main`. Rilis selalu dibangun bersih dengan profil `release`. Server login dan sinkron (Go + PostgreSQL, belum dipakai aplikasi) ada di `server/`; protokolnya di `docs/SINKRON.md`.
+Logika data, susunan ibadah, impor, dan penyimpanan ada di `crates/lentera-core` beserta pengujiannya. Penyimpanan SQLite per profil dan pemindahan `library.json` ada di `src/store.rs`; skemanya diberi versi lewat `PRAGMA user_version`. Alkitab ada di `src/bible/`: daftar 66 kitab, pembaca referensi, impor OpenSong / Zefania / TSV, pembagian slide ayat, dan `alkitab.db`. Impor EasyWorship ada di `src/easyworship/`: lagu SQLite + RTF (6–8), tabel Paradox (2009), dan Alkitab `.ewb`; semuanya hanya membaca. Aplikasi ada di `crates/lentera-app`: logika di `src/main.rs`, tata letak dan tema di `ui/app.slint`, pembaruan otomatis (Velopack) di `src/update.rs`. Tampilan digambar dengan renderer software Slint, tanpa browser tertanam atau server lokal. Tampilan Win32 lama ada di `crates/lentera-win32` dan tidak dirilis lagi. Rilis Windows dibuat oleh workflow `.github/workflows/rilis.yml` saat tag versi di-push. CI (`inti.yml`) berjalan untuk setiap PR dan push ke `main`; build ujinya memakai profil `ci` (release tanpa LTO) dan cache Rust yang diisi dari `main`. Rilis selalu dibangun bersih dengan profil `release`. Server login dan sinkron (Go + PostgreSQL, belum dipakai aplikasi) ada di `server/`; protokolnya di `docs/SINKRON.md`.
 
 Di Windows, pasang Rust stable dengan target `x86_64-pc-windows-msvc` serta Microsoft C++ Build Tools / Windows SDK. Di macOS, pasang Rust stable dan Xcode Command Line Tools. Dari folder proyek:
 

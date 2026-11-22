@@ -1,5 +1,16 @@
 # Riwayat rilis
 
+## Belum dirilis
+
+**Impor dari EasyWorship:** lagu dan Alkitab dibaca langsung dari database EasyWorship, tanpa ekspor atau konversi dulu.
+
+- **Impor → Lagu dari EasyWorship** mengimpor semua lagu sekaligus dari EasyWorship 2009, 6, 7, atau 8. Pemilih berkas terbuka di folder database EasyWorship di komputer ini; pilih `Songs.db`. Sebelum mengimpor, Lentera menyebut jumlah lagu yang ditemukan, yang baru, yang sudah ada, dan yang judulnya diberi nomor.
+- Lagu yang judul dan liriknya sudah ada di pustaka dilewati (tanda baca, spasi, dan huruf besar/kecil diabaikan), jadi impor boleh diulang tanpa membuat lagu ganda. Lagu dengan judul yang sudah dipakai tetapi liriknya berbeda diberi nomor, misalnya "Kasih (2)".
+- Pembagian slide dari EasyWorship dipertahankan. Label bagian seperti "Verse 1", "Chorus", "Reff", dan "End" dibuang; baris lirik lain tetap ikut. Lagu tanpa lirik dilewati.
+- **Alkitab EasyWorship (`.ewb`)** dari EasyWorship 2009 sampai 8 bisa diimpor lewat **Impor → Alkitab lengkap**. Nama dan singkatan terjemahan diambil dari berkas bila ada. Pemilih berkas terbuka di folder Alkitab EasyWorship, yang biasanya tersembunyi.
+- Berkas EasyWorship hanya dibaca dan tidak pernah diubah; EasyWorship boleh tetap terbuka.
+- Pastikan gereja berhak memakai lagu dan terjemahan Alkitab itu di luar EasyWorship.
+
 ## 0.3.0 — 21 November 2026 — beta
 
 Ayat Alkitab cukup diketik referensinya, dan satu komputer bisa memakai beberapa profil.

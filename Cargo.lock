@@ -2434,6 +2434,7 @@ dependencies = [
 name = "lentera-core"
 version = "0.3.0"
 dependencies = [
+ "miniz_oxide 0.8.9",
  "roxmltree",
  "rusqlite",
  "serde",

@@ -4,6 +4,7 @@
 //! Windows atau macOS, sehingga dapat dipakai tampilan Win32 sekarang dan
 //! tampilan Slint nanti.
 
+pub mod background;
 pub mod bible;
 pub mod easyworship;
 mod import;

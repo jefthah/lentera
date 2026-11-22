@@ -1,5 +1,20 @@
 # Riwayat rilis
 
+## Belum dirilis
+
+**Latar gambar:** layar jemaat kini bisa memakai gambar sebagai latar, tidak hanya warna.
+
+- Di **Latar layar** (kolom kanan), kotak **Gambar** membuka galeri **Latar gambar**. **Tambah gambar** memilih satu atau beberapa gambar JPG, JPEG, JFIF, atau PNG sekaligus. Bila komputer ini punya folder gambar EasyWorship, pemilih berkas terbuka di sana.
+- Klik gambar di galeri untuk memakainya di slide, pratinjau, layar tayang, dan proyektor. Klik salah satu warna untuk kembali ke latar warna.
+- Di atas gambar, lirik dan ayat tampil putih dengan garis tepi gelap, dan gambarnya sedikit digelapkan, supaya teks tetap terbaca juga di gambar yang terang.
+- Gambar disalin ke folder profil sebagai JPG dan diperkecil seperlunya untuk layar 1920×1080 (tidak pernah diperbesar). Foto kamera ditampilkan tegak sesuai arah pengambilannya. Berkas aslinya tidak diubah, dan gambar yang sama tidak disimpan dua kali.
+- Gambar mengisi seluruh layar; bagian yang tidak muat dipotong rata tengah. Di proyektor tegak (potret), sisi kiri dan kanan gambar 16:9 banyak terpotong.
+- Tombol tempat sampah di galeri menghapus gambar dari profil setelah konfirmasi. Berkas aslinya di komputer tidak ikut terhapus.
+- Setiap profil punya galeri sendiri. **Profil baru** ikut memakai gambar latar profil yang sedang dibuka.
+- Belum tersedia: latar berbeda per lagu atau ayat, dan video.
+
+Program bertambah sekitar 0,4 MB menjadi 13,3 MB. Pengolah gambar JPEG dan PNG sudah ikut lewat Slint, jadi tidak ada komponen pihak ketiga baru.
+
 ## 0.4.0 — 22 November 2026 — beta
 
 Lagu dan Alkitab dari EasyWorship bisa dipindahkan langsung, dan pustaka menampilkan semua materi.

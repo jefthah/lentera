@@ -172,6 +172,36 @@ pub fn bible_locations() -> Vec<PathBuf> {
     found.into_iter().map(|(_, dir)| dir).collect()
 }
 
+/// Folder gambar EasyWorship 6–8 di komputer ini
+/// (`%PUBLIC%\Documents\Softouch\EasyWorship\<profil>\Resources\Images`)
+/// yang berisi gambar JPG atau PNG. Dipakai sebagai folder awal saat
+/// menambahkan gambar latar.
+pub fn image_locations() -> Vec<PathBuf> {
+    let Some(public) = std::env::var_os("PUBLIC") else {
+        return Vec::new();
+    };
+    let root = Path::new(&public)
+        .join("Documents")
+        .join("Softouch")
+        .join("EasyWorship");
+    let Ok(entries) = std::fs::read_dir(root) else {
+        return Vec::new();
+    };
+    let mut found: Vec<PathBuf> = entries
+        .filter_map(Result::ok)
+        .map(|e| e.path().join("Resources").join("Images"))
+        .filter(|dir| {
+            std::fs::read_dir(dir).is_ok_and(|files| {
+                files
+                    .filter_map(Result::ok)
+                    .any(|f| crate::background::is_supported(&f.path()))
+            })
+        })
+        .collect();
+    found.sort();
+    found
+}
+
 /// Berkas `name` di `dir`, tanpa membedakan huruf besar/kecil.
 fn find_in_dir(dir: &Path, name: &str) -> Option<PathBuf> {
     let exact = dir.join(name);

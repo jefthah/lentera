@@ -34,7 +34,11 @@ pub struct Library {
     pub next_id: u64,
     pub items: Vec<Item>,
     pub service: Vec<u64>,
+    /// Warna latar bawaan (lihat `Theme.slide-bg` di tampilan).
     pub background: usize,
+    /// Gambar latar dari folder latar profil (lihat [`crate::background`]).
+    /// Bila ada, gambar ini dipakai dan `background` diabaikan.
+    pub background_image: Option<String>,
     pub monitor: usize,
     /// Materi sementara yang tidak disimpan, misalnya ayat Alkitab yang sedang
     /// dilihat. Lihat [`Library::set_scratch`].
@@ -56,7 +60,7 @@ impl Default for Library {
                 Item { id: 2, kind: Kind::Verse, title: "Ayat contoh — ganti dengan referensi".into(),
                     content: "Masukkan teks ayat dari terjemahan\nyang Anda berhak gunakan.\n\nAnda juga bisa mengimpor ayat\ndari berkas TSV UTF-8.".into() },
             ],
-            service: vec![1, 2], background: 0, monitor: 0,
+            service: vec![1, 2], background: 0, background_image: None, monitor: 0,
             scratch: Vec::new(),
         }
     }

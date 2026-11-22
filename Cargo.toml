@@ -20,6 +20,17 @@ serde_json = "1"
 rusqlite = { version = "0.43", default-features = false, features = ["bundled"] }
 uuid = { version = "1.29", features = ["v7"] }
 
+# Gambar latar diolah piksel demi piksel. Tanpa optimasi, tes dan build debug
+# butuh beberapa detik untuk satu foto; crate gambar dioptimasi walau debug.
+[profile.dev.package.image]
+opt-level = 2
+[profile.dev.package.zune-jpeg]
+opt-level = 2
+[profile.dev.package.png]
+opt-level = 2
+[profile.dev.package.fdeflate]
+opt-level = 2
+
 [profile.release]
 opt-level = "s"
 lto = true

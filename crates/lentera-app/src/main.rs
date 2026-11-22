@@ -10,13 +10,15 @@ mod update;
 
 use std::{
     cell::RefCell,
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     ffi::OsString,
     path::{Path, PathBuf},
     rc::Rc,
+    sync::mpsc,
     time::Duration,
 };
 
+use lentera_core::background::{self, Added, Picture};
 use lentera_core::bible::{self, Bible, ImportedBible, Lookup, Packing, Translation};
 use lentera_core::easyworship;
 use lentera_core::{
@@ -27,7 +29,8 @@ use lentera_core::{
 use rfd::{MessageButtons, MessageDialog, MessageDialogResult, MessageLevel};
 use slint::winit_030::{WinitWindowAccessor, winit};
 use slint::{
-    CloseRequestResponse, ComponentHandle, Model, ModelRc, SharedString, Timer, TimerMode, VecModel,
+    CloseRequestResponse, ComponentHandle, Image, Model, ModelRc, Rgb8Pixel, SharedPixelBuffer,
+    SharedString, Timer, TimerMode, VecModel,
 };
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::monitor::MonitorHandle;
@@ -159,6 +162,21 @@ fn ui_id(id: u64) -> i32 {
     i32::try_from(id).unwrap_or(-1)
 }
 
+/// Gambar dari inti Lentera untuk Slint.
+fn to_image(picture: Picture) -> Image {
+    let buffer = SharedPixelBuffer::<Rgb8Pixel>::clone_from_slice(
+        &picture.rgb,
+        picture.width,
+        picture.height,
+    );
+    Image::from_rgb8(buffer)
+}
+
+/// Nama latar tanpa ".jpg", untuk ditampilkan.
+fn background_label(name: &str) -> &str {
+    name.strip_suffix(".jpg").unwrap_or(name)
+}
+
 fn ui_index(index: Option<usize>) -> i32 {
     index.and_then(|i| i32::try_from(i).ok()).unwrap_or(-1)
 }
@@ -219,6 +237,21 @@ struct BibleState {
     scroll_serial: i32,
 }
 
+/// Gambar latar yang sedang ditambahkan di thread lain.
+struct Adding {
+    results: mpsc::Receiver<Result<Added, String>>,
+    total: usize,
+    added: Vec<String>,
+    existing: Vec<String>,
+    failed: Vec<String>,
+}
+
+impl Adding {
+    fn done(&self) -> usize {
+        self.added.len() + self.existing.len() + self.failed.len()
+    }
+}
+
 struct Smoke {
     step: u32,
     /// Berapa kali langkah ini sudah menunggu (lihat `App::retry`).
@@ -240,6 +273,13 @@ struct App {
     editor_tiles: Rc<VecModel<SlideTile>>,
     profile_cards: Rc<VecModel<ProfileCard>>,
     verse_rows: Rc<VecModel<VerseRow>>,
+    background_tiles: Rc<VecModel<BackgroundTile>>,
+    /// Gambar latar yang terakhir dibuka, beserta namanya.
+    bg_picture: RefCell<Option<(String, Image)>>,
+    /// Gambar kecil daftar latar profil yang sedang dibuka.
+    bg_thumbs: RefCell<HashMap<String, Image>>,
+    adding: RefCell<Option<Adding>>,
+    adding_timer: Timer,
     bible: RefCell<BibleState>,
     /// Folder data (berisi semua profil).
     data_dir: PathBuf,
@@ -298,6 +338,11 @@ impl App {
             editor_tiles: Rc::new(VecModel::default()),
             profile_cards: Rc::new(VecModel::default()),
             verse_rows: Rc::new(VecModel::default()),
+            background_tiles: Rc::new(VecModel::default()),
+            bg_picture: RefCell::default(),
+            bg_thumbs: RefCell::default(),
+            adding: RefCell::default(),
+            adding_timer: Timer::default(),
             bible: RefCell::default(),
             data_dir,
             monitors: RefCell::default(),
@@ -315,8 +360,10 @@ impl App {
         ui.set_editor_slides(ModelRc::from(app.editor_tiles.clone()));
         ui.set_profiles(ModelRc::from(app.profile_cards.clone()));
         ui.set_bible_verses(ModelRc::from(app.verse_rows.clone()));
+        ui.set_backgrounds(ModelRc::from(app.background_tiles.clone()));
         ui.set_bg_index(background);
         app.output.set_bg_index(background);
+        app.apply_background();
         Ok(app)
     }
 
@@ -353,6 +400,12 @@ impl App {
             .monitor_changed(index));
         connect!(app.ui.on_background_changed, |a, index| a
             .background_changed(index));
+        connect!(app.ui.on_show_backgrounds, |a| a.show_backgrounds());
+        connect!(app.ui.on_pick_background, |a, name| a
+            .pick_background(&name));
+        connect!(app.ui.on_add_backgrounds, |a| a.add_backgrounds());
+        connect!(app.ui.on_remove_background, |a, name| a
+            .remove_background(&name));
         connect!(app.ui.on_new_item, |a| a.new_item());
         connect!(app.ui.on_edit_current, |a| a.edit_current());
         connect!(app.ui.on_close_editor, |a| a.close_editor());
@@ -919,6 +972,26 @@ impl App {
         Timer::single_shot(Duration::from_millis(50), move || {
             if let Some(app) = weak.upgrade() {
                 then(&app, &path);
+            }
+        });
+    }
+
+    /// Seperti [`App::pick_file_then`], untuk beberapa berkas sekaligus.
+    fn pick_files_then(
+        self: &Rc<Self>,
+        picker: rfd::FileDialog,
+        then: impl FnOnce(&Rc<Self>, Vec<PathBuf>) + 'static,
+    ) {
+        let Some(paths) = picker
+            .set_parent(&self.ui.window().window_handle())
+            .pick_files()
+        else {
+            return;
+        };
+        let weak = Rc::downgrade(self);
+        Timer::single_shot(Duration::from_millis(50), move || {
+            if let Some(app) = weak.upgrade() {
+                then(&app, paths);
             }
         });
     }
@@ -1822,14 +1895,290 @@ impl App {
         self.persist();
     }
 
+    // ----- Latar -----
+
+    /// Warna latar bawaan dipilih; gambar latar tidak dipakai lagi.
     fn background_changed(&self, index: i32) {
         let Ok(index) = usize::try_from(index) else {
             return;
         };
-        self.state.borrow_mut().library.background = index;
-        self.ui.set_bg_index(index as i32);
-        self.output.set_bg_index(index as i32);
+        {
+            let mut st = self.state.borrow_mut();
+            st.library.background = index;
+            st.library.background_image = None;
+        }
+        self.apply_background();
         self.persist();
+    }
+
+    /// Folder profil yang sedang dibuka.
+    fn profile_dir(&self) -> PathBuf {
+        let st = self.state.borrow();
+        st.store
+            .path()
+            .parent()
+            .map(Path::to_path_buf)
+            .unwrap_or_default()
+    }
+
+    /// Menerapkan latar pustaka ke jendela operator dan proyektor. Gambar yang
+    /// hilang atau rusak diganti warna latar, dengan pesan.
+    fn apply_background(&self) {
+        let (index, name) = {
+            let st = self.state.borrow();
+            (
+                st.library.background as i32,
+                st.library.background_image.clone(),
+            )
+        };
+        self.ui.set_bg_index(index);
+        self.output.set_bg_index(index);
+        let picture = name.and_then(|name| match self.background_picture(&name) {
+            Ok(image) => Some(image),
+            Err(e) => {
+                self.state.borrow_mut().library.background_image = None;
+                self.persist();
+                self.status(&format!("{e} Layar memakai warna latar."), false);
+                None
+            }
+        });
+        let has = picture.is_some();
+        let image = picture.unwrap_or_default();
+        self.ui.set_bg_picture(image.clone());
+        self.ui.set_has_bg_picture(has);
+        self.output.set_picture(image);
+        self.output.set_has_picture(has);
+    }
+
+    /// Gambar latar yang sudah dibuka. Hanya satu yang disimpan di memori.
+    fn background_picture(&self, name: &str) -> Result<Image, String> {
+        if let Some((cached, image)) = &*self.bg_picture.borrow()
+            && cached == name
+        {
+            return Ok(image.clone());
+        }
+        let image = to_image(background::load(&self.profile_dir(), name)?);
+        *self.bg_picture.borrow_mut() = Some((name.to_owned(), image.clone()));
+        Ok(image)
+    }
+
+    fn show_backgrounds(&self) {
+        self.refresh_background_tiles();
+        self.ui.invoke_open_backgrounds();
+    }
+
+    /// Mengisi daftar latar. Gambar kecil dibuka sekali per profil; gambar
+    /// yang rusak tetap tampil (kosong) supaya bisa dihapus.
+    fn refresh_background_tiles(&self) {
+        let dir = self.profile_dir();
+        let current = self.state.borrow().library.background_image.clone();
+        let names = background::list(&dir);
+        let mut thumbs = self.bg_thumbs.borrow_mut();
+        thumbs.retain(|name, _| names.contains(name));
+        let tiles: Vec<BackgroundTile> = names
+            .iter()
+            .map(|name| {
+                let picture = thumbs
+                    .entry(name.clone())
+                    .or_insert_with(|| {
+                        background::thumbnail(&dir, name)
+                            .map(to_image)
+                            .unwrap_or_default()
+                    })
+                    .clone();
+                BackgroundTile {
+                    name: name.into(),
+                    label: background_label(name).into(),
+                    picture,
+                    on: current.as_deref() == Some(name),
+                }
+            })
+            .collect();
+        self.background_tiles.set_vec(tiles);
+    }
+
+    fn pick_background(&self, name: &str) {
+        if self.state.borrow().library.background_image.as_deref() == Some(name) {
+            return;
+        }
+        self.state.borrow_mut().library.background_image = Some(name.to_owned());
+        self.apply_background();
+        self.refresh_background_tiles();
+        self.persist();
+        if self.state.borrow().library.background_image.is_some() {
+            self.status(&format!("Latar: {}.", background_label(name)), true);
+        }
+    }
+
+    fn add_backgrounds(self: &Rc<Self>) {
+        if self.adding.borrow().is_some() {
+            self.status("Gambar latar masih ditambahkan; tunggu sebentar.", false);
+            return;
+        }
+        let mut picker = rfd::FileDialog::new()
+            .set_title("Tambah gambar latar")
+            .add_filter("Gambar JPG atau PNG", &background::EXTENSIONS);
+        if let Some(dir) = easyworship::image_locations().into_iter().next() {
+            picker = picker.set_directory(dir);
+        }
+        self.pick_files_then(picker, |app, paths| app.add_background_files(paths));
+    }
+
+    /// Menambahkan gambar di thread lain, karena memperkecil foto besar bisa
+    /// butuh sepersekian detik per gambar di komputer yang lemah. Kemajuan
+    /// tampil di bilah status.
+    fn add_background_files(self: &Rc<Self>, paths: Vec<PathBuf>) {
+        if paths.is_empty() || self.adding.borrow().is_some() {
+            return;
+        }
+        let dir = self.profile_dir();
+        let (send, results) = mpsc::channel();
+        let total = paths.len();
+        std::thread::spawn(move || {
+            for path in paths {
+                if send.send(background::add(&dir, &path)).is_err() {
+                    return;
+                }
+            }
+        });
+        *self.adding.borrow_mut() = Some(Adding {
+            results,
+            total,
+            added: Vec::new(),
+            existing: Vec::new(),
+            failed: Vec::new(),
+        });
+        self.status(&format!("Menambahkan gambar latar… 0 dari {total}"), true);
+        let weak = Rc::downgrade(self);
+        self.adding_timer
+            .start(TimerMode::Repeated, Duration::from_millis(120), move || {
+                if let Some(app) = weak.upgrade() {
+                    app.adding_tick();
+                }
+            });
+    }
+
+    fn adding_tick(&self) {
+        let finished = {
+            let mut adding = self.adding.borrow_mut();
+            let Some(adding) = adding.as_mut() else {
+                self.adding_timer.stop();
+                return;
+            };
+            let mut disconnected = false;
+            loop {
+                match adding.results.try_recv() {
+                    Ok(Ok(Added::New(name))) => adding.added.push(name),
+                    Ok(Ok(Added::Existing(name))) => adding.existing.push(name),
+                    Ok(Err(e)) => adding.failed.push(e),
+                    Err(mpsc::TryRecvError::Empty) => break,
+                    Err(mpsc::TryRecvError::Disconnected) => {
+                        disconnected = true;
+                        break;
+                    }
+                }
+            }
+            disconnected || adding.done() >= adding.total
+        };
+        if !finished {
+            if let Some(adding) = self.adding.borrow().as_ref() {
+                self.ui.set_status(
+                    format!(
+                        "Menambahkan gambar latar… {} dari {}",
+                        adding.done(),
+                        adding.total
+                    )
+                    .into(),
+                );
+            }
+            return;
+        }
+        self.adding_timer.stop();
+        let Some(adding) = self.adding.borrow_mut().take() else {
+            return;
+        };
+        // Satu gambar yang dipilih langsung dipakai sebagai latar.
+        if adding.total == 1
+            && let Some(name) = adding.added.first().or(adding.existing.first())
+        {
+            self.state.borrow_mut().library.background_image = Some(name.clone());
+            self.apply_background();
+            self.persist();
+        }
+        self.refresh_background_tiles();
+        let mut parts = Vec::new();
+        if !adding.added.is_empty() {
+            parts.push(format!(
+                "{} gambar latar ditambahkan",
+                count(adding.added.len())
+            ));
+        }
+        if !adding.existing.is_empty() {
+            parts.push(format!("{} sudah ada", count(adding.existing.len())));
+        }
+        if !adding.failed.is_empty() {
+            parts.push(format!("{} gagal", count(adding.failed.len())));
+        }
+        self.status(&format!("{}.", parts.join(", ")), adding.failed.is_empty());
+        if !adding.failed.is_empty() {
+            let mut text = adding
+                .failed
+                .iter()
+                .take(5)
+                .cloned()
+                .collect::<Vec<_>>()
+                .join("\n");
+            if adding.failed.len() > 5 {
+                text.push_str(&format!("\n… dan {} lainnya.", adding.failed.len() - 5));
+            }
+            dialog(
+                Some(self.ui.window()),
+                MessageLevel::Warning,
+                "Sebagian gambar tidak bisa ditambahkan",
+                &text,
+                MessageButtons::Ok,
+            );
+        }
+    }
+
+    fn remove_background(&self, name: &str) {
+        let in_use = self.state.borrow().library.background_image.as_deref() == Some(name);
+        let text = format!(
+            "Hapus \"{}\" dari latar profil ini?\n\nBerkas gambar asli di komputer tidak ikut terhapus.{}",
+            background_label(name),
+            if in_use {
+                "\nLatar ini sedang dipakai; layar kembali ke warna latar."
+            } else {
+                ""
+            }
+        );
+        let answer = dialog(
+            Some(self.ui.window()),
+            MessageLevel::Warning,
+            "Hapus latar",
+            &text,
+            MessageButtons::YesNo,
+        );
+        if answer == MessageDialogResult::Yes {
+            self.remove_background_now(name);
+        }
+    }
+
+    fn remove_background_now(&self, name: &str) {
+        if let Err(e) = background::remove(&self.profile_dir(), name) {
+            self.status(&e, false);
+            return;
+        }
+        self.bg_thumbs.borrow_mut().remove(name);
+        let in_use = self.state.borrow().library.background_image.as_deref() == Some(name);
+        if in_use {
+            self.state.borrow_mut().library.background_image = None;
+            *self.bg_picture.borrow_mut() = None;
+            self.apply_background();
+            self.persist();
+        }
+        self.refresh_background_tiles();
+        self.status(&format!("Latar {} dihapus.", background_label(name)), true);
     }
 
     /// Memilih materi pertama di susunan, atau di pustaka bila susunan kosong.
@@ -1967,7 +2316,18 @@ impl App {
                     let st = self.state.borrow();
                     Store::create_profile(&self.data_dir, &name, &st.library)
                 };
-                created.map(|opened| self.use_profile(opened))
+                let image = self.state.borrow().library.background_image.clone();
+                let from = self.profile_dir();
+                created.map(|mut opened| {
+                    if let Some(image) = image
+                        && let Some(to) = opened.store.path().parent()
+                    {
+                        // Gagal menyalin tidak menggagalkan profil baru; latarnya
+                        // cukup kembali ke warna.
+                        opened.library.background_image = background::copy(&from, to, &image).ok();
+                    }
+                    self.use_profile(opened)
+                })
             }
             2 => {
                 let target = self.ui.get_profile_form_target();
@@ -2065,6 +2425,9 @@ impl App {
         self.ui.set_query(SharedString::new());
         self.ui.set_bg_index(background);
         self.output.set_bg_index(background);
+        *self.bg_picture.borrow_mut() = None;
+        self.bg_thumbs.borrow_mut().clear();
+        self.apply_background();
         self.persist();
         self.refresh_library();
         self.refresh_service();
@@ -2464,6 +2827,62 @@ impl App {
             }
             19 => {
                 self.snapshot("ui-smoke-tentang.png", self.ui.window());
+                self.ui.invoke_close_about();
+                // Gambar latar: dibuat di folder data uji, lalu ditambahkan
+                // lewat jalur yang sama dengan tombol Tambah gambar.
+                let source = self.data_dir.join("Latar uji.png");
+                let made = image::RgbImage::from_fn(1600, 900, |x, y| {
+                    image::Rgb([(x / 7) as u8, (y / 4) as u8, 200 - (x / 9) as u8])
+                })
+                .save(&source);
+                self.check("background_source", made.is_ok());
+                self.add_background_files(vec![source]);
+            }
+            20 => {
+                if self.adding.borrow().is_some() && self.retry() {
+                    return;
+                }
+                let name = "Latar uji.jpg";
+                let saved = self
+                    .state
+                    .borrow()
+                    .store
+                    .load()
+                    .is_ok_and(|l| l.background_image.as_deref() == Some(name));
+                let listed = background::list(&self.profile_dir()) == [name];
+                self.check(
+                    "background_added",
+                    saved
+                        && listed
+                        && self.ui.get_has_bg_picture()
+                        && self.output.get_has_picture(),
+                );
+                self.show_backgrounds();
+            }
+            21 => {
+                self.snapshot("ui-smoke-latar.png", self.ui.window());
+                self.check(
+                    "background_listed",
+                    self.background_tiles.row_count() == 1
+                        && self.background_tiles.row_data(0).is_some_and(|t| t.on),
+                );
+                self.ui.invoke_close_backgrounds();
+            }
+            22 => {
+                self.snapshot("ui-smoke-latar-slide.png", self.ui.window());
+                self.snapshot("ui-smoke-latar-proyektor.png", self.output.window());
+                self.background_changed(1);
+                let color = !self.ui.get_has_bg_picture()
+                    && self.state.borrow().library.background_image.is_none();
+                self.pick_background("Latar uji.jpg");
+                self.remove_background_now("Latar uji.jpg");
+                self.check(
+                    "background_removed",
+                    color
+                        && background::list(&self.profile_dir()).is_empty()
+                        && !self.output.get_has_picture()
+                        && self.state.borrow().library.background_image.is_none(),
+                );
             }
             _ => {
                 self.smoke_timer.stop();

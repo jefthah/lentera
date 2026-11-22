@@ -19,8 +19,8 @@ Versi macOS belum punya installer; bangun dari kode sumber (lihat **Untuk pengem
 
 - **Bilah atas:** tombol profil (lingkaran berhuruf awal dan nama profil yang sedang dibuka), kolom pencarian, tombol **Buka / Tutup proyektor**, pilihan monitor proyektor, menu **Impor**, dan tombol **ⓘ** (Tentang Lentera).
 - **Kiri:** **Susunan ibadah** di atas, lalu tab **Pustaka** dan **Alkitab**. Di Pustaka, filter **Semua / Lagu / Ayat** menyaring materi. Tab Alkitab dijelaskan di bagian **Alkitab**.
-- **Tengah:** semua slide materi terpilih. Slide berbingkai kuning sedang dipratinjau, slide berbingkai merah sedang tayang.
-- **Kanan:** **Pratinjau**, tombol **Tayangkan**, layar **Tayang** (yang sedang dilihat jemaat), tombol kontrol, dan **Latar layar**.
+- **Tengah:** semua slide materi terpilih. Slide berbingkai kuning sedang dipratinjau, slide berbingkai merah sedang tayang. Tombol latar di atas judul mengatur latar materi itu (lihat **Latar**).
+- **Kanan:** **Pratinjau**, tombol **Tayangkan**, layar **Tayang** (yang sedang dilihat jemaat), tombol kontrol, dan **Latar umum**.
 - **Bilah bawah:** pesan status, tombol cepat, dan tombol pembaruan bila ada.
 
 ## Mulai memakai
@@ -49,18 +49,31 @@ Dengan satu monitor, jendela proyektor terbuka sebagai jendela biasa. Dengan dua
 | Ctrl+N | Materi baru sesuai filter |
 | Enter di kotak referensi Alkitab | Tayangkan ayat yang diketik |
 
-## Latar layar
+## Latar
 
-**Latar layar** di bawah kolom kanan mengatur latar slide, pratinjau, layar tayang, dan proyektor. Pilihannya tiga warna atau satu gambar.
+Slide, pratinjau, layar tayang, dan proyektor memakai **latar umum**, kecuali materi yang diberi gambar latar sendiri.
 
-- Klik kotak **Gambar** untuk membuka galeri **Latar gambar**, lalu tekan **Tambah gambar**. Pilih satu atau beberapa gambar JPG, JPEG, JFIF, atau PNG (Ctrl+klik atau Shift+klik di pemilih berkas). Bila EasyWorship terpasang dengan gambar latar, pemilih berkas terbuka di folder gambar EasyWorship.
-- Klik gambar di galeri untuk memakainya. Bila hanya satu gambar ditambahkan, gambar itu langsung dipakai. Klik salah satu warna untuk kembali ke latar warna; gambarnya tetap ada di galeri.
+**Latar umum** ada di bawah kolom kanan: tiga warna atau satu gambar.
+
+- Klik kotak **Gambar** untuk membuka galeri latar, lalu tekan **Tambah gambar**. Pilih satu atau beberapa gambar JPG, JPEG, JFIF, atau PNG (Ctrl+klik atau Shift+klik di pemilih berkas). Bila EasyWorship terpasang dengan gambar latar, pemilih berkas terbuka di folder gambar EasyWorship.
+- Klik gambar di galeri untuk memakainya sebagai latar umum. Bila hanya satu gambar ditambahkan, gambar itu langsung dipakai. Klik salah satu warna untuk kembali ke latar warna; gambarnya tetap ada di galeri.
+
+**Latar per materi:** sebuah lagu atau ayat bisa memakai gambarnya sendiri.
+
+- Pilih materinya, lalu klik tombol latar di samping keterangan di atas judul. Tombol itu bertuliskan **Latar umum**, atau **Latar: nama gambar** bila materi sudah punya gambar sendiri. Galeri **Latar materi** terbuka untuk materi itu saja.
+- Klik gambar untuk memakainya di materi itu. **Pakai latar umum** mengembalikan materi ke latar umum. Gambar yang ditambahkan dari galeri ini masuk ke galeri yang sama dengan latar umum.
+- Ayat dari tab Alkitab yang belum ada di pustaka disimpan dulu ke pustaka, seperti saat diedit.
+- Slide di tengah, pratinjau, dan hasil editor memakai latar materi yang dipilih. Layar **Tayang** dan proyektor memakai latar materi yang sedang tayang, jadi latarnya ikut berganti saat tayangan pindah ke materi berikutnya dalam susunan.
+- Mengganti latar umum tidak mengubah materi yang punya gambar sendiri.
+
+Untuk semua gambar latar:
+
 - Di atas gambar, teks selalu putih dengan garis tepi gelap, dan gambarnya sedikit digelapkan supaya teks tetap terbaca. Pilih gambar yang tidak terlalu ramai di bagian tengah.
 - Gambar mengisi seluruh layar. Bila bentuknya tidak sama dengan layar, bagian yang tidak muat dipotong rata tengah; untuk proyektor biasa, gambar 16:9 (misalnya 1920×1080) paling pas.
 - Lentera menyimpan salinan gambar di folder profil (`backgrounds`), diperkecil seperlunya untuk layar 1920×1080. Gambar yang lebih kecil tidak diperbesar dan bisa terlihat kurang tajam di proyektor. Berkas asli tidak diubah.
-- Tombol tempat sampah di gambar menghapusnya dari profil setelah konfirmasi. Berkas aslinya di komputer tidak ikut terhapus. Bila gambar yang sedang dipakai dihapus, latar kembali ke warna.
+- Tombol tempat sampah di gambar menghapusnya dari profil setelah konfirmasi. Berkas aslinya di komputer tidak ikut terhapus. Materi yang memakai gambar itu kembali ke latar umum, dan bila gambar itu latar umum, latar umum kembali ke warna.
 
-Setiap profil punya galeri sendiri. Latar berbeda per lagu atau per ayat belum bisa diatur.
+Setiap profil punya galeri sendiri.
 
 ## Alkitab
 
@@ -130,7 +143,7 @@ Pustaka menampilkan semua materi, urut menurut waktu ditambahkan. Ketik judul, r
 Setiap profil punya pustaka lirik, ayat, dan susunan ibadahnya sendiri, misalnya satu profil untuk ibadah umum dan satu untuk komisi pemuda. Tekan tombol profil di kiri atas untuk membuka layar **Pilih profil**:
 
 - Klik kartu profil untuk membukanya. Kartu berbingkai kuning adalah profil yang sedang dibuka. Tekan **Esc** atau **×** untuk kembali tanpa berganti.
-- **Profil baru** membuat profil dengan pustaka kosong lalu langsung membukanya. Latar layar disalin dari profil yang sedang dibuka.
+- **Profil baru** membuat profil dengan pustaka kosong lalu langsung membukanya. Latar umum disalin dari profil yang sedang dibuka.
 - Ikon pensil mengganti nama profil. Nama wajib diisi, paling panjang 40 karakter, dan tidak boleh sama dengan profil lain.
 - Ikon tempat sampah menghapus profil lain (bukan yang sedang dibuka). Folder profil dipindahkan ke `profiles-deleted` di folder data, jadi masih bisa dipulihkan: tutup Lentera lalu pindahkan foldernya kembali ke `profiles`.
 
@@ -140,7 +153,7 @@ Nama profil yang sedang dibuka juga tampil di judul jendela. Pada jendela yang l
 
 ## Data dan cadangan
 
-Folder data ada di `%LOCALAPPDATA%\Lentera` (macOS: `~/Library/Application Support/Lentera`). Data disimpan per profil di `profiles\<id profil>\library.db`, sebuah basis data SQLite, termasuk susunan ibadah, pilihan monitor, dan latar. Gambar latar profil ada di `profiles\<id profil>\backgrounds`. Profil yang dihapus dipindahkan ke `profiles-deleted\<id profil>`.
+Folder data ada di `%LOCALAPPDATA%\Lentera` (macOS: `~/Library/Application Support/Lentera`). Data disimpan per profil di `profiles\<id profil>\library.db`, sebuah basis data SQLite, termasuk susunan ibadah, pilihan monitor, dan latar. Gambar latar profil ada di `profiles\<id profil>\backgrounds`. Saat Lentera versi ini pertama kali membuka profil dari versi 0.4.0 atau sebelumnya, `library.db` diperbarui otomatis untuk latar per materi; setelah itu profil tidak bisa dibuka lagi oleh versi lama. Profil yang dihapus dipindahkan ke `profiles-deleted\<id profil>`.
 
 Terjemahan Alkitab yang diimpor disimpan di `alkitab.db` di folder data, satu untuk semua profil di komputer ini, dan tidak ikut terhapus bersama profil. Berkas ini tidak punya cadangan `.bak`; simpan berkas aslinya supaya bisa diimpor ulang.
 
@@ -152,10 +165,10 @@ Untuk menyimpan di lokasi lain, jalankan `lentera.exe --data-dir "D:\Data Ibadah
 
 ## Ruang lingkup versi ini
 
-- Lirik, ayat teks, tab Alkitab dengan referensi dan terjemahan yang diimpor, pencarian, editor, susunan ibadah, pratinjau, keluaran terpisah, layar penuh, blackout, dan latar layar berupa tiga warna atau satu gambar.
+- Lirik, ayat teks, tab Alkitab dengan referensi dan terjemahan yang diimpor, pencarian, editor, susunan ibadah, pratinjau, keluaran terpisah, layar penuh, blackout, dan latar berupa warna atau gambar, untuk semua materi atau per materi.
 - Windows 10/11 **64-bit** dengan installer dan pembaruan otomatis. macOS dari kode sumber. Antarmuka ditujukan untuk layar minimal sekitar 1024×640.
-- Impor lagu dan Alkitab EasyWorship 2009–8. Jadwal, tema, dan media EasyWorship belum ikut; gambar latar EasyWorship bisa ditambahkan satu per satu atau beberapa sekaligus lewat galeri **Latar gambar**.
-- Belum mencakup video, latar berbeda per lagu atau ayat, PowerPoint, NDI, streaming, atau pencarian kata di seluruh Alkitab.
+- Impor lagu dan Alkitab EasyWorship 2009–8. Jadwal, tema, dan media EasyWorship belum ikut; gambar latar EasyWorship bisa ditambahkan satu per satu atau beberapa sekaligus lewat galeri latar.
+- Belum mencakup video, PowerPoint, NDI, streaming, atau pencarian kata di seluruh Alkitab.
 - Belum ada sertifikat penandatanganan aplikasi. Jangan gunakan untuk layanan langsung sebelum latihan dan pengujian di komputer / proyektor tujuan.
 
 ## Untuk pengembang

@@ -287,6 +287,54 @@ component Chip inherits Rectangle {
 }
 
 // Teks slide yang ukurannya menyesuaikan kotak, seperti di layar proyektor.
+// Latar materi terpilih, di samping keterangan di atas judul. Klik untuk
+// memilih gambar latar khusus materi itu.
+component BgChip inherits Rectangle {
+    in property <string> text;
+    in property <bool> on;
+    callback clicked();
+    height: 26px;
+    max-width: 300px;
+    horizontal-stretch: 0;
+    border-radius: 13px;
+    background: root.on ? Theme.accent-soft : touch.has-hover ? Theme.hover : transparent;
+    border-width: 1px;
+    border-color: root.on ? Theme.accent : Theme.border;
+    accessible-role: button;
+    accessible-label: root.text;
+    accessible-action-default => {
+        root.clicked();
+    }
+    HorizontalLayout {
+        padding-left: 9px;
+        padding-right: 11px;
+        spacing: 6px;
+        VerticalLayout {
+            alignment: center;
+            Icon {
+                svg: Icons.image;
+                color: root.on ? Theme.text : Theme.text-2;
+                width: 14px;
+                height: 14px;
+            }
+        }
+        Text {
+            text: root.text;
+            color: root.on ? Theme.text : Theme.text-2;
+            font-size: 12px;
+            font-weight: 600;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+    }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
 component SlideText inherits Rectangle {
     in property <string> text;
     in property <int> lines: 1;
@@ -1431,11 +1479,24 @@ export component MainWindow inherits Window {
     in property <bool> blackout;
     in property <bool> output-visible;
     in property <bool> fullscreen;
+    // Latar umum: warna (bg-index) atau gambar.
     in property <int> bg-index;
-    // Gambar latar yang dipakai, dan daftar gambar latar profil.
     in property <image> bg-picture;
     in property <bool> has-bg-picture;
+    // Gambar latar materi terpilih (slide, pratinjau, editor) dan materi yang
+    // tayang: gambar sendiri materi itu, atau latar umum.
+    in property <image> view-picture;
+    in property <bool> has-view-picture;
+    in property <image> live-picture;
+    in property <bool> has-live-picture;
+    // Nama gambar latar sendiri materi terpilih; kosong = latar umum.
+    in property <string> current-background;
+    // Daftar gambar latar profil. Galeri dibuka untuk satu materi
+    // (bg-for-item) atau untuk latar umum.
     in property <[BackgroundTile]> backgrounds;
+    in property <bool> bg-for-item;
+    in property <string> bg-item-title;
+    in property <bool> bg-item-own;
     in property <[string]> monitors;
     in-out property <int> monitor-index;
 
@@ -1506,6 +1567,8 @@ export component MainWindow inherits Window {
     callback monitor-changed(int);
     callback background-changed(int);
     callback show-backgrounds();
+    callback show-item-backgrounds();
+    callback use-general-background();
     callback pick-background(string);
     callback add-backgrounds();
     callback remove-background(string);
@@ -1932,15 +1995,28 @@ export component MainWindow inherits Window {
                                     horizontal-stretch: 1;
                                     spacing: 2px;
                                     Text {
-                                        text: "Latar gambar";
+                                        text: root.bg-for-item ? "Latar materi" : "Latar umum";
                                         color: Theme.text;
                                         font-size: 18px;
                                         font-weight: 700;
                                     }
                                     Text {
-                                        text: root.backgrounds.length == 0 ? "Belum ada gambar di profil ini" : root.backgrounds.length + " gambar di profil ini";
+                                        text: root.bg-for-item ? root.bg-item-title : root.backgrounds.length == 0 ? "Belum ada gambar di profil ini" : root.backgrounds.length + " gambar di profil ini";
                                         color: Theme.text-3;
                                         font-size: 12px;
+                                        overflow: elide;
+                                    }
+                                }
+                                if root.bg-for-item && root.bg-item-own: VerticalLayout {
+                                    alignment: center;
+                                    horizontal-stretch: 0;
+                                    Btn {
+                                        text: "Pakai latar umum";
+                                        font-size: 13px;
+                                        full-text: true;
+                                        clicked => {
+                                            root.use-general-background();
+                                        }
                                     }
                                 }
                                 VerticalLayout {
@@ -1970,7 +2046,9 @@ export component MainWindow inherits Window {
                                 }
                             }
                             Text {
-                                text: "Klik gambar untuk memakainya di layar jemaat. Lirik tampil putih dengan garis tepi gelap. Gambar JPG atau PNG disalin ke profil ini; berkas aslinya tidak diubah.";
+                                text: root.bg-for-item
+                                    ? "Klik gambar untuk memakainya hanya di materi ini; materi lain tetap memakai latar umum. Gambar JPG atau PNG disalin ke profil ini; berkas aslinya tidak diubah."
+                                    : "Klik gambar untuk memakainya sebagai latar umum, yaitu latar materi yang tidak punya latar sendiri. Gambar JPG atau PNG disalin ke profil ini; berkas aslinya tidak diubah.";
                                 color: Theme.text-2;
                                 font-size: 13px;
                                 wrap: word-wrap;
@@ -2420,10 +2498,25 @@ export component MainWindow inherits Window {
                         VerticalLayout {
                             spacing: 4px;
                             horizontal-stretch: 1;
-                            Text {
-                                text: root.current-meta;
-                                color: Theme.text-3;
-                                font-size: 13px;
+                            HorizontalLayout {
+                                spacing: 10px;
+                                Text {
+                                    text: root.current-meta;
+                                    color: Theme.text-3;
+                                    font-size: 13px;
+                                    vertical-alignment: center;
+                                    horizontal-stretch: 0;
+                                }
+                                BgChip {
+                                    text: root.current-background == "" ? "Latar umum" : "Latar: " + root.current-background;
+                                    on: root.current-background != "";
+                                    clicked => {
+                                        root.show-item-backgrounds();
+                                    }
+                                }
+                                Rectangle {
+                                    horizontal-stretch: 1;
+                                }
                             }
                             Text {
                                 text: root.current-title;
@@ -2438,6 +2531,7 @@ export component MainWindow inherits Window {
                             Btn {
                                 text: "Edit materi";
                                 icon: Icons.edit;
+                                full-text: true;
                                 clicked => {
                                     root.edit-current();
                                 }
@@ -2458,8 +2552,8 @@ export component MainWindow inherits Window {
                             tile: tile;
                             number: i + 1;
                             bg-index: root.bg-index;
-                            picture: root.bg-picture;
-                            has-picture: root.has-bg-picture;
+                            picture: root.view-picture;
+                            has-picture: root.has-view-picture;
                             preview: i == root.preview-page;
                             live: root.live-item-id == root.selected-id && i == root.live-page && !root.blackout;
                             clicked => {
@@ -2607,8 +2701,8 @@ export component MainWindow inherits Window {
                                 tile: root.preview;
                                 has-slide: root.has-preview;
                                 bg-index: root.bg-index;
-                                picture: root.bg-picture;
-                                has-picture: root.has-bg-picture;
+                                picture: root.view-picture;
+                                has-picture: root.has-view-picture;
                                 ring: Theme.accent;
                                 empty-text: "Pilih slide untuk dipratinjau";
                             }
@@ -2670,8 +2764,8 @@ export component MainWindow inherits Window {
                                 has-slide: root.has-live;
                                 dark: root.blackout;
                                 bg-index: root.bg-index;
-                                picture: root.bg-picture;
-                                has-picture: root.has-bg-picture;
+                                picture: root.live-picture;
+                                has-picture: root.has-live-picture;
                                 ring: Theme.live;
                                 empty-text: "Belum ada yang tayang";
                             }
@@ -2732,7 +2826,7 @@ export component MainWindow inherits Window {
                                 height: 4px;
                             }
                             Text {
-                                text: "Latar layar";
+                                text: "Latar umum";
                                 color: Theme.text-2;
                                 font-size: 13px;
                             }
@@ -2800,10 +2894,10 @@ export component MainWindow inherits Window {
                                     border-color: #2A303C;
                                     clip: true;
                                     background: Theme.slide-bg[root.bg-index];
-                                    if root.has-bg-picture: PictureFill {
+                                    if root.has-view-picture: PictureFill {
                                         width: parent.width;
                                         height: parent.height;
-                                        picture: root.bg-picture;
+                                        picture: root.view-picture;
                                     }
                                     SlideText {
                                         width: parent.width;
@@ -2811,8 +2905,8 @@ export component MainWindow inherits Window {
                                         text: tile.text;
                                         lines: tile.lines;
                                         chars: tile.chars;
-                                        ink: root.has-bg-picture ? Theme.picture-ink : Theme.slide-ink[root.bg-index];
-                                        outline: root.has-bg-picture;
+                                        ink: root.has-view-picture ? Theme.picture-ink : Theme.slide-ink[root.bg-index];
+                                        outline: root.has-view-picture;
                                     }
                                 }
                                 Text {

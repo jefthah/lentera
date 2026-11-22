@@ -9,7 +9,7 @@
 mod update;
 
 use std::{
-    cell::RefCell,
+    cell::{Cell, RefCell},
     collections::{HashMap, HashSet},
     ffi::OsString,
     path::{Path, PathBuf},
@@ -83,6 +83,15 @@ fn kind_label(kind: Kind) -> &'static str {
 
 fn item_meta(item: &Item) -> String {
     format!("{} · {} slide", kind_label(item.kind), item.slide_count())
+}
+
+/// Keterangan di atas judul materi terpilih.
+fn current_meta(item: &Item) -> String {
+    if Library::is_scratch(item.id) {
+        format!("Alkitab · {} slide · belum di pustaka", item.slide_count())
+    } else {
+        item_meta(item)
+    }
 }
 
 fn tile(text: &str) -> SlideTile {
@@ -240,6 +249,10 @@ struct BibleState {
 /// Gambar latar yang sedang ditambahkan di thread lain.
 struct Adding {
     results: mpsc::Receiver<Result<Added, String>>,
+    /// Profil dan sasaran galeri saat penambahan dimulai (lihat
+    /// `App::bg_target`). Satu gambar yang ditambahkan langsung dipakai di sana.
+    profile: String,
+    target: Option<u64>,
     total: usize,
     added: Vec<String>,
     existing: Vec<String>,
@@ -274,8 +287,11 @@ struct App {
     profile_cards: Rc<VecModel<ProfileCard>>,
     verse_rows: Rc<VecModel<VerseRow>>,
     background_tiles: Rc<VecModel<BackgroundTile>>,
-    /// Gambar latar yang terakhir dibuka, beserta namanya.
-    bg_picture: RefCell<Option<(String, Image)>>,
+    /// Gambar latar yang sedang dipakai (latar umum, materi terpilih, materi
+    /// tayang), menurut namanya. Gambar lain dilepas dari memori.
+    pictures: RefCell<HashMap<String, Image>>,
+    /// Sasaran galeri latar: materi ini, atau latar umum bila `None`.
+    bg_target: Cell<Option<u64>>,
     /// Gambar kecil daftar latar profil yang sedang dibuka.
     bg_thumbs: RefCell<HashMap<String, Image>>,
     adding: RefCell<Option<Adding>>,
@@ -339,7 +355,8 @@ impl App {
             profile_cards: Rc::new(VecModel::default()),
             verse_rows: Rc::new(VecModel::default()),
             background_tiles: Rc::new(VecModel::default()),
-            bg_picture: RefCell::default(),
+            pictures: RefCell::default(),
+            bg_target: Cell::default(),
             bg_thumbs: RefCell::default(),
             adding: RefCell::default(),
             adding_timer: Timer::default(),
@@ -400,7 +417,11 @@ impl App {
             .monitor_changed(index));
         connect!(app.ui.on_background_changed, |a, index| a
             .background_changed(index));
-        connect!(app.ui.on_show_backgrounds, |a| a.show_backgrounds());
+        connect!(app.ui.on_show_backgrounds, |a| a.show_backgrounds(None));
+        connect!(app.ui.on_show_item_backgrounds, |a| a
+            .show_item_backgrounds());
+        connect!(app.ui.on_use_general_background, |a| a
+            .use_general_background());
         connect!(app.ui.on_pick_background, |a, name| a
             .pick_background(&name));
         connect!(app.ui.on_add_backgrounds, |a| a.add_backgrounds());
@@ -536,12 +557,17 @@ impl App {
     /// Materi terpilih: judul, semua slide, dan pratinjau.
     fn refresh_current(&self) {
         let st = self.state.borrow();
-        let current = st
-            .selected
-            .and_then(|id| st.library.item(id))
-            .map(|item| (item.id, item.title.clone(), item.kind, item.slides()));
+        let current = st.selected.and_then(|id| st.library.item(id)).map(|item| {
+            (
+                item.id,
+                item.title.clone(),
+                current_meta(item),
+                item.slides(),
+            )
+        });
         drop(st);
-        let Some((id, title, kind, slides)) = current else {
+        self.apply_view_background();
+        let Some((id, title, meta, slides)) = current else {
             self.ui.set_has_current(false);
             self.ui.set_selected_id(-1);
             self.slide_tiles.set_vec(Vec::new());
@@ -551,11 +577,6 @@ impl App {
         self.ui.set_has_current(true);
         self.ui.set_selected_id(ui_id(id));
         self.ui.set_current_title(title.into());
-        let meta = if Library::is_scratch(id) {
-            format!("Alkitab · {} slide · belum di pustaka", slides.len())
-        } else {
-            format!("{} · {} slide", kind_label(kind), slides.len())
-        };
         self.ui.set_current_meta(meta.into());
         self.slide_tiles.set_vec(tiles(&slides));
         self.refresh_preview();
@@ -612,6 +633,7 @@ impl App {
         self.output.set_has_slide(has_live);
         self.output.set_dark(blackout);
         self.output.set_fullscreen(fullscreen);
+        self.apply_live_background();
     }
 
     fn load_editor(&self) {
@@ -1897,7 +1919,7 @@ impl App {
 
     // ----- Latar -----
 
-    /// Warna latar bawaan dipilih; gambar latar tidak dipakai lagi.
+    /// Warna latar umum dipilih; gambar latar umum tidak dipakai lagi.
     fn background_changed(&self, index: i32) {
         let Ok(index) = usize::try_from(index) else {
             return;
@@ -1909,6 +1931,20 @@ impl App {
         }
         self.apply_background();
         self.persist();
+        if self.selected_has_own_background() {
+            self.status(
+                "Latar umum diganti. Materi ini tetap memakai latarnya sendiri.",
+                true,
+            );
+        }
+    }
+
+    /// Materi terpilih punya gambar latar sendiri.
+    fn selected_has_own_background(&self) -> bool {
+        let st = self.state.borrow();
+        st.selected
+            .and_then(|id| st.library.item(id))
+            .is_some_and(|item| item.background.is_some())
     }
 
     /// Folder profil yang sedang dibuka.
@@ -1921,57 +1957,170 @@ impl App {
             .unwrap_or_default()
     }
 
-    /// Menerapkan latar pustaka ke jendela operator dan proyektor. Gambar yang
-    /// hilang atau rusak diganti warna latar, dengan pesan.
+    /// Menerapkan latar ke semua layar: latar umum (kotak Latar umum), latar
+    /// materi terpilih (slide, pratinjau, editor), dan latar materi yang
+    /// tayang (layar Tayang dan proyektor). Materi tanpa gambar sendiri
+    /// memakai latar umum.
     fn apply_background(&self) {
-        let (index, name) = {
-            let st = self.state.borrow();
-            (
-                st.library.background as i32,
-                st.library.background_image.clone(),
-            )
-        };
+        let index = self.state.borrow().library.background as i32;
         self.ui.set_bg_index(index);
         self.output.set_bg_index(index);
-        let picture = name.and_then(|name| match self.background_picture(&name) {
+        let general = self.general_picture();
+        self.ui.set_has_bg_picture(general.is_some());
+        self.ui.set_bg_picture(general.unwrap_or_default());
+        self.apply_view_background();
+        self.apply_live_background();
+    }
+
+    /// Latar materi terpilih: slide di tengah, pratinjau, dan hasil editor.
+    fn apply_view_background(&self) {
+        let selected = self.state.borrow().selected;
+        let picture = self.picture_for(selected);
+        self.ui.set_has_view_picture(picture.is_some());
+        self.ui.set_view_picture(picture.unwrap_or_default());
+        let own = {
+            let st = self.state.borrow();
+            selected
+                .and_then(|id| st.library.item(id))
+                .and_then(|item| item.background.as_deref().map(background_label))
+                .unwrap_or_default()
+                .to_owned()
+        };
+        self.ui.set_current_background(own.into());
+        self.prune_pictures();
+    }
+
+    /// Latar materi yang sedang tayang: layar Tayang dan proyektor. Tanpa
+    /// tayangan, layar memakai latar umum.
+    fn apply_live_background(&self) {
+        let live = self.state.borrow().live.as_ref().map(|slide| slide.item);
+        let picture = self.picture_for(live);
+        let has = picture.is_some();
+        let image = picture.unwrap_or_default();
+        self.ui.set_live_picture(image.clone());
+        self.ui.set_has_live_picture(has);
+        self.output.set_picture(image);
+        self.output.set_has_picture(has);
+        self.prune_pictures();
+    }
+
+    /// Gambar latar umum. Gambar yang hilang atau rusak dilepas: latar umum
+    /// kembali ke warna, dengan pesan.
+    fn general_picture(&self) -> Option<Image> {
+        let name = self.state.borrow().library.background_image.clone()?;
+        match self.picture(&name) {
             Ok(image) => Some(image),
             Err(e) => {
                 self.state.borrow_mut().library.background_image = None;
                 self.persist();
-                self.status(&format!("{e} Layar memakai warna latar."), false);
+                self.ui.set_has_bg_picture(false);
+                self.status(&format!("{e} Latar umum kembali ke warna."), false);
                 None
             }
-        });
-        let has = picture.is_some();
-        let image = picture.unwrap_or_default();
-        self.ui.set_bg_picture(image.clone());
-        self.ui.set_has_bg_picture(has);
-        self.output.set_picture(image);
-        self.output.set_has_picture(has);
+        }
     }
 
-    /// Gambar latar yang sudah dibuka. Hanya satu yang disimpan di memori.
-    fn background_picture(&self, name: &str) -> Result<Image, String> {
-        if let Some((cached, image)) = &*self.bg_picture.borrow()
-            && cached == name
-        {
+    /// Gambar latar materi `id`: gambarnya sendiri, atau latar umum. Gambar
+    /// sendiri yang hilang atau rusak dilepas dari materi, dengan pesan.
+    fn picture_for(&self, id: Option<u64>) -> Option<Image> {
+        let own = {
+            let st = self.state.borrow();
+            id.and_then(|id| st.library.item(id))
+                .and_then(|item| item.background.clone())
+        };
+        if let (Some(id), Some(name)) = (id, own) {
+            match self.picture(&name) {
+                Ok(image) => return Some(image),
+                Err(e) => {
+                    self.state
+                        .borrow_mut()
+                        .library
+                        .set_item_background(id, None);
+                    self.persist();
+                    self.status(&format!("{e} Materi ini memakai latar umum."), false);
+                }
+            }
+        }
+        self.general_picture()
+    }
+
+    /// Gambar latar yang sudah dibuka, atau dibuka sekarang.
+    fn picture(&self, name: &str) -> Result<Image, String> {
+        if let Some(image) = self.pictures.borrow().get(name) {
             return Ok(image.clone());
         }
         let image = to_image(background::load(&self.profile_dir(), name)?);
-        *self.bg_picture.borrow_mut() = Some((name.to_owned(), image.clone()));
+        self.pictures
+            .borrow_mut()
+            .insert(name.to_owned(), image.clone());
         Ok(image)
     }
 
-    fn show_backgrounds(&self) {
+    /// Melepas gambar yang tidak dipakai lagi dari memori. Satu gambar
+    /// 1920×1080 sekitar 6 MB.
+    fn prune_pictures(&self) {
+        let used: Vec<String> = {
+            let st = self.state.borrow();
+            let own = |id: Option<u64>| {
+                id.and_then(|id| st.library.item(id))
+                    .and_then(|item| item.background.clone())
+            };
+            [
+                st.library.background_image.clone(),
+                own(st.selected),
+                own(st.live.as_ref().map(|slide| slide.item)),
+            ]
+            .into_iter()
+            .flatten()
+            .collect()
+        };
+        self.pictures
+            .borrow_mut()
+            .retain(|name, _| used.contains(name));
+    }
+
+    /// Membuka galeri latar untuk materi `target`, atau untuk latar umum.
+    fn show_backgrounds(&self, target: Option<u64>) {
+        self.bg_target.set(target);
         self.refresh_background_tiles();
         self.ui.invoke_open_backgrounds();
+    }
+
+    /// Galeri latar untuk materi terpilih. Ayat Alkitab disimpan dulu ke
+    /// pustaka, seperti saat diedit.
+    fn show_item_backgrounds(&self) {
+        let Some(id) = self.state.borrow().selected else {
+            self.status("Pilih materi yang ingin diberi latar.", false);
+            return;
+        };
+        if Library::is_scratch(id) && (self.materialize(id).is_none() || !self.persist()) {
+            return;
+        }
+        let selected = self.state.borrow().selected;
+        self.show_backgrounds(selected);
     }
 
     /// Mengisi daftar latar. Gambar kecil dibuka sekali per profil; gambar
     /// yang rusak tetap tampil (kosong) supaya bisa dihapus.
     fn refresh_background_tiles(&self) {
         let dir = self.profile_dir();
-        let current = self.state.borrow().library.background_image.clone();
+        let (current, item_title) = {
+            let st = self.state.borrow();
+            match self.bg_target.get() {
+                Some(id) => {
+                    let item = st.library.item(id);
+                    (
+                        item.and_then(|i| i.background.clone()),
+                        Some(item.map(|i| i.title.clone()).unwrap_or_default()),
+                    )
+                }
+                None => (st.library.background_image.clone(), None),
+            }
+        };
+        self.ui.set_bg_for_item(item_title.is_some());
+        self.ui
+            .set_bg_item_title(item_title.unwrap_or_default().into());
+        self.ui.set_bg_item_own(current.is_some());
         let names = background::list(&dir);
         let mut thumbs = self.bg_thumbs.borrow_mut();
         thumbs.retain(|name, _| names.contains(name));
@@ -1997,16 +2146,59 @@ impl App {
         self.background_tiles.set_vec(tiles);
     }
 
+    /// Gambar di galeri diklik: dipakai untuk sasaran galeri (materi atau
+    /// latar umum).
     fn pick_background(&self, name: &str) {
-        if self.state.borrow().library.background_image.as_deref() == Some(name) {
+        self.use_background(self.bg_target.get(), Some(name.to_owned()));
+    }
+
+    /// Materi sasaran galeri kembali memakai latar umum.
+    fn use_general_background(&self) {
+        if let Some(id) = self.bg_target.get() {
+            self.use_background(Some(id), None);
+        }
+    }
+
+    /// Memasang gambar latar `name` ke materi `target`, atau ke latar umum.
+    /// `None` melepas gambar materi (kembali ke latar umum); untuk latar umum
+    /// pakai `background_changed`.
+    fn use_background(&self, target: Option<u64>, name: Option<String>) {
+        let changed = {
+            let mut st = self.state.borrow_mut();
+            match target {
+                Some(id) => st.library.set_item_background(id, name.clone()),
+                None if name.is_some() && st.library.background_image != name => {
+                    st.library.background_image = name.clone();
+                    true
+                }
+                None => false,
+            }
+        };
+        if !changed {
             return;
         }
-        self.state.borrow_mut().library.background_image = Some(name.to_owned());
+        self.persist();
         self.apply_background();
         self.refresh_background_tiles();
-        self.persist();
-        if self.state.borrow().library.background_image.is_some() {
-            self.status(&format!("Latar: {}.", background_label(name)), true);
+        let label = name.as_deref().map(background_label);
+        let message = match (target, label) {
+            (Some(_), Some(label)) => format!("Latar materi ini: {label}."),
+            (Some(_), None) => "Materi ini kembali memakai latar umum.".to_owned(),
+            (None, Some(label)) if self.selected_has_own_background() => {
+                format!("Latar umum: {label}. Materi ini tetap memakai latarnya sendiri.")
+            }
+            (None, label) => format!("Latar umum: {}.", label.unwrap_or_default()),
+        };
+        // Gambar yang gagal dibuka sudah dilepas dengan pesannya sendiri.
+        let applied = {
+            let st = self.state.borrow();
+            match target {
+                Some(id) => st.library.item(id).map(|i| &i.background) == Some(&name),
+                None => st.library.background_image == name,
+            }
+        };
+        if applied {
+            self.status(&message, true);
         }
     }
 
@@ -2041,8 +2233,11 @@ impl App {
                 }
             }
         });
+        let profile = self.state.borrow().store.id().to_owned();
         *self.adding.borrow_mut() = Some(Adding {
             results,
+            profile,
+            target: self.bg_target.get(),
             total,
             added: Vec::new(),
             existing: Vec::new(),
@@ -2097,13 +2292,15 @@ impl App {
         let Some(adding) = self.adding.borrow_mut().take() else {
             return;
         };
-        // Satu gambar yang dipilih langsung dipakai sebagai latar.
+        // Satu gambar yang dipilih langsung dipakai sebagai latar, untuk
+        // materi atau latar umum sesuai galeri tempat menambahkannya. Bila
+        // profil sudah berganti, gambarnya ada di profil lama.
+        let same_profile = self.state.borrow().store.id() == adding.profile;
         if adding.total == 1
+            && same_profile
             && let Some(name) = adding.added.first().or(adding.existing.first())
         {
-            self.state.borrow_mut().library.background_image = Some(name.clone());
-            self.apply_background();
-            self.persist();
+            self.use_background(adding.target, Some(name.clone()));
         }
         self.refresh_background_tiles();
         let mut parts = Vec::new();
@@ -2142,16 +2339,26 @@ impl App {
     }
 
     fn remove_background(&self, name: &str) {
-        let in_use = self.state.borrow().library.background_image.as_deref() == Some(name);
-        let text = format!(
-            "Hapus \"{}\" dari latar profil ini?\n\nBerkas gambar asli di komputer tidak ikut terhapus.{}",
-            background_label(name),
-            if in_use {
-                "\nLatar ini sedang dipakai; layar kembali ke warna latar."
-            } else {
-                ""
-            }
+        let (general, items) = {
+            let st = self.state.borrow();
+            (
+                st.library.background_image.as_deref() == Some(name),
+                st.library.background_users(name),
+            )
+        };
+        let mut text = format!(
+            "Hapus \"{}\" dari latar profil ini?\n\nBerkas gambar asli di komputer tidak ikut terhapus.",
+            background_label(name)
         );
+        if general {
+            text.push_str("\nGambar ini latar umum; latar umum kembali ke warna.");
+        }
+        if items > 0 {
+            text.push_str(&format!(
+                "\nGambar ini latar {} materi; materi itu kembali memakai latar umum.",
+                count(items)
+            ));
+        }
         let answer = dialog(
             Some(self.ui.window()),
             MessageLevel::Warning,
@@ -2170,12 +2377,18 @@ impl App {
             return;
         }
         self.bg_thumbs.borrow_mut().remove(name);
-        let in_use = self.state.borrow().library.background_image.as_deref() == Some(name);
-        if in_use {
-            self.state.borrow_mut().library.background_image = None;
-            *self.bg_picture.borrow_mut() = None;
-            self.apply_background();
+        self.pictures.borrow_mut().remove(name);
+        let changed = {
+            let mut st = self.state.borrow_mut();
+            let general = st.library.background_image.as_deref() == Some(name);
+            if general {
+                st.library.background_image = None;
+            }
+            st.library.forget_item_background(name) > 0 || general
+        };
+        if changed {
             self.persist();
+            self.apply_background();
         }
         self.refresh_background_tiles();
         self.status(&format!("Latar {} dihapus.", background_label(name)), true);
@@ -2425,8 +2638,11 @@ impl App {
         self.ui.set_query(SharedString::new());
         self.ui.set_bg_index(background);
         self.output.set_bg_index(background);
-        *self.bg_picture.borrow_mut() = None;
+        // Gambar latar ada di folder profil, dan id materi hanya berlaku di
+        // profil itu.
+        self.pictures.borrow_mut().clear();
         self.bg_thumbs.borrow_mut().clear();
+        self.bg_target.set(None);
         self.apply_background();
         self.persist();
         self.refresh_library();
@@ -2857,7 +3073,7 @@ impl App {
                         && self.ui.get_has_bg_picture()
                         && self.output.get_has_picture(),
                 );
-                self.show_backgrounds();
+                self.show_backgrounds(None);
             }
             21 => {
                 self.snapshot("ui-smoke-latar.png", self.ui.window());
@@ -2871,17 +3087,72 @@ impl App {
             22 => {
                 self.snapshot("ui-smoke-latar-slide.png", self.ui.window());
                 self.snapshot("ui-smoke-latar-proyektor.png", self.output.window());
+                // Latar materi: latar umum warna, materi terpilih memakai gambar
+                // sendiri, lalu materi itu ditayangkan.
                 self.background_changed(1);
-                let color = !self.ui.get_has_bg_picture()
-                    && self.state.borrow().library.background_image.is_none();
+                self.show_item_backgrounds();
                 self.pick_background("Latar uji.jpg");
-                self.remove_background_now("Latar uji.jpg");
+                let selected = self.state.borrow().selected;
+                let own = |l: &Library| {
+                    selected
+                        .and_then(|id| l.item(id))
+                        .and_then(|i| i.background.clone())
+                };
+                let name = Some("Latar uji.jpg".to_owned());
+                let saved = self
+                    .state
+                    .borrow()
+                    .store
+                    .load()
+                    .is_ok_and(|l| own(&l) == name && l.background_image.is_none());
+                let picked = own(&self.state.borrow().library) == name;
+                let gallery = self.ui.get_bg_for_item()
+                    && self.background_tiles.row_data(0).is_some_and(|t| t.on);
+                self.go_live();
+                self.check(
+                    "item_background",
+                    saved
+                        && picked
+                        && gallery
+                        && self.ui.get_current_background() == "Latar uji"
+                        && self.ui.get_has_view_picture()
+                        && !self.ui.get_has_bg_picture()
+                        && self.ui.get_has_live_picture()
+                        && self.output.get_has_picture(),
+                );
+            }
+            23 => {
+                self.snapshot("ui-smoke-latar-materi-galeri.png", self.ui.window());
+                self.ui.invoke_close_backgrounds();
+            }
+            24 => {
+                self.snapshot("ui-smoke-latar-materi.png", self.ui.window());
+                self.snapshot("ui-smoke-latar-materi-proyektor.png", self.output.window());
+                // Kembali ke latar umum (warna), lalu pasang lagi untuk uji hapus.
+                self.use_general_background();
+                self.check(
+                    "item_background_general",
+                    !self.ui.get_has_view_picture()
+                        && !self.ui.get_has_live_picture()
+                        && !self.output.get_has_picture()
+                        && !self.selected_has_own_background(),
+                );
+                let name = "Latar uji.jpg";
+                let selected = self.state.borrow().selected;
+                self.use_background(selected, Some(name.to_owned()));
+                self.use_background(None, Some(name.to_owned()));
+                let both = self.selected_has_own_background() && self.ui.get_has_bg_picture();
+                // Menghapus gambar melepasnya dari latar umum dan dari materi.
+                self.remove_background_now(name);
+                let library = self.state.borrow().library.clone();
                 self.check(
                     "background_removed",
-                    color
-                        && background::list(&self.profile_dir()).is_empty()
+                    both && background::list(&self.profile_dir()).is_empty()
                         && !self.output.get_has_picture()
-                        && self.state.borrow().library.background_image.is_none(),
+                        && !self.ui.get_has_view_picture()
+                        && library.background_image.is_none()
+                        && library.background_users(name) == 0
+                        && self.pictures.borrow().is_empty(),
                 );
             }
             _ => {

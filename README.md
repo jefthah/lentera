@@ -30,8 +30,8 @@ Memerlukan **Windows 10/11 64-bit**. Antarmuka ditujukan untuk layar sekitar 102
 - **Kiri:** susunan ibadah (naik, turun, lepas), lalu tab **Pustaka** (lirik / ayat dengan filter dan pencarian judul / isi) dan tab **Alkitab**.
 - **Alkitab:** impor terjemahan sekali (OpenSong XML, Zefania XML, TSV, atau EasyWorship `.ewb`), lalu ketik referensi seperti `Yoh 3:16-18` dan tekan Enter untuk menayangkan. Ayat juga bisa dipilih dari daftar satu pasal (Shift+klik untuk rentang). Slide dibagi otomatis 1–3 ayat dengan nomor ayat kecil; **+ Susunan** menyimpannya ke pustaka dan susunan ibadah.
 - **Tengah:** semua slide materi terpilih sebagai kartu. Klik untuk pratinjau, klik dua kali untuk langsung menayangkan.
-- **Kanan:** pratinjau, tombol **Tayangkan**, layar yang sedang tayang, tombol sebelumnya / berikutnya, gelapkan, layar penuh, dan latar layar (tiga warna atau gambar).
-- **Latar gambar:** tambahkan gambar JPG atau PNG ke galeri profil, lalu pakai satu gambar sebagai latar semua slide. Teks di atas gambar tampil putih dengan garis tepi gelap. Gambar disalin ke profil dan diperkecil untuk layar 1920×1080; berkas aslinya tidak diubah.
+- **Kanan:** pratinjau, tombol **Tayangkan**, layar yang sedang tayang, tombol sebelumnya / berikutnya, gelapkan, layar penuh, dan latar umum (tiga warna atau gambar).
+- **Latar gambar:** tambahkan gambar JPG atau PNG ke galeri profil, lalu pakai satu gambar sebagai latar umum, atau beri setiap lagu dan ayat gambarnya sendiri. Teks di atas gambar tampil putih dengan garis tepi gelap. Gambar disalin ke profil dan diperkecil untuk layar 1920×1080; berkas aslinya tidak diubah.
 - **Profil:** beberapa profil dalam satu komputer, masing-masing dengan pustaka dan susunan ibadahnya sendiri. Buat, ganti nama, hapus, dan berganti profil lewat tombol profil di bilah atas.
 - **Editor materi:** judul, jenis (lirik / ayat), dan isi, dengan hasil slide yang langsung terlihat. Tersimpan otomatis.
 - Jendela proyektor terpisah dengan pilihan monitor, layar penuh, dan blackout. Ukuran teks menyesuaikan layar.
@@ -61,7 +61,7 @@ Program 0.2.0 berukuran sekitar 11 MB (0.1.1: 2,2 MB). Angka ini merupakan pengu
 
 Data disimpan per profil dalam basis data SQLite di `%LOCALAPPDATA%\Lentera\profiles\<id profil>\library.db` (macOS: `~/Library/Application Support/Lentera`). Profil pertama bernama **Profil utama**; profil lain dibuat lewat layar **Pilih profil**, dan profil yang dihapus dipindahkan ke folder `profiles-deleted`. Isi `library.json` dari versi 0.2.1 atau sebelumnya dipindahkan otomatis saat pertama kali dibuka, dan berkas lamanya dibiarkan sebagai cadangan. Terjemahan Alkitab yang diimpor disimpan di `alkitab.db` di folder data, satu untuk semua profil. Program terpasang terpisah di `%LOCALAPPDATA%\LenteraApp`, sehingga uninstall tidak menghapus data. Cadangan data saat Lentera terakhir dibuka berada di `library.db.bak`. Hanya satu proses dapat membuka folder data yang sama. Tutup jendela Lentera yang sudah terbuka sebelum menjalankan salinan lain dengan data yang sama.
 
-Pustaka menampilkan semua materi (diuji sampai 5.000 lagu). Gunakan pencarian untuk mempersempit materi. Belum tersedia video, latar berbeda per lagu atau ayat, PowerPoint, NDI, streaming, atau impor jadwal dan media EasyWorship.
+Pustaka menampilkan semua materi (diuji sampai 5.000 lagu). Gunakan pencarian untuk mempersempit materi. Belum tersedia video, PowerPoint, NDI, streaming, atau impor jadwal dan media EasyWorship.
 
 Tidak menyertakan teks Alkitab atau lagu berlisensi. Terjemahan Alkitab diimpor dari berkas OpenSong XML, Zefania XML, TSV, atau EasyWorship `.ewb`; gunakan materi yang Anda berhak gunakan. Teks contoh adalah placeholder.
 

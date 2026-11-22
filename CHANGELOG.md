@@ -2,18 +2,19 @@
 
 ## Belum dirilis
 
-**Latar gambar:** layar jemaat kini bisa memakai gambar sebagai latar, tidak hanya warna.
+**Latar gambar:** layar jemaat kini bisa memakai gambar sebagai latar, tidak hanya warna. Satu gambar bisa menjadi latar umum, dan setiap lagu atau ayat bisa diberi gambar sendiri.
 
-- Di **Latar layar** (kolom kanan), kotak **Gambar** membuka galeri **Latar gambar**. **Tambah gambar** memilih satu atau beberapa gambar JPG, JPEG, JFIF, atau PNG sekaligus. Bila komputer ini punya folder gambar EasyWorship, pemilih berkas terbuka di sana.
-- Klik gambar di galeri untuk memakainya di slide, pratinjau, layar tayang, dan proyektor. Klik salah satu warna untuk kembali ke latar warna.
+- **Latar umum** di kolom kanan (dulu **Latar layar**) berisi tiga warna dan kotak **Gambar**. Kotak Gambar membuka galeri gambar profil. **Tambah gambar** memilih satu atau beberapa gambar JPG, JPEG, JFIF, atau PNG sekaligus. Bila komputer ini punya folder gambar EasyWorship, pemilih berkas terbuka di sana. Klik gambar untuk memakainya sebagai latar umum, atau klik salah satu warna untuk kembali ke latar warna.
+- **Latar per materi:** di atas judul materi terpilih ada tombol **Latar umum**, atau **Latar: nama gambar** bila materi itu punya gambar sendiri. Tombol ini membuka galeri untuk materi itu saja. Klik gambar untuk memakainya, atau **Pakai latar umum** untuk kembali. Ayat dari tab Alkitab disimpan dulu ke pustaka, seperti saat diedit.
+- Slide di tengah, pratinjau, dan hasil editor memakai latar materi yang dipilih. Layar Tayang dan proyektor memakai latar materi yang sedang tayang, jadi latarnya ikut berganti saat tayangan pindah ke materi berikutnya dalam susunan. Mengganti latar umum tidak mengubah materi yang punya gambar sendiri.
 - Di atas gambar, lirik dan ayat tampil putih dengan garis tepi gelap, dan gambarnya sedikit digelapkan, supaya teks tetap terbaca juga di gambar yang terang.
 - Gambar disalin ke folder profil sebagai JPG dan diperkecil seperlunya untuk layar 1920×1080 (tidak pernah diperbesar). Foto kamera ditampilkan tegak sesuai arah pengambilannya. Berkas aslinya tidak diubah, dan gambar yang sama tidak disimpan dua kali.
 - Gambar mengisi seluruh layar; bagian yang tidak muat dipotong rata tengah. Di proyektor tegak (potret), sisi kiri dan kanan gambar 16:9 banyak terpotong.
-- Tombol tempat sampah di galeri menghapus gambar dari profil setelah konfirmasi. Berkas aslinya di komputer tidak ikut terhapus.
-- Setiap profil punya galeri sendiri. **Profil baru** ikut memakai gambar latar profil yang sedang dibuka.
-- Belum tersedia: latar berbeda per lagu atau ayat, dan video.
+- Tombol tempat sampah di galeri menghapus gambar dari profil setelah konfirmasi. Materi yang memakai gambar itu kembali ke latar umum, dan bila gambar itu latar umum, latar umum kembali ke warna. Berkas aslinya di komputer tidak ikut terhapus.
+- Setiap profil punya galeri sendiri. **Profil baru** ikut memakai gambar latar umum profil yang sedang dibuka.
+- Belum tersedia: video sebagai latar.
 
-Program bertambah sekitar 0,4 MB menjadi 13,3 MB. Pengolah gambar JPEG dan PNG sudah ikut lewat Slint, jadi tidak ada komponen pihak ketiga baru.
+**Memperbarui:** saat versi ini pertama kali membuka profil, `library.db` diperbarui otomatis untuk menyimpan latar per materi. Setelah itu profil tersebut tidak bisa dibuka lagi oleh Lentera 0.4.0 atau sebelumnya. Program bertambah sekitar 0,4 MB menjadi 13,3 MB. Pengolah gambar JPEG dan PNG sudah ikut lewat Slint, jadi tidak ada komponen pihak ketiga baru.
 
 ## 0.4.0 — 22 November 2026 — beta
 

@@ -11,6 +11,8 @@
 - Berkas EasyWorship hanya dibaca dan tidak pernah diubah; EasyWorship boleh tetap terbuka.
 - Pastikan gereja berhak memakai lagu dan terjemahan Alkitab itu di luar EasyWorship.
 
+**Perbaikan:** Lentera tidak lagi macet setelah memilih berkas impor. Di 0.3.0, pesan yang muncul tepat setelah dialog pilih berkas (misalnya "Impor gagal" karena berkas lirik bukan UTF-8) tidak pernah terlihat: jendela Lentera terkunci, dan aplikasi harus ditutup paksa. Kini pesan itu tampil di depan seperti biasa, untuk impor lirik, ayat, lagu EasyWorship, dan Alkitab.
+
 ## 0.3.0 — 21 November 2026 — beta
 
 Ayat Alkitab cukup diketik referensinya, dan satu komputer bisa memakai beberapa profil.

@@ -1,6 +1,8 @@
 # Riwayat rilis
 
-## Belum dirilis
+## 0.4.0 — 22 November 2026 — beta
+
+Lagu dan Alkitab dari EasyWorship bisa dipindahkan langsung, dan pustaka menampilkan semua materi.
 
 **Impor dari EasyWorship:** lagu dan Alkitab dibaca langsung dari database EasyWorship, tanpa ekspor atau konversi dulu.
 
@@ -11,7 +13,11 @@
 - Berkas EasyWorship hanya dibaca dan tidak pernah diubah; EasyWorship boleh tetap terbuka.
 - Pastikan gereja berhak memakai lagu dan terjemahan Alkitab itu di luar EasyWorship.
 
+**Pustaka menampilkan semua materi.** Sebelumnya daftar pustaka berhenti di 500 materi pertama, jadi setelah mengimpor ratusan lagu sisanya hanya bisa ditemukan lewat pencarian. Kini semua materi tampil, urut menurut waktu ditambahkan, dan tetap ringan: 5.000 lagu dimuat dalam sekitar 4 ms di komputer pengembangan. Jumlah di atas daftar memakai titik ribuan, misalnya "5.000 materi".
+
 **Perbaikan:** Lentera tidak lagi macet setelah memilih berkas impor. Di 0.3.0, pesan yang muncul tepat setelah dialog pilih berkas (misalnya "Impor gagal" karena berkas lirik bukan UTF-8) tidak pernah terlihat: jendela Lentera terkunci, dan aplikasi harus ditutup paksa. Kini pesan itu tampil di depan seperti biasa, untuk impor lirik, ayat, lagu EasyWorship, dan Alkitab.
+
+**Memperbarui:** pengguna 0.1.1 sampai 0.3.0 menerima versi ini lewat pembaruan otomatis; pengguna 0.1.0 memasang installer sekali. Profil dan pustaka 0.3.0 dipakai apa adanya. Bila memperbarui dari 0.2.1 atau sebelumnya, pustaka lama pindah ke **Profil utama** saat versi ini pertama kali dibuka. Program kini sekitar 12,9 MB (0.3.0: 12,8 MB).
 
 ## 0.3.0 — 21 November 2026 — beta
 

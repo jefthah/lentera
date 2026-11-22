@@ -4,13 +4,13 @@
 
 Presentasi ibadah ringan untuk Windows dan macOS, dibangun dengan **Rust + Slint**. Fokus versi awal adalah lirik lagu, ayat Alkitab, susunan ibadah, dan layar proyektor.
 
-**Status: beta 0.3.0.** Coba dahulu pada komputer dan proyektor tujuan sebelum dipakai dalam ibadah.
+**Status: beta 0.4.0.** Coba dahulu pada komputer dan proyektor tujuan sebelum dipakai dalam ibadah.
 
 <a href="https://slint.dev"><img src="https://raw.githubusercontent.com/slint-ui/slint/master/logo/MadeWithSlint-logo-whitebg.png" alt="#MadeWithSlint" height="60"></a>
 
 ## Unduh untuk Windows
 
-**[Unduh Lentera 0.3.0 — Installer Windows 64-bit](https://github.com/jefthah/lentera/releases/download/v0.3.0/LenteraApp-win-Setup.exe)**
+**[Unduh Lentera 0.4.0 — Installer Windows 64-bit](https://github.com/jefthah/lentera/releases/download/v0.4.0/LenteraApp-win-Setup.exe)**
 
 [Halaman rilis dan berkas unduhan](https://github.com/jefthah/lentera/releases)
 
@@ -19,7 +19,7 @@ Presentasi ibadah ringan untuk Windows dan macOS, dibangun dengan **Rust + Slint
 3. Pilih materi di **Pustaka** atau tekan **Materi baru**. Satu baris kosong memisahkan slide.
 4. Tekan **+** untuk menambahkan materi ke susunan ibadah, pilih slide, lalu tekan **Tayangkan** atau **F5**.
 
-**Pembaruan otomatis.** Saat dibuka, Lentera memeriksa versi baru dan mengunduhnya di latar belakang. Pembaruan dipasang saat Lentera ditutup, atau segera lewat tombol **Perbarui ke …** di kanan bawah. Pembaruan tidak pernah dipasang selama Lentera berjalan. Pengguna 0.1.1, 0.2.0, dan 0.2.1 menerima 0.3.0 dengan cara ini; pengguna 0.1.0 perlu memasang installer di atas sekali. Saat 0.3.0 pertama kali dibuka, pustaka lama dipindahkan otomatis ke **Profil utama**.
+**Pembaruan otomatis.** Saat dibuka, Lentera memeriksa versi baru dan mengunduhnya di latar belakang. Pembaruan dipasang saat Lentera ditutup, atau segera lewat tombol **Perbarui ke …** di kanan bawah. Pembaruan tidak pernah dipasang selama Lentera berjalan. Pengguna 0.1.1 sampai 0.3.0 menerima 0.4.0 dengan cara ini; pengguna 0.1.0 perlu memasang installer di atas sekali. Bila memperbarui dari 0.2.1 atau sebelumnya, pustaka lama dipindahkan otomatis ke **Profil utama** saat versi baru pertama kali dibuka.
 
 Memerlukan **Windows 10/11 64-bit**. Antarmuka ditujukan untuk layar sekitar 1024×640 atau lebih. Versi ini belum memiliki tanda tangan digital.
 
@@ -60,7 +60,7 @@ Program 0.2.0 berukuran sekitar 11 MB (0.1.1: 2,2 MB). Angka ini merupakan pengu
 
 Data disimpan per profil dalam basis data SQLite di `%LOCALAPPDATA%\Lentera\profiles\<id profil>\library.db` (macOS: `~/Library/Application Support/Lentera`). Profil pertama bernama **Profil utama**; profil lain dibuat lewat layar **Pilih profil**, dan profil yang dihapus dipindahkan ke folder `profiles-deleted`. Isi `library.json` dari versi 0.2.1 atau sebelumnya dipindahkan otomatis saat pertama kali dibuka, dan berkas lamanya dibiarkan sebagai cadangan. Terjemahan Alkitab yang diimpor disimpan di `alkitab.db` di folder data, satu untuk semua profil. Program terpasang terpisah di `%LOCALAPPDATA%\LenteraApp`, sehingga uninstall tidak menghapus data. Cadangan data saat Lentera terakhir dibuka berada di `library.db.bak`. Hanya satu proses dapat membuka folder data yang sama. Tutup jendela Lentera yang sudah terbuka sebelum menjalankan salinan lain dengan data yang sama.
 
-Pustaka menampilkan maksimal 500 hasil pertama. Gunakan pencarian untuk mempersempit materi. Belum tersedia video, latar gambar, PowerPoint, NDI, streaming, atau impor jadwal dan media EasyWorship.
+Pustaka menampilkan semua materi (diuji sampai 5.000 lagu). Gunakan pencarian untuk mempersempit materi. Belum tersedia video, latar gambar, PowerPoint, NDI, streaming, atau impor jadwal dan media EasyWorship.
 
 Tidak menyertakan teks Alkitab atau lagu berlisensi. Terjemahan Alkitab diimpor dari berkas OpenSong XML, Zefania XML, TSV, atau EasyWorship `.ewb`; gunakan materi yang Anda berhak gunakan. Teks contoh adalah placeholder.
 

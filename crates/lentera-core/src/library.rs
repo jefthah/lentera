@@ -20,6 +20,11 @@ impl Item {
     pub fn slides(&self) -> Vec<String> {
         split_slides(&self.content)
     }
+    /// Sama dengan `slides().len()`, tetapi tanpa menyalin teks. Dipakai
+    /// untuk setiap baris daftar pustaka.
+    pub fn slide_count(&self) -> usize {
+        count_slides(&self.content)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -87,6 +92,35 @@ pub fn split_slides(text: &str) -> Vec<String> {
         slides.push(lines.join("\n"));
     }
     slides
+}
+
+/// Jumlah slide menurut aturan [`split_slides`]: kelompok baris berisi yang
+/// dipisah baris kosong. `\r\n` dan `\r` dihitung sebagai satu ganti baris.
+/// Dibaca per byte tanpa menyalin teks, karena dipanggil untuk setiap baris
+/// daftar pustaka setiap kali pencarian berubah.
+fn count_slides(text: &str) -> usize {
+    let bytes = text.as_bytes();
+    let (mut count, mut previous, mut start) = (0, false, 0);
+    while start <= bytes.len() {
+        let end = bytes[start..]
+            .iter()
+            .position(|&b| b == b'\n' || b == b'\r')
+            .map_or(bytes.len(), |i| start + i);
+        // `\r` dan `\n` tidak pernah muncul di dalam huruf UTF-8 lain, jadi
+        // irisan ini selalu tepat di batas huruf.
+        let filled = !text[start..end].trim().is_empty();
+        if filled && !previous {
+            count += 1;
+        }
+        previous = filled;
+        let line_break = if bytes[end..].starts_with(b"\r\n") {
+            2
+        } else {
+            1
+        };
+        start = end + line_break;
+    }
+    count
 }
 
 impl Library {
@@ -224,6 +258,9 @@ impl Library {
         }
         Ok(added)
     }
+    /// Semua materi yang cocok, urut seperti di pustaka. Tidak dibatasi:
+    /// daftar Slint hanya membuat baris yang terlihat (lihat
+    /// `docs/PENGUJIAN.md`, "Pustaka lebih dari 500 materi").
     pub fn search(&self, kind: Option<Kind>, query: &str) -> Vec<&Item> {
         let query = query.to_lowercase();
         self.items
@@ -234,7 +271,6 @@ impl Library {
                         || item.title.to_lowercase().contains(&query)
                         || item.content.to_lowercase().contains(&query))
             })
-            .take(500)
             .collect()
     }
 }
@@ -249,6 +285,29 @@ mod tests {
             vec!["Kasih-Mu\nTuhan 🙏", "Amin"]
         );
         assert!(split_slides(" \n\n").is_empty());
+    }
+    #[test]
+    fn slide_count_matches_split_slides() {
+        for text in [
+            "",
+            " \n\n",
+            "Satu",
+            "Satu\nDua\n\nTiga\n",
+            "  \r\nKasih-Mu\r\nTuhan 🙏\r\n \r\n\r\nAmin\r\n",
+            "A\rB\r\rC",
+            "A\r\r\nB\n\rC",
+            "A\n\u{3000}\nB\n\t\n\nC D\n",
+            "Akhir\r",
+            "é\r\n\r\nü\r\nñ",
+        ] {
+            let item = Item {
+                id: 1,
+                kind: Kind::Song,
+                title: String::new(),
+                content: text.into(),
+            };
+            assert_eq!(item.slide_count(), item.slides().len(), "{text:?}");
+        }
     }
     #[test]
     fn malformed_import_never_partially_changes_library() {
@@ -298,6 +357,28 @@ mod tests {
             vec![1]
         );
         assert!(library.search(Some(Kind::Verse), "BERSYUKUR").is_empty());
+    }
+    #[test]
+    fn search_returns_every_match_in_library_order() {
+        // Dulu hasil dipotong di 500; impor EasyWorship bisa ratusan lagu.
+        let mut library = Library::blank();
+        for n in 1..=1200 {
+            library.add(Kind::Song, format!("Lagu {n}"), format!("Bait {n}"));
+        }
+        library.add(Kind::Verse, "Mazmur 23:1".into(), "Tuhan gembalaku".into());
+        let all = library.search(None, "");
+        assert_eq!(all.len(), 1201);
+        assert!(all.windows(2).all(|w| w[0].id < w[1].id));
+        assert_eq!(all[1200].title, "Mazmur 23:1");
+        assert_eq!(library.search(Some(Kind::Song), "").len(), 1200);
+        assert_eq!(
+            library
+                .search(None, "lagu 1100")
+                .iter()
+                .map(|i| i.id)
+                .collect::<Vec<_>>(),
+            vec![1100]
+        );
     }
     #[test]
     fn load_reads_old_files_and_keeps_corrupt_ones() {

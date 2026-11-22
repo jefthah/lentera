@@ -1,4 +1,4 @@
-# Lentera 0.3 — presentasi ibadah ringan
+# Lentera 0.4 — presentasi ibadah ringan
 
 Aplikasi presentasi ibadah berbasis Rust dan Slint untuk lirik, ayat, dan proyektor, untuk Windows dan macOS. Sasaran pengembangannya komputer dengan RAM 2–4 GB; ini sasaran, bukan hasil uji pada semua komputer lama.
 
@@ -11,7 +11,7 @@ Aplikasi presentasi ibadah berbasis Rust dan Slint untuk lirik, ayat, dan proyek
    - Atau klik tombolnya, lalu pilih **Yes**: Lentera ditutup, diperbarui, dan dibuka kembali. Proyektor ikut tertutup sebentar, jadi lakukan di luar ibadah.
 4. Untuk menghapus: Settings → Apps → **Lentera** → Uninstall. Data di `%LOCALAPPDATA%\Lentera` tidak ikut terhapus.
 
-Pengguna 0.1.1, 0.2.0, dan 0.2.1 menerima 0.3.0 lewat pembaruan otomatis di atas. Pengguna 0.1.0 (ZIP lama) cukup memasang installer sekali. Saat 0.3.0 pertama kali dibuka, pustaka lama dipindahkan otomatis ke **Profil utama** (lihat **Data dan cadangan**).
+Pengguna 0.1.1 sampai 0.3.0 menerima 0.4.0 lewat pembaruan otomatis di atas. Pengguna 0.1.0 (ZIP lama) cukup memasang installer sekali. Pengguna 0.2.1 atau sebelumnya: saat versi baru pertama kali dibuka, pustaka lama dipindahkan otomatis ke **Profil utama** (lihat **Data dan cadangan**).
 
 Versi macOS belum punya installer; bangun dari kode sumber (lihat **Untuk pengembang**).
 
@@ -110,7 +110,7 @@ Pembagian slide dari EasyWorship dipertahankan. Label bagian seperti "Verse 1", 
 
 **Ayat Alkitab (.tsv):** satu ayat per baris, dengan format `referensi[TAB]teks`. `[TAB]` berarti karakter tab, bukan tulisan literal. Tersedia `contoh-ayat.tsv`. Jika perlu baris baru di dalam satu ayat, tulis `\n` pada kolom teks. Baris yang diawali `#` diabaikan. Duplikat referensi + isi dilewati. Seluruh berkas diperiksa sebelum data ditambahkan. Batas ukuran impor adalah 32 MB.
 
-Pustaka menampilkan maksimal 500 hasil pertama agar tetap responsif; setelah impor besar, jumlahnya tertulis seperti "500 dari 607". Ketik judul, referensi, atau kata di kolom pencarian untuk menemukan materi lain. Aplikasi ini tidak menyertakan teks Alkitab atau database lagu berlisensi. Gunakan materi yang Anda berhak gunakan.
+Pustaka menampilkan semua materi, urut menurut waktu ditambahkan. Ketik judul, referensi, atau kata di kolom pencarian untuk mempersempit hasil. Aplikasi ini tidak menyertakan teks Alkitab atau database lagu berlisensi. Gunakan materi yang Anda berhak gunakan.
 
 ## Profil
 
@@ -131,7 +131,7 @@ Folder data ada di `%LOCALAPPDATA%\Lentera` (macOS: `~/Library/Application Suppo
 
 Terjemahan Alkitab yang diimpor disimpan di `alkitab.db` di folder data, satu untuk semua profil di komputer ini, dan tidak ikut terhapus bersama profil. Berkas ini tidak punya cadangan `.bak`; simpan berkas aslinya supaya bisa diimpor ulang.
 
-Saat Lentera 0.3.0 pertama kali dibuka, isi `library.json` dari Lentera 0.2.1 atau sebelumnya dipindahkan otomatis ke Profil utama. `library.json` tidak diubah dan tidak dibaca lagi, sehingga tetap ada sebagai cadangan. Bila `library.json` rusak, Lentera berhenti dengan pesan dan tidak membuat profil.
+Saat Lentera 0.3.0 atau yang lebih baru pertama kali dibuka, isi `library.json` dari Lentera 0.2.1 atau sebelumnya dipindahkan otomatis ke Profil utama. `library.json` tidak diubah dan tidak dibaca lagi, sehingga tetap ada sebagai cadangan. Bila `library.json` rusak, Lentera berhenti dengan pesan dan tidak membuat profil.
 
 Setiap penyimpanan berlangsung dalam satu transaksi, jadi listrik padam saat menyimpan tidak meninggalkan data setengah tersimpan. `library.db.bak` berisi data profil saat Lentera terakhir dibuka; untuk memulihkannya, tutup Lentera lalu ganti `library.db` dengan salinan `library.db.bak`. Cadangan ini bukan riwayat lengkap; salin folder data secara berkala, terutama sebelum impor besar. Aplikasi tidak mengganti data rusak dengan pustaka kosong. Hanya satu proses dapat membuka folder data yang sama.
 

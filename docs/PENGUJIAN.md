@@ -406,5 +406,28 @@ Verifikasi:
 Belum diuji:
 
 - Memori saat latar umum, materi terpilih, dan materi tayang memakai tiga gambar berbeda. Perkiraannya sekitar 6 MiB per gambar; belum diukur.
-- Membuka profil berskema 2 dengan Lentera 0.4.0 yang terpasang.
+- Membuka profil berskema 2 dengan Lentera 0.4.0 (kemudian diuji di bagian "Rilis 0.5.0").
 - PC dengan RAM 2–4 GB, proyektor sebenarnya, dan macOS.
+
+## Rilis 0.5.0 — 22 November 2026
+
+Berisi latar umum berupa gambar dan latar per materi dari dua bagian di atas. Diuji di komputer pengembangan yang sama.
+
+- Versi workspace 0.5.0 (`Cargo.lock`: 3 crate Lentera) dan `app.manifest` 0.5.0.0.
+- `cargo test -p lentera-core --locked`: 80 lulus. `cargo fmt --all --check` dan `cargo clippy` untuk `lentera-core`, `lentera-app` (dengan dan tanpa `snapshot`), dan `lentera-win32` (`--all-targets -D warnings`) bersih. `THIRD-PARTY-NOTICES.txt` disusun ulang: 300 crate, tidak berubah.
+- Build rilis `lentera.exe`: 13.324.288 byte (0.4.0: 12.891.136 byte). FileVersion / ProductVersion 0.5.0, FileDescription "Lentera".
+- Uji alur UI build rilis di folder kosong: 31/31, versi 0.5.0. `lentera-win32` (profil `ci`): 9/9.
+- **Profil 0.4.0 dibuka 0.5.0.** Salinan `lentera.exe` 0.4.0 dari instalasi (instalasinya tidak diubah) membuat profil di folder data uji lewat uji alurnya: 5 materi dan susunan 3 materi, skema 1. Build rilis 0.5.0 lalu membuka folder itu:
+  - Profil terbuka dengan semua materi dan susunan ibadah, dan chip menunjukkan "Latar umum".
+  - `library.db` dan `library.db.bak` sama-sama skema 2 dengan kolom `background`. Kelima materi tetap ada, dan `PRAGMA integrity_check` = ok.
+  - Pembaruan ini diulang dari profil 0.4.0 baru dua kali lagi, masing-masing ditutup dengan cara berbeda, dan hasilnya sama.
+  - Salinan 0.4.0 yang membuka profil hasil pembaruan menampilkan "Lentera tidak bisa dibuka … dibuat oleh Lentera versi yang lebih baru. Perbarui Lentera." Profilnya tidak berubah.
+- **Menutup jendela.** 0.4.0 dan 0.5.0 ditutup lewat `SC_CLOSE` (seperti tombol X) dan `WM_CLOSE`, juga saat jendela diperkecil, setelah terbuka 70 detik, dan setelah pembaruan profil. Prosesnya keluar dalam 0,3 detik.
+  - Satu kali, pada percobaan pertama, proses 0.5.0 tidak keluar setelah jendelanya hilang dan harus dihentikan paksa. Selama itu kunci folder data tetap dipegang.
+  - Pesan tutup percobaan itu dikirim dari skrip yang berbeda. Kejadiannya tidak terulang dalam 12 percobaan berikutnya, termasuk urutan yang sama, jadi penyebabnya belum diketahui. Kode untuk menutup tidak berubah sejak 0.4.0.
+
+Belum diuji:
+
+- Pembaruan otomatis 0.4.0 → 0.5.0 lewat GitHub Releases di instalasi asli. Ini baru bisa diuji setelah rilis diterbitkan.
+- macOS (menunggu CI).
+- PC sasaran dengan RAM 2–4 GB.

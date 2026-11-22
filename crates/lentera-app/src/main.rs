@@ -895,7 +895,35 @@ impl App {
         }
     }
 
-    fn import(&self, bible: bool) {
+    /// Membuka dialog pilih berkas, lalu menjalankan `then` dengan berkas yang
+    /// dipilih sesaat kemudian, setelah callback ini selesai.
+    ///
+    /// Setelah dialog berkas tertutup, jendela Lentera perlu digambar ulang.
+    /// Selama callback Slint masih berjalan, winit terus mengulang permintaan
+    /// gambar ulang itu, jadi antrean pesan Windows tidak pernah kosong.
+    /// Dialog pesan (MessageBox) baru tampil saat antrean kosong, sehingga
+    /// dialog konfirmasi atau galat sesudahnya tidak pernah muncul dan Lentera
+    /// tampak macet.
+    fn pick_file_then(
+        self: &Rc<Self>,
+        picker: rfd::FileDialog,
+        then: impl FnOnce(&Self, &Path) + 'static,
+    ) {
+        let Some(path) = picker
+            .set_parent(&self.ui.window().window_handle())
+            .pick_file()
+        else {
+            return;
+        };
+        let weak = Rc::downgrade(self);
+        Timer::single_shot(Duration::from_millis(50), move || {
+            if let Some(app) = weak.upgrade() {
+                then(&app, &path);
+            }
+        });
+    }
+
+    fn import(self: &Rc<Self>, bible: bool) {
         if !self.commit_editor() {
             return;
         }
@@ -908,21 +936,21 @@ impl App {
                 .set_title("Impor lirik lagu")
                 .add_filter("Lirik UTF-8", &["txt"])
         };
-        let Some(path) = picker
-            .add_filter("Semua berkas", &["*"])
-            .set_parent(&self.ui.window().window_handle())
-            .pick_file()
-        else {
-            return;
-        };
+        self.pick_file_then(
+            picker.add_filter("Semua berkas", &["*"]),
+            move |app, path| app.import_file(bible, path),
+        );
+    }
+
+    fn import_file(&self, bible: bool, path: &Path) {
         let result = {
             let mut st = self.state.borrow_mut();
             if bible {
                 st.library
-                    .import_verses_file(&path)
+                    .import_verses_file(path)
                     .map(|count| (None, format!("{count} ayat baru diimpor.")))
             } else {
-                st.library.import_song_file(&path).map(|id| {
+                st.library.import_song_file(path).map(|id| {
                     (
                         Some(id),
                         "Lirik diimpor. Baris kosong memisahkan slide.".to_owned(),
@@ -954,25 +982,27 @@ impl App {
 
     /// Mengimpor semua lagu dari database EasyWorship sekaligus, setelah
     /// jumlahnya ditunjukkan dan disetujui. Berkas EasyWorship hanya dibaca.
-    fn import_easyworship(&self) {
+    fn import_easyworship(self: &Rc<Self>) {
         if !self.commit_editor() {
             return;
         }
         let mut picker = rfd::FileDialog::new()
             .set_title("Pilih database lagu EasyWorship (Songs.db)")
             .add_filter("Database lagu EasyWorship (Songs.db)", &["db"])
-            .add_filter("Semua berkas", &["*"])
-            .set_parent(&self.ui.window().window_handle());
+            .add_filter("Semua berkas", &["*"]);
         if let Some(dir) = easyworship::song_locations()
             .first()
             .and_then(|file| file.parent())
         {
             picker = picker.set_directory(dir);
         }
-        let Some(path) = picker.pick_file() else {
-            return;
-        };
-        let database = match easyworship::read_songs(&path) {
+        self.pick_file_then(picker, |app, path| app.import_easyworship_file(path));
+    }
+
+    /// Membaca database lagu EasyWorship yang dipilih, menunjukkan jumlahnya,
+    /// lalu mengimpor setelah disetujui.
+    fn import_easyworship_file(&self, path: &Path) {
+        let database = match easyworship::read_songs(path) {
             Ok(database) => database,
             Err(e) => {
                 dialog(
@@ -1380,7 +1410,7 @@ impl App {
         }
     }
 
-    fn bible_import(&self) {
+    fn bible_import(self: &Rc<Self>) {
         if !self.commit_editor() || !self.open_bible() {
             return;
         }
@@ -1390,24 +1420,22 @@ impl App {
                 "Alkitab (OpenSong / Zefania XML, TSV, EasyWorship)",
                 &["xml", "tsv", "txt", "ewb"],
             )
-            .add_filter("Semua berkas", &["*"])
-            .set_parent(&self.ui.window().window_handle());
+            .add_filter("Semua berkas", &["*"]);
         // Alkitab EasyWorship ada di folder tersembunyi; buka di sana bila ada.
         if let Some(dir) = easyworship::bible_locations().first() {
             picker = picker.set_directory(dir);
         }
-        let Some(path) = picker.pick_file() else {
-            return;
-        };
-        if let Err(e) = self.bible_read_file(&path) {
-            dialog(
-                Some(self.ui.window()),
-                MessageLevel::Error,
-                "Impor Alkitab gagal",
-                &e,
-                MessageButtons::Ok,
-            );
-        }
+        self.pick_file_then(picker, |app, path| {
+            if let Err(e) = app.bible_read_file(path) {
+                dialog(
+                    Some(app.ui.window()),
+                    MessageLevel::Error,
+                    "Impor Alkitab gagal",
+                    &e,
+                    MessageButtons::Ok,
+                );
+            }
+        });
     }
 
     /// Membaca berkas Alkitab lalu membuka formulir impor di tab Alkitab.

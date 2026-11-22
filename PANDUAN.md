@@ -1,4 +1,4 @@
-# Lentera 0.4 — presentasi ibadah ringan
+# Lentera 0.5 — presentasi ibadah ringan
 
 Aplikasi presentasi ibadah berbasis Rust dan Slint untuk lirik, ayat, dan proyektor, untuk Windows dan macOS. Sasaran pengembangannya komputer dengan RAM 2–4 GB; ini sasaran, bukan hasil uji pada semua komputer lama.
 
@@ -11,7 +11,7 @@ Aplikasi presentasi ibadah berbasis Rust dan Slint untuk lirik, ayat, dan proyek
    - Atau klik tombolnya, lalu pilih **Yes**: Lentera ditutup, diperbarui, dan dibuka kembali. Proyektor ikut tertutup sebentar, jadi lakukan di luar ibadah.
 4. Untuk menghapus: Settings → Apps → **Lentera** → Uninstall. Data di `%LOCALAPPDATA%\Lentera` tidak ikut terhapus.
 
-Pengguna 0.1.1 sampai 0.3.0 menerima 0.4.0 lewat pembaruan otomatis di atas. Pengguna 0.1.0 (ZIP lama) cukup memasang installer sekali. Pengguna 0.2.1 atau sebelumnya: saat versi baru pertama kali dibuka, pustaka lama dipindahkan otomatis ke **Profil utama** (lihat **Data dan cadangan**).
+Pengguna 0.1.1 sampai 0.4.0 menerima 0.5.0 lewat pembaruan otomatis di atas. Pengguna 0.1.0 (ZIP lama) cukup memasang installer sekali. Setelah 0.5.0 membuka sebuah profil, profil itu tidak bisa dibuka lagi oleh 0.4.0 atau sebelumnya. Pengguna 0.2.1 atau sebelumnya: saat versi baru pertama kali dibuka, pustaka lama dipindahkan otomatis ke **Profil utama** (lihat **Data dan cadangan**).
 
 Versi macOS belum punya installer; bangun dari kode sumber (lihat **Untuk pengembang**).
 
@@ -153,7 +153,7 @@ Nama profil yang sedang dibuka juga tampil di judul jendela. Pada jendela yang l
 
 ## Data dan cadangan
 
-Folder data ada di `%LOCALAPPDATA%\Lentera` (macOS: `~/Library/Application Support/Lentera`). Data disimpan per profil di `profiles\<id profil>\library.db`, sebuah basis data SQLite, termasuk susunan ibadah, pilihan monitor, dan latar. Gambar latar profil ada di `profiles\<id profil>\backgrounds`. Saat Lentera versi ini pertama kali membuka profil dari versi 0.4.0 atau sebelumnya, `library.db` diperbarui otomatis untuk latar per materi; setelah itu profil tidak bisa dibuka lagi oleh versi lama. Profil yang dihapus dipindahkan ke `profiles-deleted\<id profil>`.
+Folder data ada di `%LOCALAPPDATA%\Lentera` (macOS: `~/Library/Application Support/Lentera`). Data disimpan per profil di `profiles\<id profil>\library.db`, sebuah basis data SQLite, termasuk susunan ibadah, pilihan monitor, dan latar. Gambar latar profil ada di `profiles\<id profil>\backgrounds`. Saat Lentera 0.5.0 atau yang lebih baru pertama kali membuka profil dari versi 0.4.0 atau sebelumnya, `library.db` diperbarui otomatis untuk latar per materi; setelah itu profil tidak bisa dibuka lagi oleh versi lama. Profil yang dihapus dipindahkan ke `profiles-deleted\<id profil>`.
 
 Terjemahan Alkitab yang diimpor disimpan di `alkitab.db` di folder data, satu untuk semua profil di komputer ini, dan tidak ikut terhapus bersama profil. Berkas ini tidak punya cadangan `.bak`; simpan berkas aslinya supaya bisa diimpor ulang.
 

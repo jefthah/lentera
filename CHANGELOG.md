@@ -1,6 +1,8 @@
 # Riwayat rilis
 
-## Belum dirilis
+## 0.5.0 — 22 November 2026 — beta
+
+Lirik dan ayat kini bisa tampil di atas gambar latar, untuk semua materi sekaligus atau per lagu dan ayat.
 
 **Latar gambar:** layar jemaat kini bisa memakai gambar sebagai latar, tidak hanya warna. Satu gambar bisa menjadi latar umum, dan setiap lagu atau ayat bisa diberi gambar sendiri.
 
@@ -14,7 +16,7 @@
 - Setiap profil punya galeri sendiri. **Profil baru** ikut memakai gambar latar umum profil yang sedang dibuka.
 - Belum tersedia: video sebagai latar.
 
-**Memperbarui:** saat versi ini pertama kali membuka profil, `library.db` diperbarui otomatis untuk menyimpan latar per materi. Setelah itu profil tersebut tidak bisa dibuka lagi oleh Lentera 0.4.0 atau sebelumnya. Program bertambah sekitar 0,4 MB menjadi 13,3 MB. Pengolah gambar JPEG dan PNG sudah ikut lewat Slint, jadi tidak ada komponen pihak ketiga baru.
+**Memperbarui:** pengguna 0.1.1 sampai 0.4.0 menerima versi ini lewat pembaruan otomatis; pengguna 0.1.0 memasang installer sekali. Saat versi ini pertama kali membuka sebuah profil, `library.db` diperbarui otomatis untuk menyimpan latar per materi. Isi pustaka dan susunan ibadah tetap, tetapi setelah itu profil tersebut tidak bisa dibuka lagi oleh Lentera 0.4.0 atau sebelumnya. Bila memperbarui dari 0.2.1 atau sebelumnya, pustaka lama pindah ke **Profil utama** saat versi ini pertama kali dibuka. Program kini sekitar 13,3 MB (0.4.0: 12,9 MB). Pengolah gambar JPEG dan PNG sudah ikut lewat Slint, jadi tidak ada komponen pihak ketiga baru.
 
 ## 0.4.0 — 22 November 2026 — beta
 

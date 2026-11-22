@@ -49,6 +49,19 @@ Dengan satu monitor, jendela proyektor terbuka sebagai jendela biasa. Dengan dua
 | Ctrl+N | Materi baru sesuai filter |
 | Enter di kotak referensi Alkitab | Tayangkan ayat yang diketik |
 
+## Latar layar
+
+**Latar layar** di bawah kolom kanan mengatur latar slide, pratinjau, layar tayang, dan proyektor. Pilihannya tiga warna atau satu gambar.
+
+- Klik kotak **Gambar** untuk membuka galeri **Latar gambar**, lalu tekan **Tambah gambar**. Pilih satu atau beberapa gambar JPG, JPEG, JFIF, atau PNG (Ctrl+klik atau Shift+klik di pemilih berkas). Bila EasyWorship terpasang dengan gambar latar, pemilih berkas terbuka di folder gambar EasyWorship.
+- Klik gambar di galeri untuk memakainya. Bila hanya satu gambar ditambahkan, gambar itu langsung dipakai. Klik salah satu warna untuk kembali ke latar warna; gambarnya tetap ada di galeri.
+- Di atas gambar, teks selalu putih dengan garis tepi gelap, dan gambarnya sedikit digelapkan supaya teks tetap terbaca. Pilih gambar yang tidak terlalu ramai di bagian tengah.
+- Gambar mengisi seluruh layar. Bila bentuknya tidak sama dengan layar, bagian yang tidak muat dipotong rata tengah; untuk proyektor biasa, gambar 16:9 (misalnya 1920×1080) paling pas.
+- Lentera menyimpan salinan gambar di folder profil (`backgrounds`), diperkecil seperlunya untuk layar 1920×1080. Gambar yang lebih kecil tidak diperbesar dan bisa terlihat kurang tajam di proyektor. Berkas asli tidak diubah.
+- Tombol tempat sampah di gambar menghapusnya dari profil setelah konfirmasi. Berkas aslinya di komputer tidak ikut terhapus. Bila gambar yang sedang dipakai dihapus, latar kembali ke warna.
+
+Setiap profil punya galeri sendiri. Latar berbeda per lagu atau per ayat belum bisa diatur.
+
 ## Alkitab
 
 Lentera tidak membawa teks Alkitab. Impor sekali terjemahan yang Anda berhak pakai; setelah itu ayat cukup ditayangkan dengan mengetik referensinya.
@@ -127,7 +140,7 @@ Nama profil yang sedang dibuka juga tampil di judul jendela. Pada jendela yang l
 
 ## Data dan cadangan
 
-Folder data ada di `%LOCALAPPDATA%\Lentera` (macOS: `~/Library/Application Support/Lentera`). Data disimpan per profil di `profiles\<id profil>\library.db`, sebuah basis data SQLite, termasuk susunan ibadah, pilihan monitor, dan latar. Profil yang dihapus dipindahkan ke `profiles-deleted\<id profil>`.
+Folder data ada di `%LOCALAPPDATA%\Lentera` (macOS: `~/Library/Application Support/Lentera`). Data disimpan per profil di `profiles\<id profil>\library.db`, sebuah basis data SQLite, termasuk susunan ibadah, pilihan monitor, dan latar. Gambar latar profil ada di `profiles\<id profil>\backgrounds`. Profil yang dihapus dipindahkan ke `profiles-deleted\<id profil>`.
 
 Terjemahan Alkitab yang diimpor disimpan di `alkitab.db` di folder data, satu untuk semua profil di komputer ini, dan tidak ikut terhapus bersama profil. Berkas ini tidak punya cadangan `.bak`; simpan berkas aslinya supaya bisa diimpor ulang.
 
@@ -139,10 +152,10 @@ Untuk menyimpan di lokasi lain, jalankan `lentera.exe --data-dir "D:\Data Ibadah
 
 ## Ruang lingkup versi ini
 
-- Lirik, ayat teks, tab Alkitab dengan referensi dan terjemahan yang diimpor, pencarian, editor, susunan ibadah, pratinjau, keluaran terpisah, layar penuh, blackout, dan tiga warna latar.
+- Lirik, ayat teks, tab Alkitab dengan referensi dan terjemahan yang diimpor, pencarian, editor, susunan ibadah, pratinjau, keluaran terpisah, layar penuh, blackout, dan latar layar berupa tiga warna atau satu gambar.
 - Windows 10/11 **64-bit** dengan installer dan pembaruan otomatis. macOS dari kode sumber. Antarmuka ditujukan untuk layar minimal sekitar 1024×640.
-- Impor lagu dan Alkitab EasyWorship 2009–8. Jadwal, tema, latar, dan media EasyWorship belum ikut.
-- Belum mencakup video, latar gambar, PowerPoint, NDI, streaming, atau pencarian kata di seluruh Alkitab.
+- Impor lagu dan Alkitab EasyWorship 2009–8. Jadwal, tema, dan media EasyWorship belum ikut; gambar latar EasyWorship bisa ditambahkan satu per satu atau beberapa sekaligus lewat galeri **Latar gambar**.
+- Belum mencakup video, latar berbeda per lagu atau ayat, PowerPoint, NDI, streaming, atau pencarian kata di seluruh Alkitab.
 - Belum ada sertifikat penandatanganan aplikasi. Jangan gunakan untuk layanan langsung sebelum latihan dan pengujian di komputer / proyektor tujuan.
 
 ## Untuk pengembang

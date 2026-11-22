@@ -19,3 +19,6 @@ roxmltree = "0.21"
 # Teks Alkitab EasyWorship (.ewb) terkompresi zlib. Sudah ikut di aplikasi
 # lewat Slint (png).
 miniz_oxide = "0.8"
+# Gambar latar: hanya JPEG dan PNG. Crate ini sudah ikut di aplikasi lewat
+# Slint, jadi tidak menambah crate baru.
+image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }

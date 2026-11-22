@@ -107,6 +107,7 @@ struct Snapshot {
     items: HashMap<u64, u64>,
     service: Vec<u64>,
     background: usize,
+    background_image: Option<String>,
     monitor: usize,
     ready: bool,
 }
@@ -127,6 +128,7 @@ impl Snapshot {
             items,
             service: library.service.clone(),
             background: library.background,
+            background_image: library.background_image.clone(),
             monitor: library.monitor,
             ready: true,
         }
@@ -251,8 +253,10 @@ impl Store {
         })
     }
 
-    /// Membuat profil baru tanpa materi dan langsung membukanya. Latar dan
-    /// monitor diambil dari `like` (biasanya pustaka yang sedang dibuka).
+    /// Membuat profil baru tanpa materi dan langsung membukanya. Warna latar
+    /// dan monitor diambil dari `like` (biasanya pustaka yang sedang dibuka).
+    /// Gambar latar tidak ikut, karena berkasnya ada di folder profil lain;
+    /// pemanggil bisa menyalinnya dengan [`crate::background::copy`].
     pub fn create_profile(data_dir: &Path, name: &str, like: &Library) -> Result<Opened, String> {
         let name = check_name(data_dir, name, None)?;
         let store = Self::create(data_dir, &name)?;
@@ -386,6 +390,10 @@ impl Store {
             items,
             service,
             background: number("background")?,
+            // Nama yang tidak sah diabaikan, seperti latar yang belum dipilih.
+            background_image: get_meta(&self.conn, "background_image")
+                .map_err(err)?
+                .filter(|name| crate::background::valid_name(name)),
             monitor: number("monitor")?,
             scratch: Vec::new(),
         };
@@ -458,6 +466,10 @@ impl Store {
             }
             if library.background != saved.background || !saved.ready {
                 set_meta(&tx, "background", &library.background.to_string()).map_err(err)?;
+            }
+            if library.background_image != saved.background_image || !saved.ready {
+                let name = library.background_image.as_deref().unwrap_or_default();
+                set_meta(&tx, "background_image", name).map_err(err)?;
             }
             if library.monitor != saved.monitor || !saved.ready {
                 set_meta(&tx, "monitor", &library.monitor.to_string()).map_err(err)?;
@@ -880,6 +892,27 @@ mod tests {
                 ..Library::blank()
             }
         );
+    }
+
+    #[test]
+    fn background_image_is_saved_and_bad_names_are_ignored() {
+        let dir = TempDir::new("latar");
+        let opened = Store::open(&dir.0).unwrap();
+        let mut library = opened.library.clone();
+        library.background_image = Some("Salib senja.jpg".into());
+        opened.store.save(&library).unwrap();
+        let loaded = opened.store.load().unwrap();
+        assert_eq!(loaded.background_image.as_deref(), Some("Salib senja.jpg"));
+        library.background_image = None;
+        opened.store.save(&library).unwrap();
+        assert_eq!(opened.store.load().unwrap().background_image, None);
+        // Nama yang menunjuk ke luar folder latar tidak pernah dipakai.
+        set_meta(&opened.store.conn, "background_image", "../library.db").unwrap();
+        assert_eq!(opened.store.load().unwrap().background_image, None);
+        // Profil baru tidak ikut membawa gambar; berkasnya disalin pemanggil.
+        library.background_image = Some("Salib senja.jpg".into());
+        let made = Store::create_profile(&dir.0, "Pemuda", &library).unwrap();
+        assert_eq!(made.library.background_image, None);
     }
 
     #[test]

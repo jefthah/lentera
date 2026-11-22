@@ -2421,6 +2421,7 @@ checksum = "20870f649af7073d53e38067b2a84312175d56ea15217e1b15bc83506ec50afb"
 name = "lentera-app"
 version = "0.4.0"
 dependencies = [
+ "image",
  "lentera-core",
  "png",
  "rfd",
@@ -2434,6 +2435,7 @@ dependencies = [
 name = "lentera-core"
 version = "0.4.0"
 dependencies = [
+ "image",
  "miniz_oxide 0.8.9",
  "roxmltree",
  "rusqlite",

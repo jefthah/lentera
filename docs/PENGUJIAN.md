@@ -324,3 +324,42 @@ Berisi impor EasyWorship, perbaikan macet setelah dialog pilih berkas, dan pusta
   - Jendela tetap responsif. `library.db`: 602 materi, `PRAGMA integrity_check` = ok. Working set 70 MiB (puncak 84 MiB) setelah dua dialog berkas Windows, kedua impor, dan menggulir. Dialog berkas memuat komponen shell Windows, jadi angka ini tidak sebanding dengan pengukuran pustaka di atas.
 
 Belum diuji: pembaruan otomatis 0.3.0 → 0.4.0 lewat GitHub Releases di instalasi asli (baru bisa setelah rilis diterbitkan), macOS (menunggu CI), dan PC sasaran dengan RAM 2–4 GB.
+
+## Latar gambar — 22 November 2026
+
+Belum dirilis. Satu gambar dipakai sebagai latar semua slide, dipilih dari galeri per profil. Latar per lagu atau ayat belum ada. Diuji di komputer pengembangan yang sama (Windows 11, dua monitor; monitor kedua tegak 1080×1920).
+
+Cara kerja:
+
+- Gambar disalin ke `profiles\<id profil>\backgrounds\<nama>.jpg` (JPEG kualitas 88), dengan thumbnail 192×108 di `backgrounds\thumbs`. Database profil hanya menyimpan nama berkas (`meta.background_image`); nama yang menunjuk ke luar folder latar diabaikan saat dibaca.
+- Gambar diperkecil secukupnya untuk menutupi 1920×1080 dan tidak pernah diperbesar; sisi terpanjang paling besar 3840. Orientasi EXIF diterapkan, dan bagian transparan PNG diratakan di atas hitam. Berkas sumber paling besar 40 MB, dan memori dekode dibatasi 320 MB.
+- Gambar yang isinya sama persis hanya disimpan sekali. Nama yang sudah dipakai diberi nomor "(2)", dan ekstensi gambar di akhir nama dibuang ("x.jpg.jpeg" menjadi "x.jpg").
+- Gambar ditambahkan di thread terpisah. Selama itu status menampilkan "Menambahkan gambar latar… n dari N".
+- Teks di atas gambar putih dengan garis tepi hitam 72% setebal 7% ukuran huruf (`stroke-style: outside`). Gambarnya digelapkan 35%.
+- Crate `image` 0.25 (fitur `jpeg` dan `png`) sudah ikut di aplikasi lewat Slint. `Cargo.lock` tidak bertambah crate, dan `THIRD-PARTY-NOTICES.txt` yang disusun ulang tetap 300 crate, tanpa perubahan.
+
+Verifikasi:
+
+- `cargo test -p lentera-core --locked`: 78 lulus, termasuk 10 tes baru. Tes baru mencakup: foto besar diperkecil, gambar kecil atau tegak tidak diperbesar, PNG transparan, gambar ganda dan nama bentrok, pembersihan nama, penolakan nama di luar folder, pesan galat untuk berkas rusak dan format lain, thumbnail yang hilang dibuat ulang, salin dan hapus, serta penyimpanan nama latar di database profil.
+- `cargo fmt --all --check` dan `cargo clippy` untuk `lentera-core`, `lentera-app` (dengan dan tanpa `snapshot`), dan `lentera-win32` (`--all-targets -D warnings`) bersih.
+- Build rilis `lentera.exe`: 13.290.496 byte (0.4.0: 12.891.136 byte).
+- Uji alur UI build rilis di folder kosong: 29/29. Empat pemeriksaan baru membuat PNG 1600×900, menambahkannya, memastikan galeri menampilkannya, lalu menghapusnya. Tangkapan galeri, slide, dan proyektor diperiksa. `lentera-win32` (profil `ci`): 9/9.
+- **Gambar asli.** 24 berkas JPG, JPEG, dan JFIF dari folder ekspor, 3 KB sampai 5,5 MB, 318×159 sampai 8250×4641, termasuk gambar tegak. `background::add` dijalankan per berkas di build rilis, lewat program ukur sementara yang tidak di-commit:
+  - Semua berhasil. Waktu tambah median 48 ms, terlama 201 ms (6000×3376, 5,5 MB).
+  - Membuka salinan tersimpan (`load`) butuh 6–14 ms.
+  - Salinan gambar yang tidak perlu diperkecil bisa sedikit lebih besar dari aslinya karena disimpan ulang dengan kualitas 88, misalnya 1600×900: 385 KB menjadi 441 KB.
+- **Aplikasi.** Build `ci`, lalu build rilis, dengan folder data kosong; klik dikirim lewat `PostMessage`.
+  - Galeri kosong → **Tambah gambar** → empat gambar dipilih sekaligus, termasuk `.jfif` dan gambar 3 KB. Hasilnya "4 gambar latar ditambahkan." dan empat thumbnail.
+  - Setelah gambar diklik, slide, pratinjau, layar tayang, proyektor, dan kotak **Gambar** di **Latar layar** memakai gambar itu, dan status menampilkan "Latar: …". Di monitor tegak, proyektor memotong gambar 16:9 rata tengah.
+  - Pada gambar yang hampir putih dan pada gambar ramai yang penuh tulisan, teks putih bergaris tepi tetap terbaca.
+  - Hapus: **No** membiarkan gambar. **Yes** menghapus salinan dan thumbnail, sedangkan berkas aslinya tetap ada; status "Latar … dihapus.".
+- **Memori.** Build rilis, jendela 1360×840, proyektor terbuka dan sedang tayang, 3 kali buka:
+  - Dengan latar warna, working set 35,7 MiB (private 16,7 MiB). Dengan gambar 1920×1080 terpilih, 42,1 MiB (private 22,9 MiB). Selisih 6,4 MiB itu sesuai dengan satu gambar RGB 1920×1080 (5,9 MiB).
+  - Menambah foto 6000×3376 lewat dialog berkas sempat mencapai puncak 139,6 MiB, lalu turun ke 81,6 MiB. Angka puncak ini termasuk komponen dialog berkas Windows dan dekode sementara foto (sekitar 58 MiB untuk pikselnya).
+
+Belum diuji:
+
+- PC sasaran dengan RAM 2–4 GB. Dekode foto besar butuh memori sementara sebesar ukuran pikselnya.
+- Kecerahan dan keterbacaan di proyektor sebenarnya.
+- macOS.
+- PNG asli (baru PNG buatan tes) dan JPEG CMYK.

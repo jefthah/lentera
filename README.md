@@ -60,7 +60,7 @@ Program 0.2.0 berukuran sekitar 11 MB (0.1.1: 2,2 MB). Angka ini merupakan pengu
 
 Data disimpan per profil dalam basis data SQLite di `%LOCALAPPDATA%\Lentera\profiles\<id profil>\library.db` (macOS: `~/Library/Application Support/Lentera`). Profil pertama bernama **Profil utama**; profil lain dibuat lewat layar **Pilih profil**, dan profil yang dihapus dipindahkan ke folder `profiles-deleted`. Isi `library.json` dari versi 0.2.1 atau sebelumnya dipindahkan otomatis saat pertama kali dibuka, dan berkas lamanya dibiarkan sebagai cadangan. Terjemahan Alkitab yang diimpor disimpan di `alkitab.db` di folder data, satu untuk semua profil. Program terpasang terpisah di `%LOCALAPPDATA%\LenteraApp`, sehingga uninstall tidak menghapus data. Cadangan data saat Lentera terakhir dibuka berada di `library.db.bak`. Hanya satu proses dapat membuka folder data yang sama. Tutup jendela Lentera yang sudah terbuka sebelum menjalankan salinan lain dengan data yang sama.
 
-Pustaka menampilkan maksimal 500 hasil pertama. Gunakan pencarian untuk mempersempit materi. Belum tersedia video, latar gambar, PowerPoint, NDI, streaming, atau impor jadwal dan media EasyWorship.
+Pustaka menampilkan semua materi (diuji sampai 5.000 lagu). Gunakan pencarian untuk mempersempit materi. Belum tersedia video, latar gambar, PowerPoint, NDI, streaming, atau impor jadwal dan media EasyWorship.
 
 Tidak menyertakan teks Alkitab atau lagu berlisensi. Terjemahan Alkitab diimpor dari berkas OpenSong XML, Zefania XML, TSV, atau EasyWorship `.ewb`; gunakan materi yang Anda berhak gunakan. Teks contoh adalah placeholder.
 

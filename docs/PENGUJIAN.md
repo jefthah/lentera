@@ -266,4 +266,46 @@ Belum dirilis. Diuji di komputer pengembangan yang sama (Windows 11, dua monitor
   - Sesudah perbaikan, lewat klik di menu: konfirmasi tampil di depan dengan jumlah yang benar (483 ditemukan, 479 baru, 4 sudah ada, 6 diberi nomor, 7 tanpa lirik). **Yes** mengimpor 479 lagu dan menampilkan "479 lagu EasyWorship diimpor.", dan CPU kembali diam. Memilih `README.md` menampilkan pesan "Impor EasyWorship gagal" di depan. **Impor → Alkitab lengkap** dengan `TB.ewb` membuka formulir (66 kitab, 31.172 ayat; TB / Alkitab Terjemahan Baru), lalu **Simpan** menulis "TB tersimpan: 31.172 ayat."
   - Diperiksa ulang: fmt, clippy (core, app, app dengan `snapshot`, win32), 66 tes core, uji alur UI 25/25.
 
-Belum diuji: klik dengan mouse sungguhan di komputer lain, EasyWorship 6 asli, database EasyWorship dari gereja lain (termasuk lagu dengan format RTF lain), dan pustaka dengan lebih dari 500 lagu di pemakaian sehari-hari (daftar pustaka hanya menampilkan 500 hasil pertama).
+Belum diuji: klik dengan mouse sungguhan di komputer lain, EasyWorship 6 asli, dan database EasyWorship dari gereja lain (termasuk lagu dengan format RTF lain).
+
+## Pustaka lebih dari 500 materi — 22 November 2026
+
+Belum dirilis. Sebelumnya daftar pustaka berhenti di 500 materi pertama (urut masuk), jadi setelah mengimpor ratusan lagu sisanya hanya bisa ditemukan lewat pencarian. Sekarang semua materi tampil.
+
+Diukur di komputer pengembangan (Intel i5-13500, 32 GB, Windows 11) dengan build rilis (`lto`, `opt-level = "s"`), renderer software, jendela operator 1360×840 pada skala 100%, dan folder `--data-dir` sementara. Data: 600, 2.000, dan 5.000 lagu sintetis, rata-rata 695 huruf dan 9 slide per lagu (sekitar dua kali rata-rata lagu EasyWorship asli yang diperiksa: 355 huruf, 8,6 slide). Mode ukur sementara (tidak ikut di-commit) memanggil `refresh_library`, lalu menggambar seluruh jendela operator dengan `Window::take_snapshot`. Ini batas atas satu frame karena tanpa partial rendering. Pengukuran meliputi mengetik "kasih setia" huruf demi huruf lalu menghapusnya, mengetik "zzzz", dan menggulir daftar sampai bawah dengan roda mouse (2.600 px per langkah). Memori dibaca dengan `GetProcessMemoryInfo`. Setiap angka adalah median dari 5 kali buka.
+
+`refresh_library` untuk daftar penuh (kotak cari kosong):
+
+| Lagu | Batas 500 (lama) | Tanpa batas, sebelum perbaikan | Tanpa batas (sekarang) |
+|---:|---:|---:|---:|
+| 600 | 1,64 ms (500 baris) | 1,89 ms | 0,58 ms |
+| 2.000 | 1,55 ms (500 baris) | 5,98 ms | 1,78 ms |
+| 5.000 | 1,62 ms (500 baris) | 14,97 ms | 4,34 ms |
+
+Tanpa batas (sekarang):
+
+| Lagu | Mengetik: `refresh_library` terlama | Mengetik: refresh + gambar jendela, median / terlama | Gulir sampai bawah: langkah, gambar median / terlama | Peak working set (batas 500 → sekarang) |
+|---:|---:|---:|---:|---:|
+| 2 (contoh) | 0,04 ms | 10,6 / 11,6 ms | — | 36,4 → 36,5 MiB |
+| 600 | 0,85 ms | 12,0 / 13,1 ms | 13, 11,1 / 13,8 ms | 38,3 → 38,4 MiB |
+| 2.000 | 2,79 ms | 13,6 / 14,7 ms | 41, 11,0 / 12,2 ms | 41,3 → 42,0 MiB |
+| 5.000 | 6,68 ms | 16,7 / 18,7 ms | 101, 10,9 / 12,3 ms | 43,9 → 45,6 MiB |
+
+Membuka profil (membaca `library.db`) 9 / 14 / 22 ms untuk 600 / 2.000 / 5.000 lagu. Pembukaan pertama, yang juga memindahkan `library.json`, 10 / 20 / 36 ms.
+
+Temuan:
+
+- **Daftar Slint tervirtualisasi, juga dengan renderer software.** `for` yang langsung berada di dalam `ListView` dikompilasi Slint 1.19 sebagai repeater ListView (`update_visible_instances` di `i-slint-core`, tidak bergantung pada renderer), jadi hanya baris yang terlihat yang dibuat. Hasil ukur cocok: menggambar jendela tetap ±11 ms untuk 2 maupun 5.000 baris, juga saat digulir sampai baris ke-5.000, dan working set hanya naik 0,6 MiB selama mengetik dan menggulir 5.000 baris.
+- **Biaya terbesar ada di pembuatan baris, bukan di pencarian.** Pencarian dengan kotak kosong hanya 0,03 ms untuk 5.000 lagu. Keterangan "Lirik · 9 slide" dulu dihitung dengan memotong seluruh isi setiap lagu menjadi slide. Sekarang `Item::slide_count` menghitungnya per byte tanpa menyalin teks (2,9 ms untuk 5.000 lagu), sehingga daftar penuh turun dari 15,0 ke 4,3 ms.
+- Huruf pertama yang diketik paling berat karena hampir semua lagu cocok: `refresh_library` 6,1 ms untuk 5.000 lagu. Teks yang tidak cocok sama sekali ("zzzz") 3,6 ms; ini biaya mengubah seluruh isi pustaka ke huruf kecil.
+- Memori bertambah 1,8 MiB untuk 5.000 lagu dibanding batas 500. Sebagian besar kenaikan dibanding pustaka contoh adalah isi pustaka itu sendiri.
+
+Keputusan: batas 500 dihapus. Urutan tetap urutan masuk. Jumlah di atas daftar memakai titik ribuan ("5.000 materi", "12 dari 600").
+
+Verifikasi:
+
+- `cargo test -p lentera-core --locked`: 52 lulus, termasuk 2 tes baru. Tes pertama memastikan semua 1.201 materi tampil urut dan lagu ke-1.100 bisa dicari. Tes kedua memastikan `slide_count` sama dengan `slides().len()` untuk `\r\n`, `\r`, spasi Unicode, dan huruf non-ASCII.
+- `cargo fmt --all --check` dan `cargo clippy` untuk `lentera-core`, `lentera-app` (dengan dan tanpa `snapshot`), dan `lentera-win32` (`--all-targets -D warnings`) bersih.
+- Build rilis `lentera.exe` 12.792.832 byte (sama dengan 0.3.0). Uji alur UI di folder kosong: 24/24. `lentera-win32`: 9/9. Daftar Win32 lama juga kini menampilkan semua hasil; tampilan ini tidak dirilis.
+
+Belum diuji: PC sasaran RAM 2–4 GB. Bila CPU-nya 4–6× lebih lambat per inti, satu ketikan di 5.000 lagu diperkirakan sekitar 25–40 ms ditambah waktu menggambar, dan di 600 lagu di bawah 5 ms; angka ini perkiraan, belum diukur. Juga belum diuji: macOS dan pustaka hasil impor EasyWorship asli.

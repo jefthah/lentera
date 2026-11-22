@@ -110,7 +110,7 @@ Pembagian slide dari EasyWorship dipertahankan. Label bagian seperti "Verse 1", 
 
 **Ayat Alkitab (.tsv):** satu ayat per baris, dengan format `referensi[TAB]teks`. `[TAB]` berarti karakter tab, bukan tulisan literal. Tersedia `contoh-ayat.tsv`. Jika perlu baris baru di dalam satu ayat, tulis `\n` pada kolom teks. Baris yang diawali `#` diabaikan. Duplikat referensi + isi dilewati. Seluruh berkas diperiksa sebelum data ditambahkan. Batas ukuran impor adalah 32 MB.
 
-Pustaka menampilkan maksimal 500 hasil pertama agar tetap responsif; setelah impor besar, jumlahnya tertulis seperti "500 dari 607". Ketik judul, referensi, atau kata di kolom pencarian untuk menemukan materi lain. Aplikasi ini tidak menyertakan teks Alkitab atau database lagu berlisensi. Gunakan materi yang Anda berhak gunakan.
+Pustaka menampilkan semua materi, urut menurut waktu ditambahkan. Ketik judul, referensi, atau kata di kolom pencarian untuk mempersempit hasil. Aplikasi ini tidak menyertakan teks Alkitab atau database lagu berlisensi. Gunakan materi yang Anda berhak gunakan.
 
 ## Profil
 

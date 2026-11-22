@@ -79,7 +79,7 @@ fn kind_label(kind: Kind) -> &'static str {
 }
 
 fn item_meta(item: &Item) -> String {
-    format!("{} · {} slide", kind_label(item.kind), item.slides().len())
+    format!("{} · {} slide", kind_label(item.kind), item.slide_count())
 }
 
 fn tile(text: &str) -> SlideTile {
@@ -450,9 +450,9 @@ impl App {
         st.filtered = rows.iter().map(|r| r.id as u64).collect();
         drop(st);
         let detail = if rows.len() < total {
-            format!("{} dari {total}", rows.len())
+            format!("{} dari {}", count(rows.len()), count(total))
         } else {
-            format!("{total} materi")
+            format!("{} materi", count(total))
         };
         self.library_rows.set_vec(rows);
         self.ui.set_library_detail(detail.into());

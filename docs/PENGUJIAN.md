@@ -223,3 +223,41 @@ Berisi penyimpanan SQLite per profil, layar Pilih profil, dan tab Alkitab dari b
   - Dibuka kedua kali: profil yang sama terbuka, `library.db.bak` dibuat, tidak ada profil ganda.
 
 Belum diuji: pembaruan otomatis 0.2.1 → 0.3.0 lewat GitHub Releases di instalasi asli (baru bisa setelah rilis diterbitkan), macOS (menunggu CI), dan tab Alkitab dengan berkas terjemahan asli.
+
+## Impor EasyWorship — 22 November 2026
+
+Belum dirilis. Diuji di komputer pengembangan yang sama (Windows 11, dua monitor) dengan salinan data EasyWorship milik pengembang: EasyWorship 2009 dan 7 dari ekspor di SSD eksternal, serta EasyWorship 8 yang terpasang di komputer ini. Data asli hanya dibaca dari salinan; teks lagu dan Alkitabnya tidak masuk repositori.
+
+- `cargo test -p lentera-core --locked`: 66 lulus, termasuk 16 tes baru:
+  - RTF EasyWorship 6–8: slide dipisah penanda `\sdslidemarker`, label bagian tersembunyi dibuang tetapi baris lirik tersembunyi tetap ikut, `\uN` termasuk pasangan surrogate, dan karakter Windows-1252. Label dikenali ("End", "Verse2", "end 1"), bukan baris lirik ("Chorus 2x", "Endless").
+  - Lagu EasyWorship 6–8 (SQLite buatan, di folder bernama `ew7 #1`): dibaca lewat `Songs.db`, `SongWords.db`, atau foldernya, tanpa membuat berkas jurnal; pesan yang jelas bila `SongWords.db` tidak ada.
+  - Lagu EasyWorship 2009: tabel Paradox buatan dengan memo di dalam baris dan di berkas `.MB`.
+  - Alkitab `.ewb` 6–8 (letak ayat dalam satuan UTF-16, termasuk emoji; ayat rusak dan kitab di luar 66 dilewati) dan 2009 (biner + zlib, ayat yang berlanjut ke baris berikutnya).
+  - Berkas lain ditolak dengan pesan yang jelas.
+  - Rencana impor: lagu yang sudah ada dilewati (tanda baca dan huruf besar/kecil diabaikan), judul kembar diberi nomor, impor ulang tidak menambah apa pun.
+- `cargo clippy` untuk `lentera-core`, `lentera-app`, dan `lentera-win32` (`-D warnings`) serta `cargo fmt --all --check` bersih. `miniz_oxide` (zlib) sudah tercantum di `THIRD-PARTY-NOTICES.txt`.
+- Uji alur UI: 25/25 di build `ci` dengan `snapshot` dan di build rilis, termasuk pemeriksaan baru `songs_imported`: tiga lagu masuk lewat jalur impor yang sama, satu dilewati karena sudah ada, satu menjadi "Lagu Impor Uji (2)", tersimpan di `library.db`, dan lagu pertama terpilih. Tangkapan menu **Impor** pada jendela 1024×640: keempat baris dan petunjuknya tidak terpotong.
+- Program rilis 12,9 MB (12.889.088 byte; 0.3.0: 12.792.832 byte).
+- **Lagu, data asli** (build rilis):
+
+  | Sumber | Lagu berlirik | Tanpa lirik | Waktu baca |
+  |---|---:|---:|---:|
+  | EasyWorship 2009 (Paradox) | 510 | 7 | 33 ms |
+  | EasyWorship 7 (SQLite + RTF) | 483 | 7 | 26 ms |
+  | EasyWorship 8 terpasang | 0 | 0 | <1 ms |
+
+  - Dibandingkan dengan ekspor teks yang dibuat terpisah dari database yang sama: 464 dari 510 lagu EasyWorship 2009 dan 439 dari 483 lagu EasyWorship 7 sama isinya (tanda baca, spasi, dan huruf besar/kecil diabaikan). Semua 90 sisanya hanya berbeda karena label yang dibuang ("End", "Verse 1–3", "Bridge"); tidak ada kata lirik yang hilang atau bertambah.
+  - Impor ke pustaka kosong: EasyWorship 2009 menambah 509 lagu (1 lagu muncul dua kali di database). Lalu EasyWorship 7: 91 lagu baru (35 di antaranya diberi nomor karena liriknya berbeda dari lagu 2009 berjudul sama), 392 sudah ada dan dilewati. Kedua impor diulang: 0 lagu baru.
+- **Alkitab, data asli** (build rilis):
+
+  | Berkas | Ayat | Dilewati | Waktu baca |
+  |---|---:|---:|---:|
+  | TB, EasyWorship 7 | 31.172 | 0 | 76 ms |
+  | KJV, EasyWorship 8 | 31.102 | 0 | 72 ms |
+  | KJV, EasyWorship 2009 | 31.102 | 0 | 60 ms |
+  | TB, EasyWorship 2009 | 31.102 | 21 | 62 ms |
+
+  TB (EasyWorship 7), KJV (EasyWorship 8), dan KJV (EasyWorship 2009) sama ayat per ayat dengan ekspor. Nama dan singkatan terbaca dari berkas 6–8 ("Alkitab Terjemahan Baru" / TB, "King James Version" / KJV). TB EasyWorship 2009 adalah edisi lain (tanda kutip lurus, susunan ayat berbeda); 21 nomor ayat ganda dilewati.
+- Folder EasyWorship di komputer ini terdeteksi: `C:\Users\Public\Documents\Softouch\EasyWorship\Default\v6.1\Databases\Data\Songs.db` dan `C:\ProgramData\Softouch\Easyworship.v8\Plugins\Bibles`. Database EasyWorship memakai jurnal biasa (bukan WAL), jadi membaca dengan `immutable=1` mendapat semua data yang sudah disimpan EasyWorship.
+
+Belum diuji: dialog pilih berkas dan konfirmasi impor dengan klik sungguhan (uji alur melewati dialog bawaan Windows), EasyWorship 6 asli, database EasyWorship dari gereja lain (termasuk lagu dengan format RTF lain), dan pustaka dengan lebih dari 500 lagu di pemakaian sehari-hari (daftar pustaka hanya menampilkan 500 hasil pertama).

@@ -1,9 +1,9 @@
 //! Alkitab: daftar kitab, referensi, impor, penyimpanan, dan slide ayat.
 //!
 //! Lentera tidak membawa teks Alkitab. Terjemahan diimpor sekali dari berkas
-//! yang berhak dipakai pengguna (OpenSong XML, Zefania XML, atau TSV), lalu
-//! disimpan di `alkitab.db` di folder data. Alkitab berlaku untuk semua profil
-//! di komputer ini dan tidak ikut disinkronkan.
+//! yang berhak dipakai pengguna (OpenSong XML, Zefania XML, TSV, atau
+//! EasyWorship `.ewb`), lalu disimpan di `alkitab.db` di folder data. Alkitab
+//! berlaku untuk semua profil di komputer ini dan tidak ikut disinkronkan.
 
 mod books;
 mod import;
@@ -11,7 +11,8 @@ mod reference;
 mod store;
 
 pub use books::{BOOKS, Book, BookMatch, book, find_book};
-pub use import::{ImportedBible, parse_bible};
+pub use import::{ImportedBible, parse_bible, read_bible_file};
+pub(crate) use import::{clean, finish};
 pub use reference::{END, Reference, Span, parse as parse_reference};
 pub use store::{BIBLE_DB, Bible, Lookup, MAX_PASSAGE_VERSES, Translation};
 

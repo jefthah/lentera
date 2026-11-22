@@ -5,13 +5,14 @@
 //! tampilan Slint nanti.
 
 pub mod bible;
+pub mod easyworship;
 mod import;
 mod library;
 mod service;
 mod storage;
 mod store;
 
-pub use import::{MAX_IMPORT_BYTES, normalize_text, read_text_file};
+pub use import::{MAX_IMPORT_BYTES, SongImport, normalize_text, read_text_file};
 pub use library::{Item, Kind, Library, SCRATCH_ID_START, split_slides};
 pub use service::{Cursor, Slide, Step};
 pub use storage::{DataLock, LIBRARY_FILE, LOCK_FILE, default_data_dir};

@@ -16,3 +16,6 @@ uuid.workspace = true
 # Impor Alkitab OpenSong / Zefania XML. Sudah ikut di aplikasi lewat Slint
 # (fontique, usvg), jadi tidak menambah crate baru.
 roxmltree = "0.21"
+# Teks Alkitab EasyWorship (.ewb) terkompresi zlib. Sudah ikut di aplikasi
+# lewat Slint (png).
+miniz_oxide = "0.8"

@@ -309,3 +309,18 @@ Verifikasi:
 - Build rilis `lentera.exe` 12.792.832 byte (sama dengan 0.3.0). Uji alur UI di folder kosong: 24/24. `lentera-win32`: 9/9. Daftar Win32 lama juga kini menampilkan semua hasil; tampilan ini tidak dirilis.
 
 Belum diuji: PC sasaran RAM 2–4 GB. Bila CPU-nya 4–6× lebih lambat per inti, satu ketikan di 5.000 lagu diperkirakan sekitar 25–40 ms ditambah waktu menggambar, dan di 600 lagu di bawah 5 ms; angka ini perkiraan, belum diukur. Juga belum diuji: macOS dan pustaka hasil impor EasyWorship asli.
+
+## Rilis 0.4.0 — 22 November 2026
+
+Berisi impor EasyWorship, perbaikan macet setelah dialog pilih berkas, dan pustaka tanpa batas 500 dari bagian-bagian di atas. Diuji di komputer pengembangan yang sama (Windows 11, dua monitor).
+
+- Versi workspace 0.4.0 (`Cargo.lock`: 3 crate Lentera) dan `app.manifest` 0.4.0.0.
+- `cargo test -p lentera-core --locked`: 68 lulus (66 dari impor EasyWorship dan 2 dari pustaka). `cargo fmt --all --check` dan `cargo clippy` untuk `lentera-core`, `lentera-app` (dengan dan tanpa `snapshot`), dan `lentera-win32` (`--all-targets -D warnings`) bersih. `THIRD-PARTY-NOTICES.txt` disusun ulang: 300 crate, tidak berubah.
+- Build rilis `lentera.exe`: 12.891.136 byte (0.3.0: 12.792.832 byte). FileVersion / ProductVersion 0.4.0, FileDescription "Lentera".
+- Uji alur UI build rilis di folder kosong: 25/25, versi 0.4.0. `lentera-win32` (profil `ci`): 9/9.
+- **Lagu EasyWorship asli ke pustaka penuh.** Build rilis dengan folder data kosong; klik dikirim lewat `PostMessage`. **Impor → Lagu dari EasyWorship** dengan `Songs.DB` EasyWorship 2009 dari SSD, lalu `Songs.db` EasyWorship 7:
+  - Konfirmasi pertama: 510 ditemukan, 509 baru, 1 sudah ada, 7 tanpa lirik. Kedua: 483 ditemukan, 91 baru, 392 sudah ada, 35 diberi nomor, 7 tanpa lirik. Sama dengan uji impor sebelumnya.
+  - Pustaka menampilkan "602 materi" (600 lagu impor dan 2 contoh). Daftar digulir dengan roda mouse sampai bawah; materi terakhir, "Yesus pegang erat tanganku" (urutan ke-602, sama dengan `library.db`), tampil. Di 0.3.0 materi setelah urutan ke-500 tidak muncul di daftar.
+  - Jendela tetap responsif. `library.db`: 602 materi, `PRAGMA integrity_check` = ok. Working set 70 MiB (puncak 84 MiB) setelah dua dialog berkas Windows, kedua impor, dan menggulir. Dialog berkas memuat komponen shell Windows, jadi angka ini tidak sebanding dengan pengukuran pustaka di atas.
+
+Belum diuji: pembaruan otomatis 0.3.0 → 0.4.0 lewat GitHub Releases di instalasi asli (baru bisa setelah rilis diterbitkan), macOS (menunggu CI), dan PC sasaran dengan RAM 2–4 GB.

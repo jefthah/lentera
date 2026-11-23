@@ -1,5 +1,40 @@
 # Riwayat rilis
 
+## Belum dirilis
+
+Layar operator memakai desain baru. Yang dilihat jemaat kini ada di atas kolom kanan, dan susunan ibadah menunjukkan sampai mana ibadah berjalan.
+
+**Layar operator baru:**
+
+- **Bilah atas:** logo Lentera, tombol profil, kotak cari di tengah (**Ctrl+K**), tombol proyektor, **Impor**, dan **ⓘ**.
+  - Saat proyektor terbuka, tombolnya hijau dengan tulisan **Proyektor menyala** dan nama monitornya. Saat tertutup, klik **Buka proyektor** untuk membukanya.
+  - Panah di tombol itu membuka menu proyektor: pilihan monitor, latar umum, dan **Buka / Tutup proyektor**. Kotak pilihan monitor di bilah atas diganti menu ini.
+- **Susunan ibadah:**
+  - Materi yang sedang tayang bertanda **Tayang**, dengan keterangan seperti "Lirik · slide 3 dari 8". Materi sebelumnya bertanda centang.
+  - Tombol naik, turun, dan lepas muncul saat baris disorot, dan di baris terpilih yang tidak sedang tayang.
+- **Pustaka dan Alkitab:**
+  - Keduanya kini tab bersegmen, dan jumlah materi pustaka tampil di tab.
+  - Materi yang sudah ada di susunan bertanda **Di susunan**. Tombol **+ Susunan** muncul saat baris disorot atau dipilih.
+  - **Materi baru** menjadi **Baru**.
+- **Tengah:**
+  - Di atas judul ada label **Lirik** atau **Ayat**, jumlah slide, dan urutan materi di susunan, misalnya "materi ke-2 di susunan".
+  - **Edit materi** menjadi **Edit lirik** atau **Edit ayat**.
+  - Petunjuk di bawah slide: klik untuk pratinjau, klik dua kali untuk langsung tayang, tombol 1–9 untuk lompat ke slide.
+- **Kanan:**
+  - **Layar jemaat** (dulu **Tayang**) kini di atas. Di bawahnya tampil judul, jenis, dan latar materi yang tayang.
+  - Lalu **Sebelumnya / Berikutnya**, pratinjau kecil, dan **Tayangkan**. Di samping pratinjau ada keterangan apakah slide itu sudah dilihat jemaat.
+  - **Gelapkan**, **Layar penuh**, dan **Latar umum** ada di bagian bawah.
+- **Tombol cepat baru:**
+  - **Ctrl+K** pindah ke kotak cari.
+  - **1–9** langsung menayangkan slide itu dari materi terpilih, saat tidak sedang mengetik.
+  - **Esc** di kotak cari atau kotak teks lain kini hanya keluar dari kotak itu. Layar penuh dan proyektor tidak berubah.
+- **Jendela sempit** (di bawah 1200 px, misalnya laptop 1024×640):
+  - Kolom kiri dan kanan lebih sempit.
+  - Susunan ibadah pindah ke tab **Susunan** di samping Pustaka dan Alkitab.
+  - Latar umum hanya ada di menu proyektor.
+
+Fungsi lain tidak berubah. Editor dan pencarian ayat Alkitab masih di tempat lama; keduanya menyusul dalam desain baru.
+
 ## 0.5.0 — 22 November 2026 — beta
 
 Lirik dan ayat kini bisa tampil di atas gambar latar, untuk semua materi sekaligus atau per lagu dan ayat.

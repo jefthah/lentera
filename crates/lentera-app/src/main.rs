@@ -85,14 +85,18 @@ fn item_meta(item: &Item) -> String {
     format!("{} · {} slide", kind_label(item.kind), item.slide_count())
 }
 
-/// Keterangan di atas judul materi terpilih.
+/// Keterangan di samping label jenis, di atas judul materi terpilih. Urutan
+/// di susunan ditambahkan oleh tampilan.
 fn current_meta(item: &Item) -> String {
     if Library::is_scratch(item.id) {
-        format!("Alkitab · {} slide · belum di pustaka", item.slide_count())
+        format!("{} slide · belum di pustaka", item.slide_count())
     } else {
-        item_meta(item)
+        format!("{} slide", item.slide_count())
     }
 }
+
+/// Nama warna latar umum, urutannya sama dengan `Theme.slide-names`.
+const SLIDE_NAMES: [&str; 3] = ["Gelap", "Biru malam", "Terang"];
 
 fn tile(text: &str) -> SlideTile {
     SlideTile {
@@ -184,6 +188,15 @@ fn to_image(picture: Picture) -> Image {
 /// Nama latar tanpa ".jpg", untuk ditampilkan.
 fn background_label(name: &str) -> &str {
     name.strip_suffix(".jpg").unwrap_or(name)
+}
+
+/// "Monitor 2" di tombol status proyektor; kosong bila monitor tidak terbaca.
+fn projector_label(index: usize, count: usize) -> String {
+    if index < count {
+        format!("Monitor {}", index + 1)
+    } else {
+        String::new()
+    }
 }
 
 fn ui_index(index: Option<usize>) -> i32 {
@@ -412,6 +425,7 @@ impl App {
         connect!(app.ui.on_toggle_blackout, |a| a.toggle_blackout());
         connect!(app.ui.on_toggle_fullscreen, |a| a.toggle_fullscreen());
         connect!(app.ui.on_toggle_projector, |a| a.toggle_projector());
+        connect!(app.ui.on_projector_menu_opened, |a| a.refresh_monitors());
         connect!(app.ui.on_escape, |a| a.escape());
         connect!(app.ui.on_monitor_changed, |a, index| a
             .monitor_changed(index));
@@ -518,18 +532,13 @@ impl App {
                 title: item.title.as_str().into(),
                 meta: item_meta(item).into(),
                 song: item.kind == Kind::Song,
+                in_service: st.library.service.contains(&item.id),
             })
             .collect();
-        let total = st.library.items.len();
         st.filtered = rows.iter().map(|r| r.id as u64).collect();
         drop(st);
-        let detail = if rows.len() < total {
-            format!("{} dari {}", count(rows.len()), count(total))
-        } else {
-            format!("{} materi", count(total))
-        };
+        self.ui.set_library_count(count(rows.len()).into());
         self.library_rows.set_vec(rows);
-        self.ui.set_library_detail(detail.into());
     }
 
     fn refresh_service(&self) {
@@ -552,6 +561,23 @@ impl App {
         self.service_rows.set_vec(rows);
         self.ui.set_selected_service(selected);
         self.ui.set_live_service(live);
+        self.mark_library_in_service();
+    }
+
+    /// Memperbarui tanda "Di susunan" di daftar pustaka tanpa menyusun ulang
+    /// daftarnya, supaya posisi gulir tetap.
+    fn mark_library_in_service(&self) {
+        let st = self.state.borrow();
+        for i in 0..self.library_rows.row_count() {
+            let Some(mut row) = self.library_rows.row_data(i) else {
+                continue;
+            };
+            let in_service = st.library.service.contains(&(row.id as u64));
+            if row.in_service != in_service {
+                row.in_service = in_service;
+                self.library_rows.set_row_data(i, row);
+            }
+        }
     }
 
     /// Materi terpilih: judul, semua slide, dan pratinjau.
@@ -562,12 +588,13 @@ impl App {
                 item.id,
                 item.title.clone(),
                 current_meta(item),
+                item.kind == Kind::Song,
                 item.slides(),
             )
         });
         drop(st);
         self.apply_view_background();
-        let Some((id, title, meta, slides)) = current else {
+        let Some((id, title, meta, song, slides)) = current else {
             self.ui.set_has_current(false);
             self.ui.set_selected_id(-1);
             self.slide_tiles.set_vec(Vec::new());
@@ -578,6 +605,7 @@ impl App {
         self.ui.set_selected_id(ui_id(id));
         self.ui.set_current_title(title.into());
         self.ui.set_current_meta(meta.into());
+        self.ui.set_current_song(song);
         self.slide_tiles.set_vec(tiles(&slides));
         self.refresh_preview();
     }
@@ -593,6 +621,7 @@ impl App {
             self.ui.set_has_preview(false);
             self.ui.set_preview(SlideTile::default());
             self.ui.set_preview_meta(SharedString::new());
+            self.ui.set_preview_title(SharedString::new());
             self.ui.set_preview_page(-1);
             return;
         };
@@ -603,6 +632,8 @@ impl App {
         self.ui.set_preview(tile(&slides[page]));
         self.ui
             .set_preview_meta(format!("{title} · {}/{}", page + 1, slides.len()).into());
+        self.ui
+            .set_preview_title(format!("Slide {} · {title}", page + 1).into());
         self.ui.set_preview_page(page as i32);
     }
 
@@ -615,6 +646,12 @@ impl App {
             (None, false) => "Belum ada yang tayang".to_owned(),
         };
         let has_live = st.live.is_some();
+        let live_title = st
+            .live
+            .as_ref()
+            .map(|s| s.title.clone())
+            .unwrap_or_default();
+        let live_total = st.live.as_ref().map_or(0, |s| s.total as i32);
         let item = st.live.as_ref().map_or(-1, |s| ui_id(s.item));
         let page = st.live.as_ref().map_or(-1, |s| s.page as i32);
         let service = ui_index(st.live_service);
@@ -623,6 +660,8 @@ impl App {
         self.ui.set_live(live_tile.clone());
         self.ui.set_has_live(has_live);
         self.ui.set_live_meta(meta.into());
+        self.ui.set_live_title(live_title.into());
+        self.ui.set_live_total(live_total);
         self.ui.set_live_item_id(item);
         self.ui.set_live_page(page);
         self.ui.set_live_service(service);
@@ -1782,6 +1821,8 @@ impl App {
             .min(count.saturating_sub(1));
         self.ui.set_monitors(ModelRc::new(VecModel::from(labels)));
         self.ui.set_monitor_index(index as i32);
+        self.ui
+            .set_projector_label(projector_label(index, count).into());
     }
 
     fn show_output(self: &Rc<Self>) {
@@ -1911,6 +1952,9 @@ impl App {
             return;
         };
         self.state.borrow_mut().library.monitor = index;
+        let count = self.monitors.borrow().len();
+        self.ui
+            .set_projector_label(projector_label(index, count).into());
         if self.state.borrow().output_visible {
             self.place_output(0);
         }
@@ -1995,6 +2039,23 @@ impl App {
     fn apply_live_background(&self) {
         let live = self.state.borrow().live.as_ref().map(|slide| slide.item);
         let picture = self.picture_for(live);
+        let caption = {
+            let st = self.state.borrow();
+            live.and_then(|id| st.library.item(id))
+                .map_or_else(String::new, |item| {
+                    let latar = match (&item.background, &st.library.background_image) {
+                        (Some(own), _) => background_label(own).to_owned(),
+                        (None, Some(general)) => background_label(general).to_owned(),
+                        (None, None) => SLIDE_NAMES
+                            .get(st.library.background)
+                            .copied()
+                            .unwrap_or_default()
+                            .to_owned(),
+                    };
+                    format!("{} · latar {latar}", kind_label(item.kind))
+                })
+        };
+        self.ui.set_live_caption(caption.into());
         let has = picture.is_some();
         let image = picture.unwrap_or_default();
         self.ui.set_live_picture(image.clone());

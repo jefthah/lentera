@@ -431,3 +431,44 @@ Belum diuji:
 - Pembaruan otomatis 0.4.0 → 0.5.0 lewat GitHub Releases di instalasi asli. Ini baru bisa diuji setelah rilis diterbitkan.
 - macOS (menunggu CI).
 - PC sasaran dengan RAM 2–4 GB.
+
+## Desain baru layar operator — 23 November 2026
+
+Bagian pertama dari desain baru (`design.figcraft`): bilah atas, kolom kiri, tengah, kolom kanan, dan bilah bawah layar operator. Editor dan pencarian Alkitab belum berubah. Diuji di komputer pengembangan yang sama, dengan dua monitor.
+
+- `cargo test -p lentera-core --locked`: 80 lulus. `cargo fmt --all --check` dan `cargo clippy` untuk `lentera-core`, `lentera-app` (dengan dan tanpa `snapshot`), dan `lentera-win32` (`--all-targets -D warnings`) bersih. Tidak ada dependensi baru.
+- Build rilis `lentera.exe`: 13.589.504 byte (0.5.0: 13.324.288 byte).
+- Uji alur UI build rilis di folder kosong: 31/31. `lentera-win32` (profil `ci`): 9/9.
+- Tangkapan layar build rilis dengan profil hasil uji alur, dibandingkan dengan desain:
+  - **1440×900 dan 1360×840:**
+    - bilah atas dengan kotak cari di tengah dan tombol proyektor ("Buka proyektor · Monitor 2", lalu hijau "Proyektor menyala");
+    - progres susunan: materi sebelumnya bercentang, materi yang tayang bertanda **Tayang** dengan "Ayat · slide 1 dari 2";
+    - tab Pustaka / Alkitab bersegmen dengan jumlah materi, dan tanda **Di susunan** / **+ Susunan** di pustaka;
+    - label **Lirik** / **Ayat**, "materi ke-2 di susunan", dan **Edit lirik** / **Edit ayat**;
+    - kolom kanan dengan Layar jemaat di atas, keterangan "Lirik · latar Biru malam", pratinjau kecil dengan "Sudah tayang." / "Belum terlihat jemaat…", dan Latar umum di bawah.
+  - **1024×640:**
+    - tab **Susunan / Pustaka / Alkitab**;
+    - tombol Impor hanya ikon, dan tombol proyektor tanpa nama monitor;
+    - dua kolom slide, dan tanpa latar umum di kolom kanan;
+    - baris susunan yang tayang memakai keterangan merah "Tayang · slide 1/3" tanpa label;
+    - judul pustaka tidak lagi terpotong oleh tanda "Di susunan", yang di kolom sempit hanya berupa centang.
+  - **Menu proyektor:**
+    - terbuka rata kanan di bawah tombol proyektor, di kedua lebar;
+    - berisi kedua monitor dengan centang di monitor terpilih, latar umum, dan **Tutup proyektor**.
+- Tombol naik, turun, dan lepas di susunan kini ada di dalam area klik baris, supaya baris tetap tersorot saat kursor pindah ke tombol.
+  - Ini berdasarkan kode Slint 1.19: `TouchArea` induk tetap tersorot selama kursor ada di dalamnya, dan klik di tombol ditangani tombol itu.
+  - Belum dicoba dengan mouse asli.
+- **Tombol cepat**, dikirim sebagai pesan papan ketik ke jendela uji:
+  - **2** langsung menayangkan slide 2.
+  - Di kotak cari, **2** masuk ke kotak cari.
+  - **Esc** di kotak cari hanya keluar dari kotak itu: proyektor tetap layar penuh, lalu **3** menayangkan slide 3.
+  - Esc berikutnya keluar dari layar penuh.
+  - Ctrl+K belum diuji, karena tombol pengubah tidak bisa dikirim lewat cara ini.
+- Jendela ditutup lewat `SC_CLOSE` dan prosesnya keluar dalam 0,3 detik.
+
+Belum diuji:
+
+- Ctrl+K dengan papan ketik asli.
+- Tombol naik, turun, dan lepas di susunan dengan mouse asli: sorotan tetap ada di atas tombol, dan kliknya tidak ikut memilih baris.
+- Layar sentuh: tombol naik, turun, dan lepas di jendela sempit hanya muncul saat baris disorot.
+- macOS (menunggu CI).

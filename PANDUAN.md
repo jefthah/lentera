@@ -17,23 +17,33 @@ Versi macOS belum punya installer; bangun dari kode sumber (lihat **Untuk pengem
 
 ## Mengenal layar
 
-- **Bilah atas:** tombol profil (lingkaran berhuruf awal dan nama profil yang sedang dibuka), kolom pencarian, tombol **Buka / Tutup proyektor**, pilihan monitor proyektor, menu **Impor**, dan tombol **ⓘ** (Tentang Lentera).
-- **Kiri:** **Susunan ibadah** di atas, lalu tab **Pustaka** dan **Alkitab**. Di Pustaka, filter **Semua / Lagu / Ayat** menyaring materi. Tab Alkitab dijelaskan di bagian **Alkitab**.
-- **Tengah:** semua slide materi terpilih. Slide berbingkai kuning sedang dipratinjau, slide berbingkai merah sedang tayang. Tombol latar di atas judul mengatur latar materi itu (lihat **Latar**).
-- **Kanan:** **Pratinjau**, tombol **Tayangkan**, layar **Tayang** (yang sedang dilihat jemaat), tombol kontrol, dan **Latar umum**.
+- **Bilah atas:**
+  - Tombol profil (lingkaran berhuruf awal dan nama profil yang sedang dibuka), kotak cari (Ctrl+K), tombol proyektor, menu **Impor**, dan tombol **ⓘ** (Tentang Lentera).
+  - Tombol proyektor bertuliskan **Buka proyektor** saat proyektor tertutup, dan berwarna hijau dengan tulisan **Proyektor menyala** dan nama monitornya saat terbuka.
+  - Panahnya membuka menu proyektor: monitor proyektor, latar umum, dan **Buka / Tutup proyektor**.
+- **Kiri:**
+  - **Susunan ibadah** di atas, lalu tab **Pustaka** dan **Alkitab**. Di Pustaka, filter **Semua / Lagu / Ayat** menyaring materi. Tab Alkitab dijelaskan di bagian **Alkitab**.
+  - Di susunan, materi yang sedang tayang bertanda **Tayang** dengan nomor slidenya, dan materi sebelumnya bertanda centang.
+  - Di pustaka, materi yang sudah ada di susunan bertanda **Di susunan**.
+- **Tengah:** semua slide materi terpilih. Slide berbingkai kuning sedang dipratinjau, slide berbingkai merah sedang tayang. Di atas judul ada label **Lirik** atau **Ayat**, jumlah slide, dan tombol latar materi itu (lihat **Latar**).
+- **Kanan:**
+  - **Layar jemaat** (yang sedang dilihat jemaat) dengan judul, jenis, dan latar materi yang tayang.
+  - Lalu **Sebelumnya / Berikutnya**, pratinjau kecil, dan **Tayangkan**. Di bawahnya ada **Gelapkan**, **Layar penuh**, dan **Latar umum**.
 - **Bilah bawah:** pesan status, tombol cepat, dan tombol pembaruan bila ada.
+
+Di jendela yang lebih sempit dari 1200 px, misalnya laptop 1024×640, susunan ibadah pindah ke tab **Susunan** di samping Pustaka dan Alkitab, dan latar umum hanya ada di menu proyektor.
 
 ## Mulai memakai
 
-1. Tekan **Materi baru** di Pustaka (atau Ctrl+N). Bila filter **Ayat** aktif, materi baru berjenis ayat; selain itu lirik lagu. Editor langsung terbuka.
-2. Tulis judul / referensi dan isi teks. **Satu baris kosong memisahkan slide**; hasilnya langsung terlihat di kolom **Hasil slide**. Perubahan tersimpan otomatis sekitar 1,5 detik setelah berhenti mengetik (Ctrl+S untuk menyimpan segera). Tekan **Kembali ke tayang** setelah selesai. Untuk mengubah materi yang ada, pilih materinya lalu **Edit materi**.
-3. Tekan **+** di samping materi di Pustaka, atau **Tambah ke susunan** di editor. Materi yang sama dapat ditambahkan beberapa kali. Pilih baris di susunan untuk memunculkan tombol naik, turun, dan lepas.
-4. Klik slide di tengah untuk pratinjau, lalu tekan **Tayangkan** atau **F5**. Klik dua kali slide, materi pustaka, atau baris susunan untuk langsung menayangkan. Pratinjau dan layar tayang terpisah, jadi persiapan tidak langsung mengubah layar jemaat.
+1. Tekan **Baru** di Pustaka (atau Ctrl+N). Bila filter **Ayat** aktif, materi baru berjenis ayat; selain itu lirik lagu. Editor langsung terbuka.
+2. Tulis judul / referensi dan isi teks. **Satu baris kosong memisahkan slide**; hasilnya langsung terlihat di kolom **Hasil slide**. Perubahan tersimpan otomatis sekitar 1,5 detik setelah berhenti mengetik (Ctrl+S untuk menyimpan segera). Tekan **Kembali ke tayang** setelah selesai. Untuk mengubah materi yang ada, pilih materinya lalu **Edit lirik** atau **Edit ayat**.
+3. Tekan **+ Susunan** di samping materi di Pustaka (muncul saat baris disorot atau dipilih), atau **Tambah ke susunan** di editor. Materi yang sama dapat ditambahkan beberapa kali. Sorot atau pilih baris di susunan untuk memunculkan tombol naik, turun, dan lepas.
+4. Klik slide di tengah untuk pratinjau, lalu tekan **Tayangkan** atau **F5**. Klik dua kali slide, materi pustaka, atau baris susunan untuk langsung menayangkan. Tombol **1–9** langsung menayangkan slide bernomor itu. Pratinjau dan layar tayang terpisah, jadi persiapan tidak langsung mengubah layar jemaat.
 5. Gunakan **Berikutnya / Sebelumnya** atau PageDown / PageUp. Setelah slide terakhir, Lentera berpindah ke materi berikutnya dalam susunan, melewati materi kosong.
 
 Saat mengedit, layar tayang tidak berubah sampai Anda menayangkan lagi. Bilah atas menampilkan apa yang sedang tayang.
 
-Dengan satu monitor, jendela proyektor terbuka sebagai jendela biasa. Dengan dua monitor, sambungkan proyektor **sebelum membuka aplikasi**, aktifkan mode **Extend / Perluas** di Windows, lalu pilih monitor proyektor di bilah atas; jendela proyektor terbuka layar penuh di monitor itu. Konfigurasi dua monitor perlu diuji pada perangkat ibadah yang sebenarnya sebelum digunakan.
+Dengan satu monitor, jendela proyektor terbuka sebagai jendela biasa. Dengan dua monitor, sambungkan proyektor **sebelum membuka aplikasi**, aktifkan mode **Extend / Perluas** di Windows, lalu pilih monitor proyektor di menu proyektor (panah di tombol proyektor); jendela proyektor terbuka layar penuh di monitor itu. Konfigurasi dua monitor perlu diuji pada perangkat ibadah yang sebenarnya sebelum digunakan.
 
 ## Tombol cepat
 
@@ -44,7 +54,9 @@ Dengan satu monitor, jendela proyektor terbuka sebagai jendela biasa. Dengan dua
 | F11 / klik ganda jendela proyektor | Beralih layar penuh |
 | PageDown / PageUp | Slide berikutnya / sebelumnya |
 | Panah kanan / kiri, Spasi | Navigasi saat tidak mengetik |
-| Esc | Keluar layar penuh; tekan lagi untuk menyembunyikan proyektor |
+| Esc | Keluar layar penuh; tekan lagi untuk menyembunyikan proyektor. Di kotak teks, Esc hanya keluar dari kotak itu |
+| Ctrl+K | Pindah ke kotak cari |
+| 1–9 | Tayangkan slide bernomor itu dari materi terpilih, saat tidak mengetik |
 | Ctrl+S | Simpan sekarang |
 | Ctrl+N | Materi baru sesuai filter |
 | Enter di kotak referensi Alkitab | Tayangkan ayat yang diketik |
@@ -53,7 +65,7 @@ Dengan satu monitor, jendela proyektor terbuka sebagai jendela biasa. Dengan dua
 
 Slide, pratinjau, layar tayang, dan proyektor memakai **latar umum**, kecuali materi yang diberi gambar latar sendiri.
 
-**Latar umum** ada di bawah kolom kanan: tiga warna atau satu gambar.
+**Latar umum** ada di bawah kolom kanan dan di menu proyektor: tiga warna atau satu gambar. Di jendela sempit, latar umum hanya ada di menu proyektor.
 
 - Klik kotak **Gambar** untuk membuka galeri latar, lalu tekan **Tambah gambar**. Pilih satu atau beberapa gambar JPG, JPEG, JFIF, atau PNG (Ctrl+klik atau Shift+klik di pemilih berkas). Bila EasyWorship terpasang dengan gambar latar, pemilih berkas terbuka di folder gambar EasyWorship.
 - Klik gambar di galeri untuk memakainya sebagai latar umum. Bila hanya satu gambar ditambahkan, gambar itu langsung dipakai. Klik salah satu warna untuk kembali ke latar warna; gambarnya tetap ada di galeri.
@@ -63,7 +75,7 @@ Slide, pratinjau, layar tayang, dan proyektor memakai **latar umum**, kecuali ma
 - Pilih materinya, lalu klik tombol latar di samping keterangan di atas judul. Tombol itu bertuliskan **Latar umum**, atau **Latar: nama gambar** bila materi sudah punya gambar sendiri. Galeri **Latar materi** terbuka untuk materi itu saja.
 - Klik gambar untuk memakainya di materi itu. **Pakai latar umum** mengembalikan materi ke latar umum. Gambar yang ditambahkan dari galeri ini masuk ke galeri yang sama dengan latar umum.
 - Ayat dari tab Alkitab yang belum ada di pustaka disimpan dulu ke pustaka, seperti saat diedit.
-- Slide di tengah, pratinjau, dan hasil editor memakai latar materi yang dipilih. Layar **Tayang** dan proyektor memakai latar materi yang sedang tayang, jadi latarnya ikut berganti saat tayangan pindah ke materi berikutnya dalam susunan.
+- Slide di tengah, pratinjau, dan hasil editor memakai latar materi yang dipilih. **Layar jemaat** di kolom kanan dan proyektor memakai latar materi yang sedang tayang, jadi latarnya ikut berganti saat tayangan pindah ke materi berikutnya dalam susunan.
 - Mengganti latar umum tidak mengubah materi yang punya gambar sendiri.
 
 Untuk semua gambar latar:
@@ -102,7 +114,7 @@ Nama kitab boleh ditulis lengkap (`Yohanes`), dengan singkatan TB (`Kej`, `Mzm`,
 
 **Slide ayat.** **Otomatis** membagi 1–3 ayat per slide menurut panjangnya, dengan nomor ayat kecil di depan setiap ayat. **1 ayat/slide** memberi tepat satu ayat per slide. Pasal baru selalu dimulai di slide baru. Baris dipotong supaya teks sebesar mungkin di layar 16:9.
 
-**Menyimpan ke susunan.** Ayat yang dilihat atau ditayangkan dari tab Alkitab tidak masuk pustaka. Tekan **+ Susunan** untuk menyimpannya ke pustaka profil sebagai materi Ayat, misalnya "Yohanes 3:16-18 (TB)", sekaligus menambahkannya ke susunan ibadah. **Edit materi** juga menyimpannya ke pustaka dulu; setelah itu teksnya bisa diubah seperti materi lain. Ayat yang sama tidak disimpan dua kali.
+**Menyimpan ke susunan.** Ayat yang dilihat atau ditayangkan dari tab Alkitab tidak masuk pustaka. Tekan **+ Susunan** untuk menyimpannya ke pustaka profil sebagai materi Ayat, misalnya "Yohanes 3:16-18 (TB)", sekaligus menambahkannya ke susunan ibadah. **Edit ayat** juga menyimpannya ke pustaka dulu; setelah itu teksnya bisa diubah seperti materi lain. Ayat yang sama tidak disimpan dua kali.
 
 **Menghapus terjemahan.** Ikon tempat sampah di samping pilihan terjemahan menghapus terjemahan itu dari komputer setelah konfirmasi. Materi ayat yang sudah disimpan di pustaka tidak ikut terhapus.
 

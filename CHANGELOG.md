@@ -2,7 +2,7 @@
 
 ## Belum dirilis
 
-Layar operator memakai desain baru. Yang dilihat jemaat kini ada di atas kolom kanan, susunan ibadah menunjukkan sampai mana ibadah berjalan, dan editor tidak lagi menutup kontrol tayang.
+Layar operator memakai desain baru. Yang dilihat jemaat kini ada di atas kolom kanan, susunan ibadah menunjukkan sampai mana ibadah berjalan, editor tidak lagi menutup kontrol tayang, dan Alkitab dibuka di kolom tengah.
 
 **Layar operator baru:**
 
@@ -34,12 +34,26 @@ Layar operator memakai desain baru. Yang dilihat jemaat kini ada di atas kolom k
   - Di atas editor: **Kembali ke slide** (dulu **Kembali ke tayang**, di bilah atas), tanda **Tersimpan** / **Menyimpan…**, dan **Hapus** (dulu **Hapus materi**).
   - Formulir di kiri: **Judul**, **Jenis** (**Lirik lagu** amber atau **Ayat Alkitab** biru), dan **Isi**.
   - **Hasil slide** di kanannya, satu kolom bernomor. Di bawahnya ada keterangan berapa slide lagi di bawah, lalu **Tambah ke susunan**.
+- **Alkitab di kolom tengah:**
+  - Tab **Alkitab** membuka Alkitab di kolom tengah. Kotak referensi besar di atas langsung siap diketik, dan **Enter** menayangkan. Di bawahnya ada contoh penulisan referensi, atau pesan bila referensi tidak dikenal.
+  - Judul referensi tampil besar dengan terjemahan, jumlah ayat dan slide, dan **belum di pustaka**, **ada di pustaka**, atau **ada di susunan**. Di sampingnya ada **Otomatis / 1 ayat/slide** dan **Ke susunan** (dulu **Susunan**).
+  - Daftar ayat satu pasal kini menampilkan teks ayat utuh. Tombol **Pasal** sebelumnya dan berikutnya di atas daftar membuka ayat 1 pasal itu. Klik, Shift+klik, dan klik dua kali tetap sama.
+  - **Hasil slide** ayat yang dipilih tampil di kanan daftar: klik untuk pratinjau, klik dua kali untuk tayang.
+  - Memilih materi dari susunan atau pustaka mengembalikan kolom tengah ke slide materi itu. Klik tab **Alkitab** lagi untuk kembali ke ayat terakhir.
+- **Tab Alkitab di kiri:**
+  - Pilihan terjemahan dan tombol hapus terjemahan tetap di atas.
+  - **Terakhir dibuka** berisi sampai 8 referensi yang terakhir ditayangkan atau ditambahkan ke susunan, dengan jumlah ayatnya. Klik untuk membukanya lagi. Daftar ini disimpan di `alkitab.db`, jadi sama untuk semua profil di komputer ini.
+  - **Impor terjemahan** ada di bawah, dengan jumlah terjemahan yang terpasang. Tombol ini menggantikan ikon impor di samping pilihan terjemahan.
+  - Saat tab Alkitab dibuka, bilah bawah menyebut terjemahan yang siap, misalnya "Terjemahan Baru siap · 31.102 ayat".
+- **Referensi dari kotak cari:**
+  - Ketik referensi seperti `yoh 3:16` di kotak cari (**Ctrl+K**). Di atas daftar pustaka muncul **Buka Yohanes 3:16**. Tekan **Enter** atau klik baris itu untuk membukanya di Alkitab.
+  - Mengetik di kotak cari saat tab Alkitab atau Susunan terbuka kini pindah ke tab Pustaka, supaya hasilnya terlihat.
 - **Jendela sempit** (di bawah 1200 px, misalnya laptop 1024×640):
   - Kolom kiri dan kanan lebih sempit.
   - Susunan ibadah pindah ke tab **Susunan** di samping Pustaka dan Alkitab.
   - Latar umum hanya ada di menu proyektor.
 
-Fungsi lain tidak berubah. Pencarian ayat Alkitab masih di kolom kiri; tempatnya di kolom tengah menyusul dalam desain baru.
+Fungsi lain tidak berubah. Daftar **Terakhir dibuka** memakai tabel yang sudah ada di `alkitab.db`, jadi Alkitab yang sudah diimpor tetap bisa dibuka oleh versi sebelumnya.
 
 ## 0.5.0 — 22 November 2026 — beta
 

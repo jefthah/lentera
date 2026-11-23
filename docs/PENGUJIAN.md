@@ -501,3 +501,48 @@ Belum diuji:
 
 - Mengetik di editor dengan papan ketik asli, termasuk tanda **Menyimpan…** yang berganti menjadi **Tersimpan** sekitar 1,5 detik kemudian.
 - macOS (menunggu CI).
+
+## Desain baru: Alkitab di kolom tengah — 23 November 2026
+
+Bagian ketiga dari desain baru. Tab **Alkitab** membuka Alkitab di kolom tengah, kolom kiri berisi **Terakhir dibuka**, dan referensi bisa diketik di kotak cari. Diuji di komputer pengembangan yang sama, dengan dua monitor.
+
+- `cargo test -p lentera-core --locked`: 81 lulus. Tes baru memeriksa **Terakhir dibuka**: referensi terbaru di atas, tanpa duplikat, dan paling banyak 8.
+- `cargo fmt --all --check` dan `cargo clippy` untuk `lentera-core`, `lentera-app` (dengan dan tanpa `snapshot`), dan `lentera-win32` (`--all-targets -D warnings`) bersih. Tidak ada dependensi baru.
+- Build rilis `lentera.exe`: 13.858.816 byte.
+- Uji alur UI build rilis di folder kosong: 34/34. `lentera-win32` (profil `ci`): 9/9. Tiga pemeriksaan baru di uji alur:
+  - tab Alkitab memindahkan kolom tengah ke Alkitab;
+  - `yoh 3:16-18` di kotak cari memunculkan **Buka Yohanes 3:16-18**, lalu Enter membukanya di Alkitab dengan kotak cari kosong lagi;
+  - ayat yang ditayangkan masuk **Terakhir dibuka**.
+- Tangkapan layar build rilis dengan terjemahan uji kecil (36 ayat):
+  - **1440×900:**
+    - tab Alkitab: kotak referensi langsung siap diketik, "Belum ada ayat dipilih", dan bilah bawah "Terjemahan Uji siap · 36 ayat";
+    - klik **Terakhir dibuka**: judul besar, keterangan "Terjemahan Uji · 5 ayat · 4 slide · ada di susunan", daftar pasal digulir ke ayat 16, dan **Hasil slide** di kanan;
+    - klik ayat mengubah pilihan tanpa daftar melompat, dengan keterangan "belum di pustaka";
+    - mengetik referensi menggulir daftar ke ayat yang diketik. Enter menayangkan dan menaruh referensi itu di atas **Terakhir dibuka**;
+    - **Ke susunan** mengubah keterangan menjadi "ada di susunan";
+    - **1 ayat/slide**: 5 slide, dengan catatan "Setiap ayat jadi satu slide.";
+    - referensi yang tidak dikenal ("3:16-20x"): pesan merah di bawah kotak, dan hasil terakhir tetap tampil;
+    - memilih materi susunan mengembalikan kolom tengah ke slide. Tab Alkitab lagi kembali ke ayat terakhir dan posisi gulirnya.
+  - **1024×640:**
+    - **Otomatis / 1 ayat/slide** pindah ke atas Hasil slide, dan tombolnya menjadi **Susunan**;
+    - setelah ukuran jendela berubah, daftar ayat digulir ulang ke ayat terpilih;
+    - `yoh 3.16` di kotak cari pindah ke tab Pustaka dengan baris **Buka Yohanes 3:16**, tanpa pesan "Tidak ada yang cocok".
+- **Terjemahan lengkap:** KJV (domain publik, 31.102 ayat) diimpor dari `.ewb` ke folder data uji terpisah.
+  - Alkitab kosong menampilkan **Impor Alkitab** di tengah. Formulir impor di kiri, dengan "Lengkapi impor di kolom kiri" di tengah.
+  - `mzm 119.160` membuka Mazmur 119 (176 ayat) dan langsung menggulir ke ayat 160. Tombol **Pasal 118** dan **Pasal 120** tampil.
+  - **Pasal 120** membuka Mazmur 120:1 di atas daftar.
+  - Enter pada Mazmur 119:1 menayangkannya, dan **Terakhir dibuka** berisi "Mazmur 119:1 · 1 ayat".
+- Log galat aplikasi uji kosong di semua sesi di atas, tanpa peringatan binding loop Slint.
+- Diperbaiki setelah tangkapan layar:
+  - label **Pratinjau** menutupi teks di kartu Hasil slide yang sempit;
+  - hasil hilang sementara saat referensi yang sedang diketik belum dikenal;
+  - pesan "Tidak ada yang cocok" tampil di bawah petunjuk referensi;
+  - posisi gulir daftar ayat setelah ukuran jendela berubah.
+- Folder data uji, salinan KJV, dan tangkapan layar dihapus setelah dipakai.
+
+Belum diuji:
+
+- Mengetik `:` dan Ctrl+K dengan papan ketik asli. Alat uji tidak bisa mengirim Shift, jadi referensi diuji dengan titik (`3.16`).
+- Kelancaran gulir pasal panjang dengan roda mouse asli.
+- Layar sentuh.
+- macOS (menunggu CI).

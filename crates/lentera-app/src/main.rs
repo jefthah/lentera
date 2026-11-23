@@ -139,14 +139,14 @@ fn count(n: usize) -> String {
     out
 }
 
-/// Awal teks sampai `max` huruf, dipotong di spasi dan diberi "…".
-fn snippet(text: &str, max: usize) -> String {
-    if text.chars().count() <= max {
-        return text.to_owned();
-    }
-    let cut: String = text.chars().take(max).collect();
-    let cut = cut.rsplit_once(' ').map_or(cut.as_str(), |(head, _)| head);
-    format!("{}…", cut.trim_end_matches([',', '.', ';', ':']))
+/// Tulisan baku referensi Alkitab bila teks pencarian berupa referensi
+/// lengkap dengan pasal: "yoh 3:16" → "Yohanes 3:16". Nama kitab saja
+/// tidak dihitung, supaya pencarian lagu biasa tidak terganggu.
+fn reference_label(text: &str) -> Option<String> {
+    bible::parse_reference(text)
+        .ok()
+        .filter(|r| !r.spans.is_empty())
+        .map(|r| r.label())
 }
 
 /// Usulan singkatan terjemahan dari nama berkas: "TB.xml" → "TB",
@@ -257,6 +257,9 @@ struct BibleState {
     /// Berkas yang sudah dibaca dan menunggu disimpan, beserta nama berkasnya.
     pending: Option<(ImportedBible, String)>,
     scroll_serial: i32,
+    /// Ayat yang tampil di tengah: judul materi, isi, dan keterangan
+    /// (terjemahan, jumlah ayat dan slide) tanpa letaknya di pustaka.
+    shown: Option<(String, String, String)>,
 }
 
 /// Gambar latar yang sedang ditambahkan di thread lain.
@@ -399,7 +402,8 @@ impl App {
 
     fn connect(self: &Rc<Self>) {
         let app = self.clone();
-        connect!(app.ui.on_search_changed, |a| a.refresh_library());
+        connect!(app.ui.on_search_changed, |a| a.search_changed());
+        connect!(app.ui.on_search_accepted, |a| a.search_accepted());
         connect!(app.ui.on_filter_changed, |a, _filter| a.refresh_library());
         connect!(app.ui.on_select_library, |a, id| a.select_library(id));
         connect!(app.ui.on_activate_library, |a, id| {
@@ -477,6 +481,10 @@ impl App {
         connect!(app.ui.on_bible_import_cancel, |a| a.bible_import_cancel());
         connect!(app.ui.on_bible_remove_translation, |a| a
             .bible_remove_translation());
+        connect!(app.ui.on_bible_history_clicked, |a, index| a
+            .bible_history_clicked(index));
+        connect!(app.ui.on_bible_chapter, |a, chapter| a
+            .bible_chapter(chapter));
 
         connect!(app.output.on_go_live, |a| a.go_live());
         connect!(app.output.on_navigate, |a, forward| a.navigate(forward));
@@ -539,6 +547,34 @@ impl App {
         drop(st);
         self.ui.set_library_count(count(rows.len()).into());
         self.library_rows.set_vec(rows);
+        self.ui
+            .set_query_reference(reference_label(&query).unwrap_or_default().into());
+        self.refresh_bible_detail();
+    }
+
+    fn search_changed(&self) {
+        self.refresh_library();
+        // Hasil pencarian ada di tab Pustaka.
+        if !self.ui.get_query().is_empty() && self.ui.get_left_tab() != 0 {
+            self.ui.set_left_tab(0);
+            self.left_tab_changed(0);
+        }
+    }
+
+    /// Enter di kotak cari: referensi Alkitab dibuka di tab Alkitab.
+    fn search_accepted(&self) {
+        let query = self.ui.get_query();
+        if reference_label(&query).is_none() {
+            return;
+        }
+        self.ui.set_query(SharedString::new());
+        self.refresh_library();
+        self.ui.set_bible_ref(query.trim().into());
+        self.ui.set_left_tab(1);
+        if self.show_bible() {
+            self.bible_lookup(true);
+            self.ui.set_bible_focus(true);
+        }
     }
 
     fn refresh_service(&self) {
@@ -562,6 +598,7 @@ impl App {
         self.ui.set_selected_service(selected);
         self.ui.set_live_service(live);
         self.mark_library_in_service();
+        self.refresh_bible_detail();
     }
 
     /// Memperbarui tanda "Di susunan" di daftar pustaka tanpa menyusun ulang
@@ -750,6 +787,9 @@ impl App {
             st.page = 0;
             st.dirty = false;
         }
+        if !Library::is_scratch(id) {
+            self.ui.set_bible_view(false);
+        }
         self.ui.set_editor_dirty(false);
         self.ui.set_selected_service(ui_index(service));
         self.load_editor();
@@ -896,6 +936,7 @@ impl App {
 
     fn open_editor(&self, focus_title: bool) {
         self.state.borrow_mut().editing = true;
+        self.ui.set_bible_view(false);
         self.ui.set_focus_title(focus_title);
         self.ui.set_editing(true);
     }
@@ -1338,9 +1379,109 @@ impl App {
     }
 
     fn left_tab_changed(&self, tab: i32) {
-        if tab == 1 {
-            self.open_bible();
+        if tab != 1 {
+            self.ui.set_bible_view(false);
+            return;
         }
+        if self.show_bible() {
+            // Ayat terakhir tampil lagi di tengah.
+            self.bible_lookup(false);
+        }
+    }
+
+    /// Menampilkan Alkitab di kolom tengah. `false` bila editor tidak bisa
+    /// ditutup atau `alkitab.db` tidak bisa dibuka.
+    fn show_bible(&self) -> bool {
+        if self.state.borrow().editing {
+            self.close_editor();
+            if self.state.borrow().editing {
+                return false;
+            }
+        }
+        if !self.open_bible() {
+            return false;
+        }
+        self.ui.set_bible_view(true);
+        self.refresh_history();
+        self.bible_ready_status();
+        true
+    }
+
+    /// "Terjemahan Baru siap · 31.102 ayat" di bilah bawah.
+    fn bible_ready_status(&self) {
+        if let Some(t) = self.current_translation() {
+            self.status(&format!("{} siap · {} ayat", t.name, count(t.verses)), true);
+        }
+    }
+
+    /// Daftar "Terakhir dibuka" di tab Alkitab.
+    fn refresh_history(&self) {
+        let list = self
+            .bible
+            .borrow()
+            .db
+            .as_ref()
+            .map(Bible::history)
+            .unwrap_or_default();
+        let rows: Vec<HistoryRow> = list
+            .into_iter()
+            .map(|r| HistoryRow {
+                label: r.label.into(),
+                detail: format!("{} ayat", r.verses).into(),
+            })
+            .collect();
+        self.ui
+            .set_bible_history(ModelRc::new(VecModel::from(rows)));
+    }
+
+    /// Mencatat ayat yang tampil di tengah ke "Terakhir dibuka".
+    fn remember_passage(&self) {
+        let result = {
+            let bible = self.bible.borrow();
+            let (Some(db), Some(found)) = (bible.db.as_ref(), bible.lookup.as_ref()) else {
+                return;
+            };
+            if found.verses.is_empty() {
+                return;
+            }
+            db.remember(&found.label, found.verses.len())
+        };
+        match result {
+            Ok(()) => self.refresh_history(),
+            Err(e) => self.status(&e, false),
+        }
+    }
+
+    fn bible_history_clicked(&self, index: i32) {
+        let label = usize::try_from(index)
+            .ok()
+            .and_then(|i| self.ui.get_bible_history().row_data(i))
+            .map(|row| row.label);
+        let Some(label) = label else {
+            return;
+        };
+        self.ui.set_bible_ref(label);
+        if self.show_bible() {
+            self.bible_lookup(true);
+        }
+    }
+
+    /// Tombol pasal sebelumnya / berikutnya: ayat pertama pasal itu.
+    fn bible_chapter(&self, chapter: i32) {
+        let short = self
+            .bible
+            .borrow()
+            .lookup
+            .as_ref()
+            .map(|found| found.reference.book.short);
+        let (Some(short), Ok(chapter)) = (short, u16::try_from(chapter)) else {
+            return;
+        };
+        if chapter == 0 {
+            return;
+        }
+        self.ui.set_bible_ref(format!("{short} {chapter}:1").into());
+        self.bible_lookup(true);
     }
 
     fn bible_translation_changed(&self) {
@@ -1349,7 +1490,11 @@ impl App {
         {
             let _ = db.set_last_translation(translation.id);
         }
-        self.bible_lookup(true);
+        // Ayatnya tampil di tengah dengan terjemahan yang baru, juga bila
+        // tengah sedang menampilkan materi lain.
+        if self.show_bible() {
+            self.bible_lookup(true);
+        }
     }
 
     /// Mengosongkan hasil referensi di tab Alkitab.
@@ -1358,13 +1503,17 @@ impl App {
             let mut bible = self.bible.borrow_mut();
             bible.lookup = None;
             bible.anchor = None;
+            bible.shown = None;
         }
         self.verse_rows.set_vec(Vec::new());
         self.ui.set_bible_label(SharedString::new());
         self.ui.set_bible_detail(SharedString::new());
         self.ui.set_bible_error(SharedString::new());
         self.ui.set_bible_chapter_title(SharedString::new());
+        self.ui.set_bible_prev_chapter(0);
+        self.ui.set_bible_next_chapter(0);
         self.ui.set_bible_has_passage(false);
+        self.ui.set_bible_showing(false);
     }
 
     /// Mencari referensi di kotak Alkitab dan menampilkan ayatnya di tengah.
@@ -1406,7 +1555,7 @@ impl App {
             .iter()
             .map(|v| VerseRow {
                 number: v.number().into(),
-                text: snippet(&v.text, 76).into(),
+                text: v.text.as_str().into(),
                 picked: picked.contains(&(v.chapter, v.verse)),
             })
             .collect();
@@ -1414,18 +1563,41 @@ impl App {
         let same_chapter = self.bible.borrow().lookup.as_ref().is_some_and(|old| {
             old.reference.book.number == book.number && old.chapter == found.chapter
         });
-        self.verse_rows.set_vec(rows);
+        if same_chapter && rows.len() == self.verse_rows.row_count() {
+            // Pasal yang sama: hanya tanda pilihan yang berubah, jadi daftar
+            // tidak disusun ulang dan posisi gulirnya tetap.
+            for (i, row) in rows.into_iter().enumerate() {
+                if self
+                    .verse_rows
+                    .row_data(i)
+                    .is_none_or(|old| old.picked != row.picked)
+                {
+                    self.verse_rows.set_row_data(i, row);
+                }
+            }
+        } else {
+            self.verse_rows.set_vec(rows);
+        }
         self.ui.set_bible_error(SharedString::new());
-        self.ui.set_bible_chapter_title(
-            format!("Pasal {} dari {}", found.chapter, found.chapters).into(),
-        );
+        self.ui
+            .set_bible_chapter_title(format!("{} {}", book.name, found.chapter).into());
+        let chapter = i32::from(found.chapter);
+        self.ui
+            .set_bible_prev_chapter(if chapter > 1 { chapter - 1 } else { 0 });
+        self.ui
+            .set_bible_next_chapter(if found.chapter < found.chapters {
+                chapter + 1
+            } else {
+                0
+            });
+        // Daftar yang baru tampil lagi digulir ke ayat pertama yang dipilih.
+        self.ui.set_bible_scroll_row(first.unwrap_or(0) as i32);
         if typed || !same_chapter {
             let mut bible = self.bible.borrow_mut();
             bible.scroll_serial += 1;
             if typed {
                 bible.anchor = first;
             }
-            self.ui.set_bible_scroll_row(first.unwrap_or(0) as i32);
             self.ui.set_bible_scroll_serial(bible.scroll_serial);
         }
         if found.verses.is_empty() {
@@ -1434,7 +1606,10 @@ impl App {
             self.ui
                 .set_bible_detail("Ketik pasal dan ayat, atau klik ayat di bawah.".into());
             self.ui.set_bible_has_passage(false);
-            self.bible.borrow_mut().lookup = Some(found);
+            self.ui.set_bible_showing(false);
+            let mut bible = self.bible.borrow_mut();
+            bible.lookup = Some(found);
+            bible.shown = None;
             return;
         }
         let packing = if self.ui.get_bible_one_per_slide() {
@@ -1445,17 +1620,51 @@ impl App {
         let content = bible::passage_text(&found.verses, packing);
         let title = format!("{} ({})", found.label, translation.code);
         let slides = split_slides(&content).len();
-        self.ui.set_bible_label(found.label.as_str().into());
-        self.ui.set_bible_detail(
-            format!(
-                "{} ayat · {slides} slide · Enter: tayangkan",
-                found.verses.len()
-            )
-            .into(),
+        let about = format!(
+            "{} · {} ayat · {slides} slide",
+            translation.name,
+            found.verses.len()
         );
+        self.ui.set_bible_label(found.label.as_str().into());
         self.ui.set_bible_has_passage(true);
-        self.bible.borrow_mut().lookup = Some(found);
+        self.ui.set_bible_showing(true);
+        {
+            let mut bible = self.bible.borrow_mut();
+            bible.lookup = Some(found);
+            bible.shown = Some((title.clone(), content.clone(), about));
+        }
         self.show_scratch(title, content);
+        self.refresh_bible_detail();
+    }
+
+    /// Keterangan ayat di tengah, termasuk apakah ayat itu sudah ada di
+    /// pustaka atau susunan.
+    fn refresh_bible_detail(&self) {
+        let detail = {
+            let bible = self.bible.borrow();
+            let Some((title, content, about)) = bible.shown.as_ref() else {
+                return;
+            };
+            let st = self.state.borrow();
+            let saved = st
+                .library
+                .items
+                .iter()
+                .find(|i| {
+                    !Library::is_scratch(i.id)
+                        && i.kind == Kind::Verse
+                        && &i.title == title
+                        && &i.content == content
+                })
+                .map(|i| i.id);
+            let place = match saved {
+                Some(id) if st.library.service.contains(&id) => "ada di susunan",
+                Some(_) => "ada di pustaka",
+                None => "belum di pustaka",
+            };
+            format!("{about} · {place}")
+        };
+        self.ui.set_bible_detail(detail.into());
     }
 
     /// Menampilkan ayat di tengah sebagai materi sementara.
@@ -1545,6 +1754,7 @@ impl App {
         let selected = self.state.borrow().selected;
         if let Some(id) = selected.filter(|id| Library::is_scratch(*id)) {
             self.add_to_service(ui_id(id));
+            self.remember_passage();
         }
     }
 
@@ -1614,6 +1824,7 @@ impl App {
         self.ui.set_bible_import_error(SharedString::new());
         self.ui.set_bible_importing(true);
         self.ui.set_left_tab(1);
+        self.show_bible();
         Ok(())
     }
 
@@ -1695,7 +1906,9 @@ impl App {
             return;
         }
         self.refresh_translations(None);
-        self.bible_lookup(true);
+        if self.show_bible() {
+            self.bible_lookup(true);
+        }
         self.status(&format!("{code} dihapus dari komputer ini."), true);
     }
 
@@ -1718,6 +1931,7 @@ impl App {
             None => self.status("Pilih materi terlebih dahulu.", false),
             Some((None, _)) => self.status("Materi masih kosong. Isi teks terlebih dahulu.", false),
             Some((Some(slide), service)) => {
+                let passage = Library::is_scratch(slide.item);
                 {
                     let mut st = self.state.borrow_mut();
                     st.live = Some(slide);
@@ -1726,6 +1940,9 @@ impl App {
                 }
                 self.show_output();
                 self.refresh_live();
+                if passage {
+                    self.remember_passage();
+                }
                 self.status(
                     "Tayang. PageDown / PageUp: pindah slide. F6: gelapkan. F11: layar penuh.",
                     true,
@@ -2918,6 +3135,7 @@ impl App {
                     self.bible.borrow().db.is_some()
                         && self.ui.get_bible_translations().row_count() == 0,
                 );
+                self.check("bible_view", self.ui.get_bible_view());
                 self.snapshot("ui-smoke-alkitab-kosong.png", self.ui.window());
                 let path = self.data_dir.join("alkitab-uji.tsv");
                 let mut tsv = String::from("kitab\tpasal\tayat\tteks\n");
@@ -2951,8 +3169,21 @@ impl App {
                 );
             }
             11 => {
-                self.ui.set_bible_ref("yoh 3:16-18".into());
-                self.bible_lookup(true);
+                // Referensi diketik di kotak cari, lalu Enter.
+                self.ui.set_query("yoh 3:16-18".into());
+                self.search_changed();
+                let hinted = self.ui.get_query_reference() == "Yohanes 3:16-18"
+                    && self.ui.get_left_tab() == 0
+                    && !self.ui.get_bible_view();
+                self.search_accepted();
+                self.check(
+                    "search_opens_bible",
+                    hinted
+                        && self.ui.get_query().is_empty()
+                        && self.ui.get_left_tab() == 1
+                        && self.ui.get_bible_view()
+                        && self.ui.get_bible_ref() == "yoh 3:16-18",
+                );
                 let selected = self.state.borrow().selected;
                 self.check(
                     "bible_lookup",
@@ -2979,6 +3210,15 @@ impl App {
                 self.bible_go_live();
                 let live = self.state.borrow().live.as_ref().map(|s| s.item);
                 self.check("bible_live", live.is_some_and(Library::is_scratch));
+                self.check(
+                    "bible_history",
+                    self.ui.get_bible_history().row_count() == 1
+                        && self
+                            .ui
+                            .get_bible_history()
+                            .row_data(0)
+                            .is_some_and(|row| row.label == "Yohanes 3:16-20"),
+                );
                 let before = self.state.borrow().library.service.len();
                 self.bible_add_to_service();
                 let saved = self.state.borrow().store.load().ok().is_some_and(|l| {

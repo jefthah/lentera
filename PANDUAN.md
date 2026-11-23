@@ -25,7 +25,7 @@ Versi macOS belum punya installer; bangun dari kode sumber (lihat **Untuk pengem
   - **Susunan ibadah** di atas, lalu tab **Pustaka** dan **Alkitab**. Di Pustaka, filter **Semua / Lagu / Ayat** menyaring materi. Tab Alkitab dijelaskan di bagian **Alkitab**.
   - Di susunan, materi yang sedang tayang bertanda **Tayang** dengan nomor slidenya, dan materi sebelumnya bertanda centang.
   - Di pustaka, materi yang sudah ada di susunan bertanda **Di susunan**.
-- **Tengah:** semua slide materi terpilih. Slide berbingkai kuning sedang dipratinjau, slide berbingkai merah sedang tayang. Di atas judul ada label **Lirik** atau **Ayat**, jumlah slide, dan tombol latar materi itu (lihat **Latar**).
+- **Tengah:** semua slide materi terpilih. Slide berbingkai kuning sedang dipratinjau, slide berbingkai merah sedang tayang. Di atas judul ada label **Lirik** atau **Ayat**, jumlah slide, dan tombol latar materi itu (lihat **Latar**). Saat tab **Alkitab** dibuka, kolom tengah menampilkan Alkitab (lihat **Alkitab**).
 - **Kanan:**
   - **Layar jemaat** (yang sedang dilihat jemaat) dengan judul, jenis, dan latar materi yang tayang.
   - Lalu **Sebelumnya / Berikutnya**, pratinjau kecil, dan **Tayangkan**. Di bawahnya ada **Gelapkan**, **Layar penuh**, dan **Latar umum**.
@@ -60,6 +60,7 @@ Dengan satu monitor, jendela proyektor terbuka sebagai jendela biasa. Dengan dua
 | Ctrl+S | Simpan sekarang |
 | Ctrl+N | Materi baru sesuai filter |
 | Enter di kotak referensi Alkitab | Tayangkan ayat yang diketik |
+| Enter di kotak cari berisi referensi | Buka referensi itu di Alkitab |
 
 ## Latar
 
@@ -91,13 +92,20 @@ Setiap profil punya galeri sendiri.
 
 Lentera tidak membawa teks Alkitab. Impor sekali terjemahan yang Anda berhak pakai; setelah itu ayat cukup ditayangkan dengan mengetik referensinya.
 
-**Mengimpor terjemahan.** Buka tab **Alkitab** di kolom kiri lalu tekan **Impor Alkitab**, atau pilih menu **Impor → Alkitab lengkap**. Pilih berkas OpenSong XML, Zefania XML, TSV UTF-8, atau Alkitab EasyWorship `.ewb` (formatnya di bawah). Lentera menyebut jumlah kitab dan ayat yang terbaca. Periksa **Singkatan** (ditulis di judul ayat, misalnya TB; paling panjang 12 karakter dan belum dipakai terjemahan lain) dan **Nama terjemahan**, lalu tekan **Simpan**. Terjemahan berikutnya diimpor lewat ikon impor di samping pilihan terjemahan.
+**Mengimpor terjemahan.** Buka tab **Alkitab** di kolom kiri lalu tekan **Impor Alkitab** di tengah atau **Impor terjemahan** di kiri, atau pilih menu **Impor → Alkitab lengkap**. Pilih berkas OpenSong XML, Zefania XML, TSV UTF-8, atau Alkitab EasyWorship `.ewb` (formatnya di bawah). Lentera menyebut jumlah kitab dan ayat yang terbaca. Periksa **Singkatan** (ditulis di judul ayat, misalnya TB; paling panjang 12 karakter dan belum dipakai terjemahan lain) dan **Nama terjemahan**, lalu tekan **Simpan**. Terjemahan berikutnya diimpor lewat **Impor terjemahan** di bawah tab Alkitab, yang juga menyebut berapa terjemahan terpasang.
 
 **Menayangkan ayat.**
 
-1. Pilih terjemahan, lalu ketik referensi di kotak di bawahnya, misalnya `Yoh 3:16-18`. Slide ayatnya langsung tampil di tengah untuk dipratinjau, dan di bawah kotak tampil jumlah ayat dan slide.
-2. Tekan **Enter** untuk menayangkan slide pertama, lalu lanjutkan dengan **Berikutnya** seperti materi lain.
-3. Di bawahnya tampil seluruh ayat dalam pasal itu. Klik ayat untuk memilihnya, **Shift+klik** ayat lain untuk memilih rentang, atau klik dua kali untuk langsung menayangkan. Ayat yang dipilih tersorot dan referensinya ditulis di kotak.
+1. Klik tab **Alkitab**. Kolom tengah menampilkan Alkitab, dan kotak referensi di atasnya langsung siap diketik. Pilih terjemahan di kolom kiri bila ada lebih dari satu.
+2. Ketik referensi, misalnya `Yoh 3:16-18`. Di bawah kotak tampil judul referensi, terjemahan, jumlah ayat dan slide, dan apakah ayat itu belum ada di pustaka, sudah ada di pustaka, atau sudah ada di susunan. Slide-nya tampil di **Hasil slide** untuk dipratinjau.
+3. Tekan **Enter** untuk menayangkan slide pertama, lalu lanjutkan dengan **Berikutnya** seperti materi lain. Di **Hasil slide**, klik slide untuk pratinjau atau klik dua kali untuk langsung tayang.
+4. Di kiri **Hasil slide** tampil seluruh ayat dalam pasal itu. Klik ayat untuk memilihnya, **Shift+klik** ayat lain untuk memilih rentang, atau klik dua kali untuk langsung menayangkan. Ayat yang dipilih tersorot dan referensinya ditulis di kotak. Tombol **Pasal** di atas daftar membuka ayat 1 pasal sebelumnya atau berikutnya.
+
+Referensi juga bisa diketik di kotak cari bilah atas (**Ctrl+K**). Tekan **Enter**, atau klik **Buka …** di atas daftar pustaka, untuk membukanya di Alkitab.
+
+**Terakhir dibuka** di kolom kiri berisi sampai 8 referensi yang terakhir ditayangkan atau ditambahkan ke susunan. Klik untuk membukanya lagi. Daftar ini sama untuk semua profil di komputer ini.
+
+Memilih materi dari susunan atau pustaka mengembalikan kolom tengah ke slide materi itu. Klik tab **Alkitab** lagi untuk kembali ke ayat terakhir.
 
 | Ketik | Hasil |
 |---|---|
@@ -114,7 +122,7 @@ Nama kitab boleh ditulis lengkap (`Yohanes`), dengan singkatan TB (`Kej`, `Mzm`,
 
 **Slide ayat.** **Otomatis** membagi 1–3 ayat per slide menurut panjangnya, dengan nomor ayat kecil di depan setiap ayat. **1 ayat/slide** memberi tepat satu ayat per slide. Pasal baru selalu dimulai di slide baru. Baris dipotong supaya teks sebesar mungkin di layar 16:9.
 
-**Menyimpan ke susunan.** Ayat yang dilihat atau ditayangkan dari tab Alkitab tidak masuk pustaka. Tekan **+ Susunan** untuk menyimpannya ke pustaka profil sebagai materi Ayat, misalnya "Yohanes 3:16-18 (TB)", sekaligus menambahkannya ke susunan ibadah. **Edit ayat** juga menyimpannya ke pustaka dulu; setelah itu teksnya bisa diubah seperti materi lain. Ayat yang sama tidak disimpan dua kali.
+**Menyimpan ke susunan.** Ayat yang dilihat atau ditayangkan dari tab Alkitab tidak masuk pustaka. Tekan **Ke susunan** untuk menyimpannya ke pustaka profil sebagai materi Ayat, misalnya "Yohanes 3:16-18 (TB)", sekaligus menambahkannya ke susunan ibadah. **Edit ayat** juga menyimpannya ke pustaka dulu; setelah itu teksnya bisa diubah seperti materi lain. Ayat yang sama tidak disimpan dua kali.
 
 **Menghapus terjemahan.** Ikon tempat sampah di samping pilihan terjemahan menghapus terjemahan itu dari komputer setelah konfirmasi. Materi ayat yang sudah disimpan di pustaka tidak ikut terhapus.
 

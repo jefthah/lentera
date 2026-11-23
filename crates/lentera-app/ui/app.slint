@@ -34,6 +34,13 @@ export struct VerseRow {
     picked: bool,
 }
 
+// Satu referensi di "Terakhir dibuka".
+export struct HistoryRow {
+    label: string,
+    // Misalnya "3 ayat".
+    detail: string,
+}
+
 export struct ProfileCard {
     id: string,
     name: string,
@@ -308,6 +315,7 @@ component SearchBox inherits Rectangle {
     in-out property <string> text;
     in property <string> placeholder;
     callback edited();
+    callback accepted();
     public function focus-input() {
         input.focus();
         input.select-all();
@@ -354,6 +362,9 @@ component SearchBox inherits Rectangle {
                 accessible-label: "Cari di pustaka";
                 edited => {
                     root.edited();
+                }
+                accepted => {
+                    root.accepted();
                 }
             }
         }
@@ -698,6 +709,8 @@ component SlideTileView inherits Rectangle {
     in property <int> bg-index;
     in property <image> picture;
     in property <bool> has-picture;
+    // Label Pratinjau / Tayang di pojok; di kartu sempit cukup bingkainya.
+    in property <bool> badge: true;
     callback clicked();
     callback activated();
     property <length> thumb-h: self.width * 9 / 16;
@@ -737,7 +750,7 @@ component SlideTileView inherits Rectangle {
                 ink: root.has-picture ? Theme.picture-ink : Theme.slide-ink[root.bg-index];
                 outline: root.has-picture;
             }
-            if root.live || root.preview: Rectangle {
+            if root.badge && (root.live || root.preview): Rectangle {
                 x: 8px;
                 y: 8px;
                 height: 22px;
@@ -1132,22 +1145,48 @@ component LibraryRowView inherits Rectangle {
     }
 }
 
-// Satu ayat di daftar pasal. Shift+klik memilih rentang.
-component VerseRowView inherits Rectangle {
+// Satu ayat di daftar pasal (kolom tengah), teksnya utuh. Shift+klik
+// memilih rentang.
+component VerseLine inherits Rectangle {
     in property <VerseRow> entry;
+    // Daftar perlu digulir ke ayat ini. Ditunda sebentar supaya letak ayat
+    // sudah dihitung.
+    in property <bool> reveal;
     // Argumen: Shift ditekan.
     callback clicked(bool);
     callback activated();
+    callback revealed();
     property <bool> shift;
-    height: 46px;
-    border-radius: 8px;
-    clip: true;
+    border-radius: 10px;
     background: root.entry.picked ? Theme.verse-soft : touch.has-hover ? Theme.hover : transparent;
     accessible-role: list-item;
     accessible-label: root.entry.number + " " + root.entry.text;
     accessible-checked: root.entry.picked;
     accessible-action-default => {
         root.clicked(false);
+    }
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 14px;
+        padding-top: 9px;
+        padding-bottom: 9px;
+        spacing: 10px;
+        Text {
+            width: 34px;
+            text: root.entry.number;
+            color: root.entry.picked ? Theme.verse : Theme.num;
+            font-size: 13px;
+            font-weight: 600;
+            vertical-alignment: top;
+        }
+        Text {
+            horizontal-stretch: 1;
+            text: root.entry.text;
+            color: root.entry.picked ? Theme.text : Theme.text-2;
+            font-size: 14px;
+            wrap: word-wrap;
+            vertical-alignment: top;
+        }
     }
     touch := TouchArea {
         mouse-cursor: pointer;
@@ -1163,42 +1202,169 @@ component VerseRowView inherits Rectangle {
             root.activated();
         }
     }
-    Rectangle {
-        x: 0px;
-        y: 7px;
-        width: 3px;
-        height: parent.height - 14px;
-        border-radius: 2px;
-        background: root.entry.picked ? Theme.verse : transparent;
-    }
-    HorizontalLayout {
-        padding-left: 8px;
-        padding-right: 8px;
-        padding-top: 6px;
-        padding-bottom: 4px;
-        spacing: 8px;
-        Text {
-            width: 32px;
-            text: root.entry.number;
-            color: root.entry.picked ? Theme.verse : Theme.num;
-            font-size: 12px;
-            font-weight: 600;
-            horizontal-alignment: right;
-            vertical-alignment: top;
+    Timer {
+        interval: 30ms;
+        running: root.reveal;
+        triggered => {
+            root.revealed();
         }
-        // Teks sudah dipendekkan di Rust supaya muat dua baris; sisanya dipotong.
+    }
+}
+
+// Kotak referensi Alkitab di kolom tengah. Enter menayangkan.
+component RefBox inherits Rectangle {
+    in-out property <string> text;
+    in property <bool> compact;
+    callback edited();
+    callback accepted();
+    public function focus-input() {
+        input.focus();
+        input.select-all();
+    }
+    height: 54px;
+    border-radius: 12px;
+    background: Theme.raised;
+    border-width: input.has-focus ? 2px : 1px;
+    border-color: input.has-focus ? Theme.verse : Theme.border;
+    HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 14px;
+        spacing: 12px;
+        VerticalLayout {
+            alignment: center;
+            Icon {
+                svg: Icons.book;
+                color: Theme.verse;
+                width: 20px;
+                height: 20px;
+            }
+        }
         Rectangle {
             horizontal-stretch: 1;
             clip: true;
-            Text {
+            if root.text == "": Text {
                 width: parent.width;
                 height: parent.height;
-                text: root.entry.text;
-                color: root.entry.picked ? Theme.text : Theme.text-2;
-                font-size: 13px;
-                wrap: word-wrap;
-                vertical-alignment: top;
+                text: "Ketik referensi, misalnya Yoh 3:16-18";
+                color: Theme.text-3;
+                font-size: 18px;
+                vertical-alignment: center;
+                overflow: elide;
             }
+            input := TextInput {
+                width: parent.width;
+                height: parent.height;
+                text <=> root.text;
+                color: Theme.text;
+                font-size: 19px;
+                single-line: true;
+                vertical-alignment: center;
+                accessible-role: text-input;
+                accessible-label: "Referensi Alkitab";
+                edited => {
+                    root.edited();
+                }
+                accepted => {
+                    root.accepted();
+                }
+            }
+        }
+        if !root.compact: HorizontalLayout {
+            spacing: 8px;
+            horizontal-stretch: 0;
+            VerticalLayout {
+                alignment: center;
+                Kbd {
+                    text: "Enter";
+                }
+            }
+            Text {
+                text: "langsung tayang";
+                color: Theme.text-3;
+                font-size: 12px;
+                vertical-alignment: center;
+            }
+        }
+    }
+}
+
+// Pilihan pembagian ayat ke slide.
+component PackingSeg inherits Rectangle {
+    in property <bool> one;
+    callback picked(bool);
+    width: 200px;
+    height: 38px;
+    border-radius: 10px;
+    background: Theme.panel;
+    border-width: 1px;
+    border-color: Theme.border;
+    HorizontalLayout {
+        padding: 3px;
+        spacing: 2px;
+        SegTab {
+            text: "Otomatis";
+            on: !root.one;
+            clicked => {
+                root.picked(false);
+            }
+        }
+        SegTab {
+            text: "1 ayat/slide";
+            on: root.one;
+            clicked => {
+                root.picked(true);
+            }
+        }
+    }
+}
+
+// Satu referensi di "Terakhir dibuka".
+component HistoryRowView inherits Rectangle {
+    in property <HistoryRow> entry;
+    in property <bool> current;
+    callback clicked();
+    height: 40px;
+    border-radius: 8px;
+    background: root.current ? Theme.verse-soft : touch.has-hover ? Theme.hover : transparent;
+    accessible-role: button;
+    accessible-label: root.entry.label + ", " + root.entry.detail;
+    accessible-action-default => {
+        root.clicked();
+    }
+    HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        spacing: 10px;
+        VerticalLayout {
+            alignment: center;
+            Icon {
+                svg: Icons.book;
+                color: root.current ? Theme.verse : Theme.text-3;
+                width: 15px;
+                height: 15px;
+            }
+        }
+        Text {
+            text: root.entry.label;
+            color: Theme.text;
+            font-size: 13px;
+            font-weight: root.current ? 600 : 400;
+            vertical-alignment: center;
+            overflow: elide;
+            horizontal-stretch: 1;
+        }
+        Text {
+            text: root.entry.detail;
+            color: Theme.text-3;
+            font-size: 12px;
+            vertical-alignment: center;
+            horizontal-stretch: 0;
+        }
+    }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
         }
     }
 }
@@ -1878,6 +2044,20 @@ export component MainWindow inherits Window {
     in-out property <string> bible-import-code;
     in-out property <string> bible-import-name;
     in property <string> bible-import-error;
+    // "Terakhir dibuka" di tab Alkitab.
+    in property <[HistoryRow]> bible-history;
+    // Kolom tengah menampilkan Alkitab, bukan slide materi terpilih.
+    in property <bool> bible-view;
+    // Ada ayat yang tampil di tengah, juga saat referensi yang sedang
+    // diketik belum dikenal (bible-has-passage false).
+    in property <bool> bible-showing;
+    // Tombol pasal sebelumnya / berikutnya; 0 bila tidak ada.
+    in property <int> bible-prev-chapter;
+    in property <int> bible-next-chapter;
+    // Kotak referensi di tengah meminta fokus begitu tampil.
+    in-out property <bool> bible-focus;
+    // Tulisan baku referensi bila isi kotak cari berupa referensi Alkitab.
+    in property <string> query-reference;
 
     in property <bool> editing;
     in property <bool> focus-title;
@@ -1904,6 +2084,7 @@ export component MainWindow inherits Window {
     in-out property <string> profile-form-error;
 
     callback search-changed();
+    callback search-accepted();
     callback filter-changed(int);
     callback select-library(int);
     callback activate-library(int);
@@ -1958,6 +2139,8 @@ export component MainWindow inherits Window {
     callback bible-import-save();
     callback bible-import-cancel();
     callback bible-remove-translation();
+    callback bible-history-clicked(int);
+    callback bible-chapter(int);
 
     // Jendela sempit (di bawah 1200 px, misalnya laptop 1024×640): tombol
     // profil dan impor diringkas, kolom kiri dan kanan lebih sempit, susunan
@@ -2157,10 +2340,13 @@ export component MainWindow inherits Window {
                         min-width: 200px;
                         max-width: 520px;
                         search := SearchBox {
-                            placeholder: root.compact-bar ? "Cari lagu atau ayat" : "Cari lagu, ayat, atau isi";
+                            placeholder: root.compact-bar ? "Cari, atau ketik Yoh 3:16" : "Cari lagu atau ayat, atau ketik referensi: Yoh 3:16";
                             text <=> root.query;
                             edited => {
                                 root.search-changed();
+                            }
+                            accepted => {
+                                root.search-accepted();
                             }
                         }
                     }
@@ -2596,6 +2782,7 @@ export component MainWindow inherits Window {
                                     text: "Alkitab";
                                     on: root.left-tab == 1;
                                     clicked => {
+                                        root.bible-focus = true;
                                         root.left-tab = 1;
                                         root.left-tab-changed(1);
                                     }
@@ -2665,6 +2852,7 @@ export component MainWindow inherits Window {
                                     icon: Icons.book;
                                     on: root.left-tab == 1;
                                     clicked => {
+                                        root.bible-focus = true;
                                         root.left-tab = 1;
                                         root.left-tab-changed(1);
                                     }
@@ -2725,7 +2913,55 @@ export component MainWindow inherits Window {
                                 }
                             }
                         }
-                        if root.left-tab == 0 && root.library.length == 0: Text {
+                        // Isi kotak cari berupa referensi: buka di Alkitab.
+                        if root.left-tab == 0 && root.query-reference != "": Rectangle {
+                            height: 42px;
+                            border-radius: 10px;
+                            border-width: 1px;
+                            border-color: #2A3B5C;
+                            background: ref-touch.has-hover ? #1B2B45 : Theme.verse-soft;
+                            accessible-role: button;
+                            accessible-label: "Buka " + root.query-reference + " di Alkitab";
+                            accessible-action-default => {
+                                root.search-accepted();
+                            }
+                            HorizontalLayout {
+                                padding-left: 12px;
+                                padding-right: 10px;
+                                spacing: 10px;
+                                VerticalLayout {
+                                    alignment: center;
+                                    Icon {
+                                        svg: Icons.book;
+                                        color: Theme.verse;
+                                        width: 16px;
+                                        height: 16px;
+                                    }
+                                }
+                                Text {
+                                    text: "Buka " + root.query-reference;
+                                    color: Theme.text;
+                                    font-size: 13px;
+                                    font-weight: 600;
+                                    vertical-alignment: center;
+                                    overflow: elide;
+                                    horizontal-stretch: 1;
+                                }
+                                VerticalLayout {
+                                    alignment: center;
+                                    Kbd {
+                                        text: "Enter";
+                                    }
+                                }
+                            }
+                            ref-touch := TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => {
+                                    root.search-accepted();
+                                }
+                            }
+                        }
+                        if root.left-tab == 0 && root.library.length == 0 && root.query-reference == "": Text {
                             text: root.query == "" ? "Pustaka masih kosong." : "Tidak ada yang cocok dengan pencarian.";
                             color: Theme.text-3;
                             font-size: 13px;
@@ -2831,47 +3067,12 @@ export component MainWindow inherits Window {
                                 vertical-stretch: 1;
                             }
                         }
-                        // Tab Alkitab: belum ada terjemahan.
-                        if root.left-tab == 1 && !root.bible-importing && root.bible-translations.length == 0: VerticalLayout {
-                            vertical-stretch: 1;
-                            spacing: 10px;
-                            padding-left: 4px;
-                            padding-right: 4px;
-                            Text {
-                                text: "Belum ada Alkitab di komputer ini.";
-                                color: Theme.text;
-                                font-size: 14px;
-                                font-weight: 600;
-                                wrap: word-wrap;
-                            }
-                            Text {
-                                text: "Impor sekali dari berkas OpenSong XML, Zefania XML, atau TSV yang Anda berhak gunakan. Setelah itu cukup ketik referensi, misalnya Yoh 3:16-18.";
-                                color: Theme.text-3;
-                                font-size: 13px;
-                                wrap: word-wrap;
-                            }
-                            HorizontalLayout {
-                                alignment: start;
-                                Btn {
-                                    text: "Impor Alkitab";
-                                    icon: Icons.import;
-                                    full-text: true;
-                                    height: 38px;
-                                    font-size: 13px;
-                                    clicked => {
-                                        root.bible-import();
-                                    }
-                                }
-                            }
-                            Rectangle {
-                                vertical-stretch: 1;
-                            }
-                        }
-                        // Tab Alkitab: cari dan pilih ayat.
-                        if root.left-tab == 1 && !root.bible-importing && root.bible-translations.length > 0: VerticalLayout {
+                        // Tab Alkitab: terjemahan, "Terakhir dibuka", dan impor.
+                        // Referensi diketik dan ayat dipilih di kolom tengah.
+                        if root.left-tab == 1 && !root.bible-importing: VerticalLayout {
                             vertical-stretch: 1;
                             spacing: 8px;
-                            HorizontalLayout {
+                            if root.bible-translations.length > 0: HorizontalLayout {
                                 spacing: 6px;
                                 ComboBox {
                                     horizontal-stretch: 1;
@@ -2882,13 +3083,6 @@ export component MainWindow inherits Window {
                                     }
                                 }
                                 IconBtn {
-                                    icon: Icons.import;
-                                    label: "Impor terjemahan lain";
-                                    clicked => {
-                                        root.bible-import();
-                                    }
-                                }
-                                IconBtn {
                                     icon: Icons.trash;
                                     label: "Hapus terjemahan ini";
                                     clicked => {
@@ -2896,98 +3090,81 @@ export component MainWindow inherits Window {
                                     }
                                 }
                             }
-                            LineEdit {
-                                placeholder-text: "Ketik referensi, misalnya Yoh 3:16-18";
-                                text <=> root.bible-ref;
-                                edited => {
-                                    root.bible-ref-edited();
-                                }
-                                accepted => {
-                                    root.bible-go-live();
+                            if root.bible-translations.length == 0: Text {
+                                text: "Belum ada Alkitab di komputer ini. Impor sekali, lalu cukup ketik referensi di kolom tengah.";
+                                color: Theme.text-3;
+                                font-size: 13px;
+                                wrap: word-wrap;
+                            }
+                            if root.bible-translations.length > 0: Text {
+                                text: "Terakhir dibuka";
+                                color: Theme.text-3;
+                                font-size: 12px;
+                            }
+                            if root.bible-translations.length > 0 && root.bible-history.length == 0: Text {
+                                text: "Ayat yang ditayangkan atau ditambahkan ke susunan muncul di sini.";
+                                color: Theme.text-3;
+                                font-size: 12px;
+                                wrap: word-wrap;
+                            }
+                            if root.bible-translations.length > 0: ListView {
+                                vertical-stretch: 1;
+                                min-height: 60px;
+                                for row[i] in root.bible-history: HistoryRowView {
+                                    entry: row;
+                                    current: root.bible-view && row.label == root.bible-label;
+                                    clicked => {
+                                        root.bible-history-clicked(i);
+                                    }
                                 }
                             }
-                            HorizontalLayout {
-                                spacing: 8px;
-                                padding-left: 4px;
-                                VerticalLayout {
-                                    horizontal-stretch: 1;
-                                    alignment: center;
-                                    spacing: 1px;
-                                    Text {
-                                        text: root.bible-error != "" ? root.bible-error : root.bible-label;
-                                        color: root.bible-error != "" ? Theme.danger : Theme.text;
-                                        font-size: 13px;
-                                        font-weight: root.bible-error != "" ? 400 : 600;
-                                        wrap: word-wrap;
-                                    }
-                                    if root.bible-error == "" && root.bible-detail != "": Text {
-                                        text: root.bible-detail;
-                                        color: Theme.text-3;
-                                        font-size: 12px;
-                                        overflow: elide;
-                                    }
+                            if root.bible-translations.length == 0: Rectangle {
+                                vertical-stretch: 1;
+                            }
+                            Rectangle {
+                                height: 42px;
+                                border-radius: 10px;
+                                border-width: 1px;
+                                border-color: Theme.border;
+                                background: import-touch.has-hover ? Theme.hover : Theme.raised;
+                                accessible-role: button;
+                                accessible-label: "Impor terjemahan";
+                                accessible-action-default => {
+                                    root.bible-import();
                                 }
-                                if root.bible-has-passage: VerticalLayout {
-                                    alignment: center;
-                                    Btn {
-                                        text: "Susunan";
-                                        icon: Icons.plus;
-                                        full-text: true;
-                                        height: 34px;
-                                        font-size: 13px;
-                                        pad: 10px;
-                                        clicked => {
-                                            root.bible-add-to-service();
+                                HorizontalLayout {
+                                    padding-left: 12px;
+                                    padding-right: 12px;
+                                    spacing: 10px;
+                                    VerticalLayout {
+                                        alignment: center;
+                                        Icon {
+                                            svg: Icons.import;
+                                            color: Theme.text-2;
+                                            width: 16px;
+                                            height: 16px;
                                         }
                                     }
+                                    Text {
+                                        text: "Impor terjemahan";
+                                        color: Theme.text;
+                                        font-size: 13px;
+                                        vertical-alignment: center;
+                                        overflow: elide;
+                                        horizontal-stretch: 1;
+                                    }
+                                    Text {
+                                        text: root.bible-translations.length + " terpasang";
+                                        color: Theme.text-3;
+                                        font-size: 12px;
+                                        vertical-alignment: center;
+                                        horizontal-stretch: 0;
+                                    }
                                 }
-                            }
-                            HorizontalLayout {
-                                spacing: 6px;
-                                padding-left: 4px;
-                                Chip {
-                                    text: "Otomatis";
-                                    on: !root.bible-one-per-slide;
+                                import-touch := TouchArea {
+                                    mouse-cursor: pointer;
                                     clicked => {
-                                        root.bible-one-per-slide = false;
-                                        root.bible-packing-changed();
-                                    }
-                                }
-                                Chip {
-                                    text: "1 ayat/slide";
-                                    on: root.bible-one-per-slide;
-                                    clicked => {
-                                        root.bible-one-per-slide = true;
-                                        root.bible-packing-changed();
-                                    }
-                                }
-                                Text {
-                                    text: root.bible-chapter-title;
-                                    color: Theme.text-3;
-                                    font-size: 12px;
-                                    horizontal-alignment: right;
-                                    vertical-alignment: center;
-                                    horizontal-stretch: 1;
-                                    overflow: elide;
-                                }
-                            }
-                            ListView {
-                                vertical-stretch: 1;
-                                min-height: 120px;
-                                property <int> serial: root.bible-scroll-serial;
-                                changed serial => {
-                                    // Satu ayat sebelum ayat terpilih ikut terlihat.
-                                    self.content-y = -Math.min(
-                                        Math.max(root.bible-scroll-row - 1, 0) * 46px,
-                                        Math.max(self.content-height - self.visible-height, 0px));
-                                }
-                                for row[i] in root.bible-verses: VerseRowView {
-                                    entry: row;
-                                    clicked(shift) => {
-                                        root.bible-verse-clicked(i, shift);
-                                    }
-                                    activated => {
-                                        root.bible-verse-activated(i);
+                                        root.bible-import();
                                     }
                                 }
                             }
@@ -3000,8 +3177,301 @@ export component MainWindow inherits Window {
                     }
                 }
 
+                // Tengah, Alkitab: ketik referensi, pilih ayat, lihat hasil slide.
+                if !root.editing && root.bible-view: VerticalLayout {
+                    horizontal-stretch: 1;
+                    padding: 20px;
+                    padding-bottom: 14px;
+                    if root.bible-translations.length == 0: VerticalLayout {
+                        vertical-stretch: 1;
+                        alignment: center;
+                        spacing: 10px;
+                        Text {
+                            text: root.bible-importing ? "Lengkapi impor di kolom kiri" : "Belum ada Alkitab di komputer ini";
+                            color: Theme.text;
+                            font-size: 18px;
+                            font-weight: 600;
+                            horizontal-alignment: center;
+                        }
+                        Text {
+                            text: root.bible-importing
+                                ? "Periksa singkatan dan nama terjemahan, lalu tekan Simpan."
+                                : "Impor sekali dari berkas OpenSong XML, Zefania XML, TSV, atau EasyWorship yang Anda berhak gunakan. Setelah itu cukup ketik referensi, misalnya Yoh 3:16-18.";
+                            color: Theme.text-3;
+                            horizontal-alignment: center;
+                            wrap: word-wrap;
+                        }
+                        if !root.bible-importing: HorizontalLayout {
+                            alignment: center;
+                            Btn {
+                                text: "Impor Alkitab";
+                                icon: Icons.import;
+                                full-text: true;
+                                height: 40px;
+                                font-size: 13px;
+                                clicked => {
+                                    root.bible-import();
+                                }
+                            }
+                        }
+                    }
+                    if root.bible-translations.length > 0: RefBox {
+                        text <=> root.bible-ref;
+                        compact: root.compact-bar;
+                        property <bool> want-focus: root.bible-focus;
+                        init => {
+                            if root.bible-focus {
+                                root.bible-focus = false;
+                                self.focus-input();
+                            }
+                        }
+                        changed want-focus => {
+                            if self.want-focus {
+                                root.bible-focus = false;
+                                self.focus-input();
+                            }
+                        }
+                        edited => {
+                            root.bible-ref-edited();
+                        }
+                        accepted => {
+                            root.bible-go-live();
+                        }
+                    }
+                    // Contoh, atau pesan bila referensi tidak dikenal.
+                    if root.bible-translations.length > 0: Text {
+                        height: 30px;
+                        text: root.bible-error != "" ? root.bible-error : "Contoh: Mzm 23 · Yoh 3:16-18 · 1Kor 13:4-7 · Kej 1:1. Singkatan dan huruf kecil boleh.";
+                        color: root.bible-error != "" ? Theme.danger : Theme.text-3;
+                        font-size: 12px;
+                        vertical-alignment: center;
+                        overflow: elide;
+                    }
+                    if root.bible-translations.length > 0: Rectangle {
+                        height: 10px;
+                    }
+                    if root.bible-translations.length > 0: HorizontalLayout {
+                        spacing: 12px;
+                        VerticalLayout {
+                            horizontal-stretch: 1;
+                            alignment: center;
+                            spacing: 3px;
+                            Text {
+                                text: root.bible-label != "" ? root.bible-label : "Belum ada ayat dipilih";
+                                color: root.bible-label != "" ? Theme.text : Theme.text-3;
+                                font-size: root.compact-bar ? 22px : 26px;
+                                font-weight: 700;
+                                overflow: elide;
+                            }
+                            Text {
+                                text: root.bible-label != "" ? root.bible-detail : "Ketik referensi di kotak atas, atau pilih dari Terakhir dibuka.";
+                                color: Theme.text-3;
+                                font-size: 13px;
+                                overflow: elide;
+                            }
+                        }
+                        if root.bible-showing && !root.compact-bar: VerticalLayout {
+                            alignment: center;
+                            PackingSeg {
+                                one: root.bible-one-per-slide;
+                                picked(one) => {
+                                    root.bible-one-per-slide = one;
+                                    root.bible-packing-changed();
+                                }
+                            }
+                        }
+                        if root.bible-showing: VerticalLayout {
+                            alignment: center;
+                            Btn {
+                                text: root.compact-bar ? "Susunan" : "Ke susunan";
+                                icon: Icons.plus;
+                                full-text: true;
+                                height: 40px;
+                                font-size: 13px;
+                                pad: 12px;
+                                clicked => {
+                                    root.bible-add-to-service();
+                                }
+                            }
+                        }
+                    }
+                    if root.bible-translations.length > 0: Rectangle {
+                        height: 16px;
+                    }
+                    if root.bible-translations.length > 0: HorizontalLayout {
+                        vertical-stretch: 1;
+                        spacing: root.compact-bar ? 14px : 20px;
+                        // Ayat satu pasal.
+                        Rectangle {
+                            horizontal-stretch: 1;
+                            border-radius: 12px;
+                            border-width: 1px;
+                            border-color: Theme.line;
+                            background: Theme.panel;
+                            VerticalLayout {
+                                padding: 6px;
+                                padding-top: 8px;
+                                spacing: 4px;
+                                if root.bible-chapter-title != "": HorizontalLayout {
+                                    height: 34px;
+                                    padding-left: 10px;
+                                    padding-right: 2px;
+                                    spacing: 8px;
+                                    Text {
+                                        text: root.bible-chapter-title;
+                                        color: Theme.text;
+                                        font-size: 14px;
+                                        font-weight: 700;
+                                        vertical-alignment: center;
+                                        horizontal-stretch: 0;
+                                    }
+                                    Text {
+                                        text: root.compact-bar ? "" : "Shift+klik: pilih rentang";
+                                        color: Theme.text-3;
+                                        font-size: 12px;
+                                        vertical-alignment: center;
+                                        overflow: elide;
+                                        horizontal-stretch: 1;
+                                    }
+                                    if root.bible-prev-chapter > 0: Btn {
+                                        text: "Pasal " + root.bible-prev-chapter;
+                                        icon: Icons.left;
+                                        full-text: true;
+                                        horizontal-stretch: 0;
+                                        height: 30px;
+                                        font-size: 12px;
+                                        pad: 8px;
+                                        clicked => {
+                                            root.bible-chapter(root.bible-prev-chapter);
+                                        }
+                                    }
+                                    if root.bible-next-chapter > 0: Btn {
+                                        text: "Pasal " + root.bible-next-chapter;
+                                        icon: Icons.right;
+                                        icon-after: true;
+                                        full-text: true;
+                                        horizontal-stretch: 0;
+                                        height: 30px;
+                                        font-size: 12px;
+                                        pad: 8px;
+                                        clicked => {
+                                            root.bible-chapter(root.bible-next-chapter);
+                                        }
+                                    }
+                                }
+                                if root.bible-verses.length == 0: VerticalLayout {
+                                    vertical-stretch: 1;
+                                    alignment: center;
+                                    padding: 16px;
+                                    Text {
+                                        text: "Ayat satu pasal tampil di sini. Klik ayat untuk memilih, Shift+klik untuk rentang.";
+                                        color: Theme.text-3;
+                                        font-size: 13px;
+                                        horizontal-alignment: center;
+                                        wrap: word-wrap;
+                                    }
+                                }
+                                if root.bible-verses.length > 0: verse-list := ScrollView {
+                                    vertical-stretch: 1;
+                                    // Serial gulir yang sudah dijalankan.
+                                    property <int> done;
+                                    // Lebar berubah, tinggi baris ikut berubah: gulir ulang ke ayat terpilih.
+                                    changed visible-width => {
+                                        self.done = 0;
+                                    }
+                                    content-width: self.visible-width;
+                                    content-height: verse-col.preferred-height;
+                                    verse-col := VerticalLayout {
+                                        width: verse-list.visible-width;
+                                        padding-right: 8px;
+                                        spacing: 2px;
+                                        alignment: start;
+                                        for row[i] in root.bible-verses: VerseLine {
+                                            entry: row;
+                                            reveal: i == root.bible-scroll-row && root.bible-scroll-serial != verse-list.done;
+                                            clicked(shift) => {
+                                                root.bible-verse-clicked(i, shift);
+                                            }
+                                            activated => {
+                                                root.bible-verse-activated(i);
+                                            }
+                                            revealed => {
+                                                verse-list.done = root.bible-scroll-serial;
+                                                // Ayat sebelumnya ikut terlihat sebagian.
+                                                verse-list.content-y = -Math.min(
+                                                    Math.max(self.y - 40px, 0px),
+                                                    Math.max(verse-list.content-height - verse-list.visible-height, 0px));
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        // Hasil slide ayat yang dipilih.
+                        VerticalLayout {
+                            width: root.compact-bar ? 168px : 232px;
+                            spacing: 10px;
+                            SectionTitle {
+                                text: "Hasil slide";
+                                detail: root.bible-showing ? root.slides.length + " slide" : "";
+                                padding-left: 0px;
+                                padding-right: 0px;
+                            }
+                            if root.bible-showing && root.compact-bar: PackingSeg {
+                                width: 168px;
+                                one: root.bible-one-per-slide;
+                                picked(one) => {
+                                    root.bible-one-per-slide = one;
+                                    root.bible-packing-changed();
+                                }
+                            }
+                            if !root.bible-showing: Text {
+                                text: "Slide ayat yang dipilih tampil di sini.";
+                                color: Theme.text-3;
+                                font-size: 13px;
+                                wrap: word-wrap;
+                            }
+                            if !root.bible-showing: Rectangle {
+                                vertical-stretch: 1;
+                            }
+                            if root.bible-showing: bible-slides := ScrollView {
+                                vertical-stretch: 1;
+                                property <length> tile-h: self.visible-width * 9 / 16 + 30px;
+                                content-width: self.visible-width;
+                                content-height: Math.max(0px, root.slides.length * (self.tile-h + 10px) - 10px);
+                                for tile[i] in root.slides: SlideTileView {
+                                    x: 0px;
+                                    y: i * (bible-slides.tile-h + 10px);
+                                    width: bible-slides.visible-width;
+                                    badge: false;
+                                    tile: tile;
+                                    number: i + 1;
+                                    bg-index: root.bg-index;
+                                    picture: root.view-picture;
+                                    has-picture: root.has-view-picture;
+                                    preview: i == root.preview-page;
+                                    live: root.live-item-id == root.selected-id && i == root.live-page && !root.blackout;
+                                    clicked => {
+                                        keys.focus();
+                                        root.select-slide(i);
+                                    }
+                                    activated => {
+                                        root.activate-slide(i);
+                                    }
+                                }
+                            }
+                            Text {
+                                text: root.bible-one-per-slide ? "Setiap ayat jadi satu slide." : "Ayat dibagi otomatis 1–3 per slide supaya huruf tetap besar di proyektor.";
+                                color: Theme.text-3;
+                                font-size: 12px;
+                                wrap: word-wrap;
+                            }
+                        }
+                    }
+                }
+
                 // Tengah, mode tayang: semua slide materi terpilih.
-                if !root.editing: VerticalLayout {
+                if !root.editing && !root.bible-view: VerticalLayout {
                     horizontal-stretch: 1;
                     padding: 20px;
                     padding-bottom: 12px;

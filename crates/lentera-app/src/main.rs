@@ -735,6 +735,7 @@ impl App {
             return false;
         }
         self.state.borrow_mut().dirty = false;
+        self.ui.set_editor_dirty(false);
         self.refresh_library();
         self.refresh_service();
         self.refresh_current();
@@ -749,6 +750,7 @@ impl App {
             st.page = 0;
             st.dirty = false;
         }
+        self.ui.set_editor_dirty(false);
         self.ui.set_selected_service(ui_index(service));
         self.load_editor();
         self.refresh_current();
@@ -922,6 +924,7 @@ impl App {
 
     fn editor_edited(self: &Rc<Self>) {
         self.state.borrow_mut().dirty = true;
+        self.ui.set_editor_dirty(true);
         let body = self.ui.get_editor_body();
         self.editor_tiles.set_vec(tiles(&split_slides(&body)));
         let weak = Rc::downgrade(self);
@@ -987,6 +990,7 @@ impl App {
             st.live_service = live_item.and_then(|item| st.library.service_position(item, None));
         }
         self.ui.set_editing(false);
+        self.ui.set_editor_dirty(false);
         self.refresh_library();
         self.refresh_service();
         self.refresh_current();
@@ -2696,6 +2700,7 @@ impl App {
             st.library.background as i32
         };
         self.ui.set_editing(false);
+        self.ui.set_editor_dirty(false);
         self.ui.set_query(SharedString::new());
         self.ui.set_bg_index(background);
         self.output.set_bg_index(background);

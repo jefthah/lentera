@@ -472,3 +472,32 @@ Belum diuji:
 - Tombol naik, turun, dan lepas di susunan dengan mouse asli: sorotan tetap ada di atas tombol, dan kliknya tidak ikut memilih baris.
 - Layar sentuh: tombol naik, turun, dan lepas di jendela sempit hanya muncul saat baris disorot.
 - macOS (menunggu CI).
+
+## Desain baru: editor di kolom tengah — 23 November 2026
+
+Bagian kedua dari desain baru. Editor pindah ke kolom tengah, dan kolom kanan tetap menampilkan layar jemaat dan kontrol tayang saat mengedit. Diuji di komputer pengembangan yang sama, dengan dua monitor.
+
+- `cargo test -p lentera-core --locked`: 80 lulus. `cargo fmt --all --check` dan `cargo clippy` untuk `lentera-core`, `lentera-app` (dengan dan tanpa `snapshot`), dan `lentera-win32` (`--all-targets -D warnings`) bersih.
+- Build rilis `lentera.exe`: 13.577.216 byte.
+- Uji alur UI build rilis di folder kosong: 31/31. `lentera-win32` (profil `ci`): 9/9.
+- Tangkapan layar build rilis dengan profil hasil uji alur, dibandingkan dengan desain:
+  - **1440×900**, lagu 3 slide yang sedang tayang:
+    - bilah atas tetap sama (tombol proyektor hijau);
+    - di atas editor ada **Kembali ke slide**, "Edit materi pustaka", **Tersimpan** bercentang hijau, dan **Hapus**;
+    - formulir Judul, Jenis (**Lirik lagu** amber), dan Isi;
+    - **Hasil slide** satu kolom bernomor, lalu **Tambah ke susunan**;
+    - kolom kanan tetap menampilkan layar jemaat dan kontrol tayang.
+  - **1024×640**, ayat 4 slide:
+    - Jenis **Ayat Alkitab** biru;
+    - tiga slide terlihat utuh, dengan keterangan "Gulir untuk 1 slide lagi".
+  - **Tayang dari editor:** klik **Tayangkan** lalu PageDown saat editor terbuka. Layar jemaat pindah ke "Slide 2 dari 4", editor tetap terbuka, dan isinya tidak berubah.
+- **Kejadian belum terjelaskan:**
+  - Satu kali, setelah urutan uji di atas, ayat itu ikut masuk susunan ibadah ("… ditambahkan ke susunan ibadah"). Itu hanya terjadi lewat tombol **+ Susunan** atau **Tambah ke susunan**, dan tidak satu pun klik uji mengenai tombol itu.
+  - Urutan yang sama diulang dua kali, sekali dari data uji baru, dan susunan tidak berubah.
+  - Dugaan: gerakan mouse asli masuk di antara pesan klik uji, karena winit memakai posisi kursor terakhir untuk klik. Ini belum dipastikan.
+- Jendela ditutup lewat `SC_CLOSE` dan prosesnya keluar dalam 0,3 detik.
+
+Belum diuji:
+
+- Mengetik di editor dengan papan ketik asli, termasuk tanda **Menyimpan…** yang berganti menjadi **Tersimpan** sekitar 1,5 detik kemudian.
+- macOS (menunggu CI).

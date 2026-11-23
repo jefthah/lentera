@@ -16,8 +16,8 @@ Presentasi ibadah ringan untuk Windows dan macOS, dibangun dengan **Rust + Slint
 
 1. Jalankan installer di atas. Tidak perlu hak admin dan tidak perlu memasang Rust. Bila muncul "Windows protected your PC", pilih **More info → Run anyway**.
 2. Buka **Lentera** dari Desktop atau Start Menu.
-3. Pilih materi di **Pustaka** atau tekan **Materi baru**. Satu baris kosong memisahkan slide.
-4. Tekan **+** untuk menambahkan materi ke susunan ibadah, pilih slide, lalu tekan **Tayangkan** atau **F5**.
+3. Pilih materi di **Pustaka** atau tekan **Baru**. Satu baris kosong memisahkan slide.
+4. Tekan **+ Susunan** untuk menambahkan materi ke susunan ibadah, pilih slide, lalu tekan **Tayangkan** atau **F5**.
 
 **Pembaruan otomatis.** Saat dibuka, Lentera memeriksa versi baru dan mengunduhnya di latar belakang. Pembaruan dipasang saat Lentera ditutup, atau segera lewat tombol **Perbarui ke …** di kanan bawah. Pembaruan tidak pernah dipasang selama Lentera berjalan. Pengguna 0.1.1 sampai 0.4.0 menerima 0.5.0 dengan cara ini; pengguna 0.1.0 perlu memasang installer di atas sekali. Setelah 0.5.0 membuka sebuah profil, profil itu tidak bisa dibuka lagi oleh 0.4.0 atau sebelumnya. Bila memperbarui dari 0.2.1 atau sebelumnya, pustaka lama dipindahkan otomatis ke **Profil utama** saat versi baru pertama kali dibuka.
 
@@ -42,7 +42,7 @@ Memerlukan **Windows 10/11 64-bit**. Antarmuka ditujukan untuk layar sekitar 102
 
 **F5**: tayangkan · **F6**: gelapkan / pulihkan · **F11**: layar penuh · **PageDown / PageUp**: navigasi saat tidak mengetik.
 
-Untuk dua layar, hubungkan proyektor sebelum membuka Lentera, gunakan mode **Perluas / Extend** di Windows, lalu pilih monitor proyektor di bilah atas.
+Untuk dua layar, hubungkan proyektor sebelum membuka Lentera, gunakan mode **Perluas / Extend** di Windows, lalu pilih monitor proyektor lewat panah di tombol proyektor di bilah atas.
 
 ## Sasaran komputer ringan
 

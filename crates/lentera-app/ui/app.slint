@@ -8,6 +8,8 @@ export struct LibraryRow {
     title: string,
     meta: string,
     song: bool,
+    // Sudah ada di susunan ibadah.
+    in-service: bool,
 }
 
 export struct ServiceRow {
@@ -73,6 +75,8 @@ export global Theme {
     out property <color> verse: #8DB4FF;
     out property <color> verse-soft: #152238;
     out property <color> ok: #3FCB7E;
+    out property <color> ok-soft: #11251A;
+    out property <color> ok-border: #1F4A33;
     out property <color> danger: #FF9EA2;
     // Latar layar proyektor, urutannya sama dengan `Library::background`.
     out property <[color]> slide-bg: [#0B0D12, #0E1C3A, #F3EFE6];
@@ -155,7 +159,10 @@ component Btn inherits Rectangle {
     in property <string> text;
     in property <string> icon;
     in property <bool> icon-filled;
-    // "primary", "secondary", "ghost", atau "danger".
+    // Ikon di kanan teks, misalnya panah Berikutnya.
+    in property <bool> icon-after;
+    // "primary", "secondary", "strong" (secondary yang lebih menonjol),
+    // "ghost", atau "danger".
     in property <string> kind: "secondary";
     in property <string> kbd;
     in property <bool> on;
@@ -171,9 +178,10 @@ component Btn inherits Rectangle {
         ? (touch.pressed ? Theme.accent.darker(0.15) : touch.has-hover ? Theme.accent.brighter(0.08) : Theme.accent)
         : root.on ? Theme.accent-soft
         : root.kind == "ghost" || root.kind == "danger" ? (touch.has-hover ? Theme.hover : transparent)
+        : root.kind == "strong" ? (touch.pressed ? #2A3140 : touch.has-hover ? #262C3A : Theme.active)
         : (touch.pressed ? Theme.active : touch.has-hover ? Theme.hover : Theme.raised);
     border-width: root.kind == "primary" || root.kind == "ghost" ? 0px : 1px;
-    border-color: root.on ? Theme.accent : root.kind == "danger" ? #4A2A2E : Theme.border;
+    border-color: root.on ? Theme.accent : root.kind == "danger" ? #4A2A2E : root.kind == "strong" ? Theme.active-border : Theme.border;
     accessible-role: button;
     accessible-label: root.text;
     accessible-action-default => {
@@ -184,7 +192,7 @@ component Btn inherits Rectangle {
         spacing: root.pad < 14px ? 6px : 8px;
         padding-left: root.pad;
         padding-right: root.pad;
-        if root.icon != "": VerticalLayout {
+        if root.icon != "" && !root.icon-after: VerticalLayout {
             alignment: center;
             Icon {
                 svg: root.icon;
@@ -200,6 +208,14 @@ component Btn inherits Rectangle {
             vertical-alignment: center;
             overflow: elide;
             min-width: root.full-text ? self.preferred-width : 0px;
+        }
+        if root.icon != "" && root.icon-after: VerticalLayout {
+            alignment: center;
+            Icon {
+                svg: root.icon;
+                color: root.fg;
+                filled: root.icon-filled;
+            }
         }
         if root.kbd != "": VerticalLayout {
             alignment: center;
@@ -255,9 +271,10 @@ component IconBtn inherits Rectangle {
 component Chip inherits Rectangle {
     in property <string> text;
     in property <bool> on;
+    in property <length> pad: 13px;
     callback clicked();
     height: 32px;
-    width: label.preferred-width + 26px;
+    width: label.preferred-width + 2 * root.pad;
     border-radius: 16px;
     background: root.on ? #232835 : touch.has-hover ? Theme.hover : transparent;
     border-width: 1px;
@@ -286,7 +303,296 @@ component Chip inherits Rectangle {
     }
 }
 
-// Teks slide yang ukurannya menyesuaikan kotak, seperti di layar proyektor.
+// Kotak cari di bilah atas. Ctrl+K memindahkan fokus ke sini.
+component SearchBox inherits Rectangle {
+    in-out property <string> text;
+    in property <string> placeholder;
+    callback edited();
+    public function focus-input() {
+        input.focus();
+        input.select-all();
+    }
+    height: 40px;
+    border-radius: 10px;
+    background: Theme.raised;
+    border-width: 1px;
+    border-color: input.has-focus ? #4A5263 : Theme.border;
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 8px;
+        spacing: 10px;
+        VerticalLayout {
+            alignment: center;
+            Icon {
+                svg: Icons.search;
+                color: Theme.text-3;
+                width: 17px;
+                height: 17px;
+            }
+        }
+        Rectangle {
+            horizontal-stretch: 1;
+            clip: true;
+            if root.text == "": Text {
+                width: parent.width;
+                height: parent.height;
+                text: root.placeholder;
+                color: Theme.text-3;
+                font-size: 14px;
+                vertical-alignment: center;
+                overflow: elide;
+            }
+            input := TextInput {
+                width: parent.width;
+                height: parent.height;
+                text <=> root.text;
+                color: Theme.text;
+                font-size: 14px;
+                single-line: true;
+                vertical-alignment: center;
+                accessible-role: text-input;
+                accessible-label: "Cari di pustaka";
+                edited => {
+                    root.edited();
+                }
+            }
+        }
+        if root.text == "": VerticalLayout {
+            alignment: center;
+            Kbd {
+                text: "Ctrl K";
+            }
+        }
+        if root.text != "": VerticalLayout {
+            alignment: center;
+            IconBtn {
+                icon: Icons.close;
+                label: "Kosongkan pencarian";
+                size: 28px;
+                bordered: false;
+                clicked => {
+                    root.text = "";
+                    root.edited();
+                }
+            }
+        }
+    }
+}
+
+// Status proyektor di bilah atas; hijau berarti proyektor menyala. Saat mati,
+// klik membuka proyektor. Panah, atau klik saat menyala, membuka menu monitor,
+// latar, dan tutup proyektor, supaya proyektor tidak tertutup tanpa sengaja.
+component ProjectorButton inherits Rectangle {
+    in property <bool> on;
+    in property <string> monitor;
+    in property <bool> compact;
+    callback toggle();
+    callback menu();
+    height: 40px;
+    width: row.preferred-width;
+    border-radius: 10px;
+    background: root.on
+        ? (main.has-hover || arrow.has-hover ? #15301F : Theme.ok-soft)
+        : (main.pressed ? Theme.active : main.has-hover ? Theme.hover : Theme.raised);
+    border-width: 1px;
+    border-color: root.on ? Theme.ok-border : Theme.border;
+    accessible-role: button;
+    accessible-label: root.on ? "Proyektor menyala di " + root.monitor + ". Buka menu proyektor" : "Buka proyektor";
+    accessible-action-default => {
+        if root.on {
+            root.menu();
+        } else {
+            root.toggle();
+        }
+    }
+    row := HorizontalLayout {
+        padding-left: 12px;
+        spacing: 8px;
+        VerticalLayout {
+            alignment: center;
+            if root.on: Rectangle {
+                width: 8px;
+                height: 8px;
+                border-radius: 4px;
+                background: Theme.ok;
+            }
+            if !root.on: Icon {
+                svg: Icons.monitor;
+                color: Theme.text;
+                width: 16px;
+                height: 16px;
+            }
+        }
+        Text {
+            text: root.on ? "Proyektor menyala" : "Buka proyektor";
+            color: Theme.text;
+            font-size: 14px;
+            font-weight: 600;
+            vertical-alignment: center;
+        }
+        if !root.compact && root.monitor != "": Text {
+            text: root.monitor;
+            color: root.on ? #8FBFA3 : Theme.text-3;
+            font-size: 13px;
+            vertical-alignment: center;
+        }
+        Rectangle {
+            width: 34px;
+            Rectangle {
+                x: 0;
+                y: 9px;
+                width: 1px;
+                height: parent.height - 18px;
+                background: root.on ? transparent : Theme.border;
+            }
+            Icon {
+                svg: Icons.chevron;
+                color: root.on ? #8FBFA3 : Theme.text-2;
+                width: 15px;
+                height: 15px;
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+            }
+        }
+    }
+    main := TouchArea {
+        x: 0;
+        width: parent.width - 34px;
+        mouse-cursor: pointer;
+        clicked => {
+            if root.on {
+                root.menu();
+            } else {
+                root.toggle();
+            }
+        }
+    }
+    arrow := TouchArea {
+        x: parent.width - 34px;
+        width: 34px;
+        mouse-cursor: pointer;
+        clicked => {
+            root.menu();
+        }
+    }
+}
+
+// Baris pilihan dengan tanda centang, misalnya monitor proyektor.
+component CheckRow inherits Rectangle {
+    in property <string> text;
+    in property <bool> on;
+    callback clicked();
+    height: 36px;
+    border-radius: 8px;
+    background: touch.has-hover ? Theme.hover : transparent;
+    accessible-role: button;
+    accessible-label: root.text;
+    accessible-checked: root.on;
+    accessible-action-default => {
+        root.clicked();
+    }
+    HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        spacing: 8px;
+        Text {
+            text: root.text;
+            color: root.on ? Theme.text : Theme.text-2;
+            font-size: 13px;
+            font-weight: root.on ? 600 : 400;
+            vertical-alignment: center;
+            overflow: elide;
+            horizontal-stretch: 1;
+        }
+        if root.on: VerticalLayout {
+            alignment: center;
+            Icon {
+                svg: Icons.check;
+                color: Theme.ok;
+                width: 16px;
+                height: 16px;
+            }
+        }
+    }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+// Label jenis materi di atas judul: Lirik (amber) atau Ayat (biru).
+component KindBadge inherits Rectangle {
+    in property <bool> song;
+    height: 22px;
+    width: label.preferred-width + 14px;
+    horizontal-stretch: 0;
+    border-radius: 6px;
+    background: root.song ? Theme.accent-soft : Theme.verse-soft;
+    label := Text {
+        width: parent.width;
+        height: parent.height;
+        text: root.song ? "Lirik" : "Ayat";
+        color: root.song ? Theme.accent : Theme.verse;
+        font-size: 12px;
+        font-weight: 600;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+// Satu tab bersegmen di kolom kiri.
+component SegTab inherits Rectangle {
+    in property <string> text;
+    in property <string> icon;
+    in property <string> count;
+    in property <bool> on;
+    callback clicked();
+    height: 32px;
+    horizontal-stretch: 1;
+    border-radius: 8px;
+    background: root.on ? Theme.active : touch.has-hover ? Theme.hover : transparent;
+    accessible-role: tab;
+    accessible-label: root.text;
+    accessible-checked: root.on;
+    accessible-action-default => {
+        root.clicked();
+    }
+    HorizontalLayout {
+        alignment: center;
+        spacing: 6px;
+        if root.icon != "": VerticalLayout {
+            alignment: center;
+            Icon {
+                svg: root.icon;
+                color: root.on ? Theme.text : Theme.text-3;
+                width: 15px;
+                height: 15px;
+            }
+        }
+        Text {
+            text: root.text;
+            color: root.on ? Theme.text : Theme.text-2;
+            font-size: 13px;
+            font-weight: root.on ? 600 : 500;
+            vertical-alignment: center;
+        }
+        if root.count != "": Text {
+            text: root.count;
+            color: Theme.text-3;
+            font-size: 12px;
+            vertical-alignment: center;
+        }
+    }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
 // Latar materi terpilih, di samping keterangan di atas judul. Klik untuk
 // memilih gambar latar khusus materi itu.
 component BgChip inherits Rectangle {
@@ -335,6 +641,7 @@ component BgChip inherits Rectangle {
     }
 }
 
+// Teks slide yang ukurannya menyesuaikan kotak, seperti di layar proyektor.
 component SlideText inherits Rectangle {
     in property <string> text;
     in property <int> lines: 1;
@@ -455,13 +762,13 @@ component SlideTileView inherits Rectangle {
         padding-left: 2px;
         Text {
             text: root.number;
-            color: #C5CBD6;
+            color: root.live ? Theme.live : root.preview ? Theme.accent : #C5CBD6;
             font-size: 13px;
             font-weight: 600;
         }
         Text {
             text: root.tile.first;
-            color: Theme.text-3;
+            color: root.live || root.preview ? Theme.text-2 : Theme.text-3;
             font-size: 13px;
             overflow: elide;
             horizontal-stretch: 1;
@@ -488,15 +795,17 @@ component Screen inherits Rectangle {
     in property <bool> has-picture;
     in property <color> ring;
     in property <string> empty-text;
-    border-radius: 14px;
+    in property <length> radius: 14px;
+    in property <length> inset: 4px;
+    border-radius: root.radius;
     border-width: 2px;
     border-color: root.ring;
     Rectangle {
-        x: 4px;
-        y: 4px;
-        width: parent.width - 8px;
-        height: parent.height - 8px;
-        border-radius: 10px;
+        x: root.inset;
+        y: root.inset;
+        width: parent.width - 2 * root.inset;
+        height: parent.height - 2 * root.inset;
+        border-radius: Math.max(0px, root.radius - root.inset);
         clip: true;
         background: root.dark ? #000000 : Theme.slide-bg[root.bg-index];
         if root.has-picture && !root.dark: PictureFill {
@@ -530,21 +839,31 @@ component ServiceRowView inherits Rectangle {
     in property <int> index;
     in property <bool> selected;
     in property <bool> on-air;
+    // Sudah lewat: sebelum materi yang sedang tayang.
+    in property <bool> done;
+    // Keterangan pengganti saat tayang, misalnya "Lirik · slide 3 dari 8".
+    in property <string> live-detail;
+    // Kolom sempit: tombol urutan hanya muncul saat baris disorot.
+    in property <bool> compact;
     callback clicked();
     callback activated();
     callback up();
     callback down();
     callback remove();
-    height: 58px;
-    border-radius: 12px;
+    height: 54px;
+    border-radius: 10px;
     background: root.selected ? Theme.active : touch.has-hover ? Theme.hover : transparent;
     border-width: 1px;
     border-color: root.selected ? Theme.active-border : transparent;
     accessible-role: list-item;
-    accessible-label: (root.index + 1) + ". " + root.entry.title;
+    accessible-label: (root.index + 1) + ". " + root.entry.title + (root.on-air ? ", sedang tayang" : root.done ? ", sudah lewat" : "");
     accessible-action-default => {
         root.clicked();
     }
+    // Tombol urutan muncul saat baris disorot, dan di jendela lebar juga di
+    // baris terpilih yang tidak sedang tayang. Isinya di dalam TouchArea supaya
+    // sorotan tetap ada saat kursor di atas tombol.
+    property <bool> show-controls: touch.has-hover || (root.selected && !root.on-air && !root.compact);
     touch := TouchArea {
         mouse-cursor: pointer;
         clicked => {
@@ -553,128 +872,128 @@ component ServiceRowView inherits Rectangle {
         double-clicked => {
             root.activated();
         }
-    }
-    HorizontalLayout {
-        padding-left: 10px;
-        padding-right: 6px;
-        spacing: 10px;
-        Text {
-            width: 20px;
-            text: (root.index + 1 < 10 ? "0" : "") + (root.index + 1);
-            color: Theme.num;
-            font-size: 12px;
-            font-weight: 600;
-            vertical-alignment: center;
-        }
-        VerticalLayout {
-            alignment: center;
-            Rectangle {
-                width: 34px;
-                height: 34px;
-                border-radius: 9px;
-                background: root.entry.song ? Theme.accent-soft : Theme.verse-soft;
-                Icon {
-                    svg: root.entry.song ? Icons.music : Icons.book;
-                    color: root.entry.song ? Theme.accent : Theme.verse;
-                    width: 17px;
-                    height: 17px;
-                    x: (parent.width - self.width) / 2;
-                    y: (parent.height - self.height) / 2;
+        HorizontalLayout {
+            padding-left: 10px;
+            padding-right: 6px;
+            spacing: 10px;
+            Text {
+                width: 20px;
+                text: (root.index + 1 < 10 ? "0" : "") + (root.index + 1);
+                color: Theme.num;
+                font-size: 12px;
+                font-weight: 600;
+                vertical-alignment: center;
+            }
+            VerticalLayout {
+                alignment: center;
+                Rectangle {
+                    width: 32px;
+                    height: 32px;
+                    border-radius: 8px;
+                    background: root.entry.song ? Theme.accent-soft : Theme.verse-soft;
+                    Icon {
+                        svg: root.entry.song ? Icons.music : Icons.book;
+                        color: root.entry.song ? Theme.accent : Theme.verse;
+                        width: 16px;
+                        height: 16px;
+                        x: (parent.width - self.width) / 2;
+                        y: (parent.height - self.height) / 2;
+                    }
                 }
             }
-        }
-        VerticalLayout {
-            alignment: center;
-            spacing: 2px;
-            horizontal-stretch: 1;
-            Text {
-                text: root.entry.title;
-                color: Theme.text;
-                font-size: 14px;
-                font-weight: 500;
-                overflow: elide;
+            VerticalLayout {
+                alignment: center;
+                spacing: 2px;
+                horizontal-stretch: 1;
+                Text {
+                    text: root.entry.title;
+                    color: root.done && !root.selected ? Theme.text-2 : Theme.text;
+                    font-size: 14px;
+                    font-weight: 500;
+                    overflow: elide;
+                }
+                Text {
+                    text: root.on-air ? root.live-detail : root.entry.meta;
+                    color: root.on-air ? #FF8A8E : Theme.text-3;
+                    font-size: 12px;
+                    overflow: elide;
+                }
             }
-            Text {
-                text: root.entry.meta;
-                color: Theme.text-3;
-                font-size: 12px;
-                overflow: elide;
+            if root.done && !root.on-air && !root.show-controls: VerticalLayout {
+                alignment: center;
+                padding-right: 8px;
+                Icon {
+                    svg: Icons.check;
+                    color: Theme.text-3;
+                    width: 16px;
+                    height: 16px;
+                }
             }
-        }
-        if root.on-air && !root.selected: VerticalLayout {
-            alignment: center;
-            Rectangle {
-                height: 22px;
-                width: 70px;
-                border-radius: 11px;
-                background: Theme.live-badge;
-                HorizontalLayout {
-                    alignment: center;
-                    spacing: 6px;
-                    VerticalLayout {
+            if root.on-air && !root.show-controls && !root.compact: VerticalLayout {
+                alignment: center;
+                Rectangle {
+                    height: 22px;
+                    width: 70px;
+                    border-radius: 11px;
+                    background: Theme.live-badge;
+                    HorizontalLayout {
                         alignment: center;
-                        Rectangle {
-                            width: 6px;
-                            height: 6px;
-                            border-radius: 3px;
-                            background: #FFFFFF;
+                        spacing: 6px;
+                        VerticalLayout {
+                            alignment: center;
+                            Rectangle {
+                                width: 6px;
+                                height: 6px;
+                                border-radius: 3px;
+                                background: #FFFFFF;
+                            }
+                        }
+                        Text {
+                            text: "Tayang";
+                            color: #FFFFFF;
+                            font-size: 12px;
+                            font-weight: 700;
+                            vertical-alignment: center;
                         }
                     }
-                    Text {
-                        text: "Tayang";
-                        color: #FFFFFF;
-                        font-size: 12px;
-                        font-weight: 700;
-                        vertical-alignment: center;
+                }
+            }
+            if root.show-controls: HorizontalLayout {
+                spacing: 0px;
+                VerticalLayout {
+                    alignment: center;
+                    IconBtn {
+                        icon: Icons.up;
+                        label: "Naikkan";
+                        size: 30px;
+                        bordered: false;
+                        clicked => {
+                            root.up();
+                        }
                     }
                 }
-            }
-        }
-        if root.selected: HorizontalLayout {
-            spacing: 0px;
-            if root.on-air: VerticalLayout {
-                alignment: center;
-                padding-right: 4px;
-                Rectangle {
-                    width: 10px;
-                    height: 10px;
-                    border-radius: 5px;
-                    background: Theme.live;
-                }
-            }
-            VerticalLayout {
-                alignment: center;
-                IconBtn {
-                    icon: Icons.up;
-                    label: "Naikkan";
-                    size: 30px;
-                    bordered: false;
-                    clicked => {
-                        root.up();
+                VerticalLayout {
+                    alignment: center;
+                    IconBtn {
+                        icon: Icons.down;
+                        label: "Turunkan";
+                        size: 30px;
+                        bordered: false;
+                        clicked => {
+                            root.down();
+                        }
                     }
                 }
-            }
-            VerticalLayout {
-                alignment: center;
-                IconBtn {
-                    icon: Icons.down;
-                    label: "Turunkan";
-                    size: 30px;
-                    bordered: false;
-                    clicked => {
-                        root.down();
-                    }
-                }
-            }
-            VerticalLayout {
-                alignment: center;
-                IconBtn {
-                    icon: Icons.close;
-                    label: "Lepas dari susunan";
-                    size: 30px;
-                    bordered: false;
-                    clicked => {
-                        root.remove();
+                VerticalLayout {
+                    alignment: center;
+                    IconBtn {
+                        icon: Icons.close;
+                        label: "Lepas dari susunan";
+                        size: 30px;
+                        bordered: false;
+                        clicked => {
+                            root.remove();
+                        }
                     }
                 }
             }
@@ -685,10 +1004,15 @@ component ServiceRowView inherits Rectangle {
 component LibraryRowView inherits Rectangle {
     in property <LibraryRow> entry;
     in property <bool> selected;
+    // Kolom sempit: tanda dan tombol tanpa teks.
+    in property <bool> compact;
     callback clicked();
     callback activated();
     callback add();
-    height: 52px;
+    // Tombol "+ Susunan" tampil saat baris disorot atau terpilih. Di luar itu
+    // materi yang sudah ada di susunan bertanda "Di susunan".
+    property <bool> show-add: root.selected || touch.has-hover || add-touch.has-hover;
+    height: 48px;
     border-radius: 10px;
     background: root.selected ? Theme.active : touch.has-hover ? Theme.hover : transparent;
     accessible-role: list-item;
@@ -736,56 +1060,71 @@ component LibraryRowView inherits Rectangle {
                 overflow: elide;
             }
         }
-        VerticalLayout {
-            alignment: center;
-            IconBtn {
-                icon: Icons.plus;
-                label: "Tambah ke susunan";
-                clicked => {
-                    root.add();
+        Rectangle {
+            width: root.compact ? 32px : 92px;
+            if root.entry.in-service && !root.show-add: HorizontalLayout {
+                alignment: end;
+                spacing: 4px;
+                padding-right: 6px;
+                VerticalLayout {
+                    alignment: center;
+                    Icon {
+                        svg: Icons.check;
+                        color: Theme.text-3;
+                        width: 13px;
+                        height: 13px;
+                    }
+                }
+                if !root.compact: Text {
+                    text: "Di susunan";
+                    color: Theme.text-3;
+                    font-size: 12px;
+                    vertical-alignment: center;
                 }
             }
-        }
-    }
-}
-
-// Tab di kolom kiri (Pustaka / Alkitab).
-component TabBtn inherits Rectangle {
-    in property <string> text;
-    in property <bool> on;
-    callback clicked();
-    height: 34px;
-    width: label.preferred-width + 24px;
-    border-radius: 9px;
-    background: root.on ? Theme.active : touch.has-hover ? Theme.hover : transparent;
-    accessible-role: tab;
-    accessible-label: root.text;
-    accessible-checked: root.on;
-    accessible-action-default => {
-        root.clicked();
-    }
-    label := Text {
-        width: parent.width;
-        height: parent.height;
-        text: root.text;
-        color: root.on ? Theme.text : Theme.text-2;
-        font-size: 15px;
-        font-weight: root.on ? 600 : 400;
-        horizontal-alignment: center;
-        vertical-alignment: center;
-    }
-    Rectangle {
-        y: parent.height - 2px;
-        x: 10px;
-        width: parent.width - 20px;
-        height: 2px;
-        border-radius: 1px;
-        background: root.on ? Theme.accent : transparent;
-    }
-    touch := TouchArea {
-        mouse-cursor: pointer;
-        clicked => {
-            root.clicked();
+            Rectangle {
+                visible: root.show-add;
+                x: parent.width - self.width;
+                y: (parent.height - self.height) / 2;
+                height: 30px;
+                width: add-row.preferred-width;
+                border-radius: 8px;
+                background: add-touch.pressed ? Theme.active : add-touch.has-hover ? #262B36 : Theme.raised;
+                border-width: 1px;
+                border-color: Theme.border;
+                accessible-role: button;
+                accessible-label: "Tambah " + root.entry.title + " ke susunan";
+                accessible-action-default => {
+                    root.add();
+                }
+                add-row := HorizontalLayout {
+                    padding-left: 8px;
+                    padding-right: root.compact ? 8px : 10px;
+                    spacing: 4px;
+                    VerticalLayout {
+                        alignment: center;
+                        Icon {
+                            svg: Icons.plus;
+                            color: Theme.text;
+                            width: 14px;
+                            height: 14px;
+                        }
+                    }
+                    if !root.compact: Text {
+                        text: "Susunan";
+                        color: Theme.text;
+                        font-size: 12px;
+                        font-weight: 600;
+                        vertical-alignment: center;
+                    }
+                }
+                add-touch := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => {
+                        root.add();
+                    }
+                }
+            }
         }
     }
 }
@@ -1456,7 +1795,6 @@ export component MainWindow inherits Window {
     in property <string> version;
 
     in property <[LibraryRow]> library;
-    in property <string> library-detail;
     in property <[ServiceRow]> service;
     in property <[SlideTile]> slides;
     in property <int> selected-id: -1;
@@ -1464,15 +1802,23 @@ export component MainWindow inherits Window {
 
     in property <bool> has-current;
     in property <string> current-title;
+    // Jumlah slide, atau "belum di pustaka" untuk ayat dari tab Alkitab.
     in property <string> current-meta;
+    in property <bool> current-song: true;
     in property <int> preview-page;
     in property <bool> has-preview;
     in property <SlideTile> preview;
     in property <string> preview-meta;
+    // "Slide 4 · Judul", di samping layar pratinjau kecil.
+    in property <string> preview-title;
 
     in property <bool> has-live;
     in property <SlideTile> live;
     in property <string> live-meta: "Belum ada yang tayang";
+    in property <string> live-title;
+    in property <int> live-total;
+    // Jenis dan latar materi yang tayang, misalnya "Lirik · latar Gelap".
+    in property <string> live-caption;
     in property <int> live-item-id: -1;
     in property <int> live-page: -1;
     in property <int> live-service: -1;
@@ -1499,10 +1845,15 @@ export component MainWindow inherits Window {
     in property <bool> bg-item-own;
     in property <[string]> monitors;
     in-out property <int> monitor-index;
+    // Monitor proyektor yang dipilih, misalnya "Monitor 2".
+    in property <string> projector-label;
 
     in-out property <string> query;
     in-out property <int> filter;
-    // Kolom kiri: 0 Pustaka, 1 Alkitab.
+    // Jumlah materi di daftar pustaka (setelah dicari dan disaring), di tab Pustaka.
+    in property <string> library-count;
+    // Kolom kiri: 0 Pustaka, 1 Alkitab, 2 Susunan. Tab Susunan hanya ada di
+    // jendela sempit; di jendela lebar susunan selalu tampil di atas.
     in-out property <int> left-tab;
 
     // Tab Alkitab.
@@ -1563,6 +1914,7 @@ export component MainWindow inherits Window {
     callback toggle-blackout();
     callback toggle-fullscreen();
     callback toggle-projector();
+    callback projector-menu-opened();
     callback escape();
     callback monitor-changed(int);
     callback background-changed(int);
@@ -1602,16 +1954,30 @@ export component MainWindow inherits Window {
     callback bible-import-cancel();
     callback bible-remove-translation();
 
+    // Jendela sempit (di bawah 1200 px, misalnya laptop 1024×640): tombol
+    // profil dan impor diringkas, kolom kiri dan kanan lebih sempit, susunan
+    // ibadah pindah ke tab sendiri, dan latar umum hanya ada di menu
+    // proyektor. Diisi lewat `changed`, bukan binding, karena lebar jendela
+    // ikut ditentukan isi tata letak.
+    property <bool> compact-bar;
+    // Lebar kolom kanan di jendela lebar: 28% lebar jendela, 340–400 px.
+    property <length> side-width: 380px;
+    changed width => {
+        self.set-compact(self.width < 1200px);
+        self.side-width = Math.min(400px, Math.max(340px, self.width * 0.28));
+    }
+    function set-compact(compact: bool) {
+        if compact == self.compact-bar {
+            return;
+        }
+        self.compact-bar = compact;
+        // Tab Susunan hanya ada di jendela sempit.
+        if !compact && self.left-tab == 2 {
+            self.left-tab = 0;
+        }
+    }
     // Fokus kembali ke pintasan papan ketik saat layar profil dibuka, ditutup,
     // atau formulirnya selesai.
-    // Di bawah 1200 px nama profil memakan tempat tombol proyektor dan impor,
-    // jadi tombol profil diringkas (namanya tetap ada di judul jendela). Diisi
-    // lewat `changed`, bukan binding, karena lebar jendela ikut ditentukan isi
-    // bilah atas.
-    property <bool> compact-bar;
-    changed width => {
-        self.compact-bar = self.width < 1200px;
-    }
     changed picking-profile => {
         keys.focus();
     }
@@ -1652,6 +2018,10 @@ export component MainWindow inherits Window {
 
     init => {
         self.compact-bar = self.width < 1200px;
+        self.side-width = Math.min(400px, Math.max(340px, self.width * 0.28));
+        if self.compact-bar && self.left-tab == 0 {
+            self.left-tab = 2;
+        }
         keys.focus();
     }
 
@@ -1685,8 +2055,25 @@ export component MainWindow inherits Window {
                 return accept;
             }
             if event.text == Key.Escape {
+                // Dari kotak teks (misalnya kotak cari): hanya keluar dari
+                // kotak itu, layar penuh dan proyektor tidak berubah.
+                if !self.has-focus {
+                    self.focus();
+                    return accept;
+                }
                 root.escape();
                 return accept;
+            }
+            if event.modifiers.control && (event.text == "k" || event.text == "K") {
+                search.focus-input();
+                return accept;
+            }
+            // 1–9: langsung menayangkan slide itu dari materi terpilih.
+            if self.has-focus && !event.modifiers.control && !event.modifiers.alt && event.text.is-float() {
+                if event.text.to-float() >= 1 && event.text.to-float() <= 9 && event.text.to-float() <= root.slides.length && !root.editing {
+                    root.activate-slide(event.text.to-float() - 1);
+                    return accept;
+                }
             }
             if event.modifiers.control && (event.text == "s" || event.text == "S") {
                 root.save-now();
@@ -1710,32 +2097,49 @@ export component MainWindow inherits Window {
         VerticalLayout {
             // Bilah atas.
             Rectangle {
-                height: 62px;
+                height: 60px;
                 background: Theme.bar;
                 HorizontalLayout {
-                    padding-left: 18px;
+                    padding-left: 16px;
                     padding-right: 16px;
-                    spacing: 14px;
+                    spacing: 12px;
                     HorizontalLayout {
                         spacing: 10px;
+                        horizontal-stretch: 0;
                         VerticalLayout {
                             alignment: center;
                             Image {
                                 source: @image-url("../assets/icon/lentera.svg");
-                                width: 36px;
-                                height: 36px;
+                                width: 32px;
+                                height: 32px;
                             }
                         }
-                        VerticalLayout {
-                            alignment: center;
-                            ProfileChip {
-                                compact: root.compact-bar;
-                                name: root.profile-name;
-                                initial: root.profile-initial;
-                                tone: root.profile-tone;
-                                clicked => {
-                                    root.show-profiles();
-                                }
+                        Text {
+                            text: "Lentera";
+                            color: Theme.text;
+                            font-size: 17px;
+                            font-weight: 700;
+                            vertical-alignment: center;
+                        }
+                    }
+                    VerticalLayout {
+                        alignment: center;
+                        Rectangle {
+                            width: 1px;
+                            height: 24px;
+                            background: Theme.line;
+                        }
+                    }
+                    VerticalLayout {
+                        alignment: center;
+                        horizontal-stretch: 0;
+                        ProfileChip {
+                            compact: root.compact-bar;
+                            name: root.profile-name;
+                            initial: root.profile-initial;
+                            tone: root.profile-tone;
+                            clicked => {
+                                root.show-profiles();
                             }
                         }
                     }
@@ -1744,20 +2148,24 @@ export component MainWindow inherits Window {
                         Btn {
                             text: "Kembali ke tayang";
                             icon: Icons.back;
+                            height: 40px;
+                            full-text: true;
                             clicked => {
                                 root.close-editor();
                                 keys.focus();
                             }
                         }
                     }
+                    Rectangle {
+                        horizontal-stretch: 1;
+                    }
                     VerticalLayout {
                         alignment: center;
-                        horizontal-stretch: 1;
-                        min-width: 260px;
-                        preferred-width: 440px;
+                        horizontal-stretch: 6;
+                        min-width: 200px;
                         max-width: 520px;
-                        LineEdit {
-                            placeholder-text: "Cari lagu, ayat, atau isi";
+                        search := SearchBox {
+                            placeholder: root.compact-bar ? "Cari lagu atau ayat" : "Cari lagu, ayat, atau isi";
                             text <=> root.query;
                             edited => {
                                 root.search-changed();
@@ -1769,37 +2177,38 @@ export component MainWindow inherits Window {
                     }
                     if !root.editing: HorizontalLayout {
                         spacing: 8px;
+                        horizontal-stretch: 0;
                         VerticalLayout {
                             alignment: center;
-                            Btn {
-                                text: root.output-visible ? "Tutup proyektor" : "Buka proyektor";
-                                full-text: true;
-                                icon: Icons.monitor;
+                            projector-btn := ProjectorButton {
                                 on: root.output-visible;
-                                clicked => {
+                                monitor: root.projector-label;
+                                compact: root.compact-bar;
+                                toggle => {
                                     root.toggle-projector();
                                     keys.focus();
                                 }
-                            }
-                        }
-                        VerticalLayout {
-                            alignment: center;
-                            ComboBox {
-                                width: 230px;
-                                model: root.monitors;
-                                current-index <=> root.monitor-index;
-                                selected => {
-                                    root.monitor-changed(self.current-index);
-                                    keys.focus();
+                                menu => {
+                                    root.projector-menu-opened();
+                                    projector-menu.show();
                                 }
                             }
                         }
                         VerticalLayout {
                             alignment: center;
-                            import-btn := Btn {
+                            if !root.compact-bar: Btn {
                                 text: "Impor";
                                 full-text: true;
                                 icon: Icons.import;
+                                height: 40px;
+                                clicked => {
+                                    import-menu.show();
+                                }
+                            }
+                            if root.compact-bar: IconBtn {
+                                icon: Icons.import;
+                                label: "Impor";
+                                size: 40px;
                                 clicked => {
                                     import-menu.show();
                                 }
@@ -1810,7 +2219,7 @@ export component MainWindow inherits Window {
                             IconBtn {
                                 icon: Icons.info;
                                 label: "Tentang Lentera";
-                                size: 44px;
+                                size: 40px;
                                 clicked => {
                                     about-popup.show();
                                 }
@@ -1851,6 +2260,93 @@ export component MainWindow inherits Window {
                     y: parent.height - 1px;
                     height: 1px;
                     background: Theme.line;
+                }
+                // Menu proyektor: monitor, latar umum, dan buka/tutup proyektor.
+                projector-menu := PopupWindow {
+                    // Rata kanan dengan tombol proyektor (di kiri tombol Impor dan Tentang).
+                    x: Math.max(8px, root.width - self.width - (root.compact-bar ? 112px : 166px));
+                    y: parent.height - 4px;
+                    width: 300px;
+                    close-policy: close-on-click-outside;
+                    Rectangle {
+                        background: Theme.raised;
+                        border-radius: 12px;
+                        border-width: 1px;
+                        border-color: Theme.border;
+                        VerticalLayout {
+                            padding: 12px;
+                            spacing: 6px;
+                            Text {
+                                text: "Monitor proyektor";
+                                color: Theme.text-2;
+                                font-size: 12px;
+                            }
+                            for label[i] in root.monitors: CheckRow {
+                                text: label;
+                                on: i == root.monitor-index;
+                                clicked => {
+                                    root.monitor-index = i;
+                                    root.monitor-changed(i);
+                                }
+                            }
+                            if root.monitors.length == 0: Text {
+                                text: "Monitor tidak terbaca.";
+                                color: Theme.text-3;
+                                font-size: 12px;
+                            }
+                            Rectangle {
+                                height: 9px;
+                                Rectangle {
+                                    y: 4px;
+                                    height: 1px;
+                                    background: Theme.line;
+                                }
+                            }
+                            Text {
+                                text: "Latar umum";
+                                color: Theme.text-2;
+                                font-size: 12px;
+                            }
+                            HorizontalLayout {
+                                spacing: 8px;
+                                for name[i] in Theme.slide-names: Swatch {
+                                    index: i;
+                                    on: i == root.bg-index && !root.has-bg-picture;
+                                    clicked => {
+                                        root.background-changed(i);
+                                    }
+                                }
+                                PictureSwatch {
+                                    picture: root.bg-picture;
+                                    on: root.has-bg-picture;
+                                    clicked => {
+                                        projector-menu.close();
+                                        root.show-backgrounds();
+                                    }
+                                }
+                            }
+                            Rectangle {
+                                height: 9px;
+                                Rectangle {
+                                    y: 4px;
+                                    height: 1px;
+                                    background: Theme.line;
+                                }
+                            }
+                            Btn {
+                                text: root.output-visible ? "Tutup proyektor" : "Buka proyektor";
+                                icon: Icons.monitor;
+                                kind: root.output-visible ? "danger" : "primary";
+                                height: 40px;
+                                font-size: 13px;
+                                clicked => {
+                                    projector-menu.close();
+                                    root.toggle-projector();
+                                    keys.focus();
+                                }
+                            }
+                        }
+                    }
                 }
                 import-menu := PopupWindow {
                     x: parent.width - 312px;
@@ -2096,32 +2592,72 @@ export component MainWindow inherits Window {
             HorizontalLayout {
                 vertical-stretch: 1;
 
-                // Kolom kiri: susunan ibadah dan pustaka.
+                // Kolom kiri: susunan ibadah, pustaka, dan Alkitab. Di jendela
+                // sempit susunan ibadah pindah ke tab sendiri.
                 Rectangle {
-                    width: 310px;
+                    width: root.compact-bar ? 248px : 304px;
                     background: Theme.panel;
                     VerticalLayout {
-                        padding: 14px;
-                        padding-top: 18px;
+                        padding: 12px;
+                        padding-top: 16px;
                         spacing: 8px;
-                        SectionTitle {
+                        if !root.compact-bar: SectionTitle {
                             text: "Susunan ibadah";
                             detail: root.service.length + " materi";
                         }
-                        if root.service.length == 0: Text {
-                            text: "Belum ada materi. Tekan + di pustaka untuk menambahkan.";
+                        if root.compact-bar: Rectangle {
+                            height: 38px;
+                            border-radius: 10px;
+                            background: Theme.bg;
+                            HorizontalLayout {
+                                padding: 3px;
+                                spacing: 2px;
+                                SegTab {
+                                    text: "Susunan";
+                                    count: root.service.length;
+                                    on: root.left-tab == 2;
+                                    clicked => {
+                                        root.left-tab = 2;
+                                        root.left-tab-changed(2);
+                                    }
+                                }
+                                SegTab {
+                                    text: "Pustaka";
+                                    on: root.left-tab == 0;
+                                    clicked => {
+                                        root.left-tab = 0;
+                                        root.left-tab-changed(0);
+                                    }
+                                }
+                                SegTab {
+                                    text: "Alkitab";
+                                    on: root.left-tab == 1;
+                                    clicked => {
+                                        root.left-tab = 1;
+                                        root.left-tab-changed(1);
+                                    }
+                                }
+                            }
+                        }
+                        if (!root.compact-bar || root.left-tab == 2) && root.service.length == 0: Text {
+                            text: "Belum ada materi. Tekan + Susunan di pustaka untuk menambahkan.";
                             color: Theme.text-3;
                             font-size: 13px;
                             wrap: word-wrap;
                         }
-                        ListView {
-                            vertical-stretch: 1;
+                        if !root.compact-bar || root.left-tab == 2: ListView {
+                            vertical-stretch: 1.4;
                             min-height: 120px;
                             for row[i] in root.service: ServiceRowView {
                                 entry: row;
                                 index: i;
                                 selected: i == root.selected-service;
                                 on-air: i == root.live-service && !root.blackout;
+                                compact: root.compact-bar;
+                                done: root.live-service >= 0 && i < root.live-service;
+                                live-detail: root.compact-bar
+                                    ? "Tayang · slide " + (root.live-page + 1) + "/" + root.live-total
+                                    : (row.song ? "Lirik" : "Ayat") + " · slide " + (root.live-page + 1) + " dari " + root.live-total;
                                 clicked => {
                                     keys.focus();
                                     root.select-service(i);
@@ -2140,48 +2676,43 @@ export component MainWindow inherits Window {
                                 }
                             }
                         }
-                        Rectangle {
+                        if !root.compact-bar: Rectangle {
                             height: 1px;
                             background: Theme.line;
                         }
-                        HorizontalLayout {
-                            padding-top: 6px;
-                            spacing: 4px;
-                            TabBtn {
-                                text: "Pustaka";
-                                on: root.left-tab == 0;
-                                clicked => {
-                                    root.left-tab = 0;
-                                    root.left-tab-changed(0);
+                        if !root.compact-bar: Rectangle {
+                            height: 38px;
+                            border-radius: 10px;
+                            background: Theme.bg;
+                            HorizontalLayout {
+                                padding: 3px;
+                                spacing: 2px;
+                                SegTab {
+                                    text: "Pustaka";
+                                    icon: Icons.music;
+                                    count: root.left-tab == 0 ? root.library-count : "";
+                                    on: root.left-tab == 0;
+                                    clicked => {
+                                        root.left-tab = 0;
+                                        root.left-tab-changed(0);
+                                    }
                                 }
-                            }
-                            TabBtn {
-                                text: "Alkitab";
-                                on: root.left-tab == 1;
-                                clicked => {
-                                    root.left-tab = 1;
-                                    root.left-tab-changed(1);
-                                }
-                            }
-                            Rectangle {
-                                horizontal-stretch: 1;
-                            }
-                            if root.left-tab == 0: Btn {
-                                text: "Materi baru";
-                                icon: Icons.plus;
-                                kind: "ghost";
-                                height: 34px;
-                                font-size: 13px;
-                                clicked => {
-                                    root.new-item();
+                                SegTab {
+                                    text: "Alkitab";
+                                    icon: Icons.book;
+                                    on: root.left-tab == 1;
+                                    clicked => {
+                                        root.left-tab = 1;
+                                        root.left-tab-changed(1);
+                                    }
                                 }
                             }
                         }
                         if root.left-tab == 0: HorizontalLayout {
                             spacing: 6px;
-                            padding-left: 4px;
                             Chip {
                                 text: "Semua";
+                                pad: root.compact-bar ? 10px : 13px;
                                 on: root.filter == 0;
                                 clicked => {
                                     root.filter = 0;
@@ -2190,6 +2721,7 @@ export component MainWindow inherits Window {
                             }
                             Chip {
                                 text: "Lagu";
+                                pad: root.compact-bar ? 10px : 13px;
                                 on: root.filter == 1;
                                 clicked => {
                                     root.filter = 1;
@@ -2198,19 +2730,36 @@ export component MainWindow inherits Window {
                             }
                             Chip {
                                 text: "Ayat";
+                                pad: root.compact-bar ? 10px : 13px;
                                 on: root.filter == 2;
                                 clicked => {
                                     root.filter = 2;
                                     root.filter-changed(2);
                                 }
                             }
-                            Text {
-                                text: root.library-detail;
-                                color: Theme.text-3;
-                                font-size: 12px;
-                                horizontal-alignment: right;
-                                vertical-alignment: center;
+                            Rectangle {
                                 horizontal-stretch: 1;
+                            }
+                            if !root.compact-bar: Btn {
+                                text: "Baru";
+                                icon: Icons.plus;
+                                kind: "ghost";
+                                full-text: true;
+                                height: 32px;
+                                font-size: 13px;
+                                pad: 8px;
+                                clicked => {
+                                    root.new-item();
+                                }
+                            }
+                            if root.compact-bar: IconBtn {
+                                icon: Icons.plus;
+                                label: "Materi baru";
+                                size: 32px;
+                                bordered: false;
+                                clicked => {
+                                    root.new-item();
+                                }
                             }
                         }
                         if root.left-tab == 0 && root.library.length == 0: Text {
@@ -2220,10 +2769,11 @@ export component MainWindow inherits Window {
                             wrap: word-wrap;
                         }
                         if root.left-tab == 0: ListView {
-                            vertical-stretch: 1.5;
+                            vertical-stretch: 1;
                             min-height: 150px;
                             for row in root.library: LibraryRowView {
                                 entry: row;
+                                compact: root.compact-bar;
                                 selected: row.id == root.selected-id;
                                 clicked => {
                                     keys.focus();
@@ -2239,7 +2789,7 @@ export component MainWindow inherits Window {
                         }
                         // Tab Alkitab: formulir impor.
                         if root.left-tab == 1 && root.bible-importing: VerticalLayout {
-                            vertical-stretch: 1.5;
+                            vertical-stretch: 1;
                             spacing: 8px;
                             padding-left: 4px;
                             padding-right: 4px;
@@ -2320,7 +2870,7 @@ export component MainWindow inherits Window {
                         }
                         // Tab Alkitab: belum ada terjemahan.
                         if root.left-tab == 1 && !root.bible-importing && root.bible-translations.length == 0: VerticalLayout {
-                            vertical-stretch: 1.5;
+                            vertical-stretch: 1;
                             spacing: 10px;
                             padding-left: 4px;
                             padding-right: 4px;
@@ -2356,7 +2906,7 @@ export component MainWindow inherits Window {
                         }
                         // Tab Alkitab: cari dan pilih ayat.
                         if root.left-tab == 1 && !root.bible-importing && root.bible-translations.length > 0: VerticalLayout {
-                            vertical-stretch: 1.5;
+                            vertical-stretch: 1;
                             spacing: 8px;
                             HorizontalLayout {
                                 spacing: 6px;
@@ -2490,18 +3040,24 @@ export component MainWindow inherits Window {
                 // Tengah, mode tayang: semua slide materi terpilih.
                 if !root.editing: VerticalLayout {
                     horizontal-stretch: 1;
-                    padding: 24px;
-                    padding-bottom: 14px;
+                    padding: 20px;
+                    padding-bottom: 12px;
                     spacing: 16px;
                     if root.has-current: HorizontalLayout {
                         spacing: 12px;
                         VerticalLayout {
-                            spacing: 4px;
+                            spacing: 6px;
                             horizontal-stretch: 1;
                             HorizontalLayout {
-                                spacing: 10px;
+                                spacing: 8px;
+                                VerticalLayout {
+                                    alignment: center;
+                                    KindBadge {
+                                        song: root.current-song;
+                                    }
+                                }
                                 Text {
-                                    text: root.current-meta;
+                                    text: root.current-meta + (!root.compact-bar && root.selected-service >= 0 ? " · materi ke-" + (root.selected-service + 1) + " di susunan" : "");
                                     color: Theme.text-3;
                                     font-size: 13px;
                                     vertical-alignment: center;
@@ -2521,17 +3077,19 @@ export component MainWindow inherits Window {
                             Text {
                                 text: root.current-title;
                                 color: Theme.text;
-                                font-size: 24px;
+                                font-size: 26px;
                                 font-weight: 700;
                                 overflow: elide;
                             }
                         }
                         VerticalLayout {
-                            alignment: end;
+                            alignment: center;
+                            horizontal-stretch: 0;
                             Btn {
-                                text: "Edit materi";
+                                text: root.compact-bar ? "Edit" : root.current-song ? "Edit lirik" : "Edit ayat";
                                 icon: Icons.edit;
                                 full-text: true;
+                                height: 40px;
                                 clicked => {
                                     root.edit-current();
                                 }
@@ -2540,14 +3098,14 @@ export component MainWindow inherits Window {
                     }
                     if root.has-current && root.slides.length > 0: grid := ScrollView {
                         vertical-stretch: 1;
-                        property <int> cols: Math.max(1, Math.floor((self.visible-width + 20px) / 220px));
-                        property <length> tile-w: (self.visible-width - (self.cols - 1) * 20px) / self.cols;
+                        property <int> cols: Math.max(1, Math.floor((self.visible-width + 16px) / 212px));
+                        property <length> tile-w: (self.visible-width - (self.cols - 1) * 16px) / self.cols;
                         property <length> tile-h: self.tile-w * 9 / 16 + 30px;
                         content-width: self.visible-width;
-                        content-height: Math.ceil(root.slides.length / self.cols) * (self.tile-h + 20px);
+                        content-height: Math.ceil(root.slides.length / self.cols) * (self.tile-h + 14px);
                         for tile[i] in root.slides: SlideTileView {
-                            x: Math.mod(i, grid.cols) * (grid.tile-w + 20px);
-                            y: Math.floor(i / grid.cols) * (grid.tile-h + 20px);
+                            x: Math.mod(i, grid.cols) * (grid.tile-w + 16px);
+                            y: Math.floor(i / grid.cols) * (grid.tile-h + 14px);
                             width: grid.tile-w;
                             tile: tile;
                             number: i + 1;
@@ -2569,9 +3127,10 @@ export component MainWindow inherits Window {
                         vertical-stretch: 1;
                         alignment: center;
                         Text {
-                            text: "Materi ini masih kosong. Tekan Edit materi untuk mengisi teks.";
+                            text: root.current-song ? "Materi ini masih kosong. Tekan Edit lirik untuk mengisi teks." : "Materi ini masih kosong. Tekan Edit ayat untuk mengisi teks.";
                             color: Theme.text-3;
                             horizontal-alignment: center;
+                            wrap: word-wrap;
                         }
                     }
                     if !root.has-current: VerticalLayout {
@@ -2589,13 +3148,53 @@ export component MainWindow inherits Window {
                             text: "Slide-nya akan tampil di sini untuk dipratinjau dan ditayangkan.";
                             color: Theme.text-3;
                             horizontal-alignment: center;
+                            wrap: word-wrap;
                         }
                     }
-                    if root.has-current: Text {
-                        text: "Klik slide untuk pratinjau, lalu Tayangkan. Klik dua kali untuk langsung menayangkan.";
-                        color: Theme.text-3;
-                        font-size: 13px;
-                        overflow: elide;
+                    // Petunjuk singkat; di jendela sempit tidak muat.
+                    if root.has-current && !root.compact-bar: HorizontalLayout {
+                        spacing: 6px;
+                        Text {
+                            text: "Klik";
+                            color: Theme.text-2;
+                            font-size: 12px;
+                            font-weight: 600;
+                        }
+                        Text {
+                            text: "pratinjau dulu";
+                            color: Theme.text-3;
+                            font-size: 12px;
+                        }
+                        Rectangle {
+                            width: 14px;
+                        }
+                        Text {
+                            text: "Klik dua kali";
+                            color: Theme.text-2;
+                            font-size: 12px;
+                            font-weight: 600;
+                        }
+                        Text {
+                            text: "langsung tayang";
+                            color: Theme.text-3;
+                            font-size: 12px;
+                        }
+                        Rectangle {
+                            width: 14px;
+                        }
+                        Text {
+                            text: "Tombol 1–9";
+                            color: Theme.text-2;
+                            font-size: 12px;
+                            font-weight: 600;
+                        }
+                        Text {
+                            text: "lompat ke slide";
+                            color: Theme.text-3;
+                            font-size: 12px;
+                            overflow: elide;
+                            horizontal-stretch: 1;
+                        }
                     }
                 }
 
@@ -2679,77 +3278,42 @@ export component MainWindow inherits Window {
                     }
                 }
 
-                // Kolom kanan, mode tayang: pratinjau, tayang, dan kontrol.
+                // Kolom kanan, mode tayang: yang dilihat jemaat, pratinjau, dan
+                // kontrol. Tombol gelapkan dan layar penuh selalu di bawah.
                 if !root.editing: Rectangle {
-                    width: 360px;
+                    width: root.compact-bar ? 300px : root.side-width;
                     background: Theme.panel;
-                    ScrollView {
+                    side := ScrollView {
                         content-width: self.visible-width;
-                        content-height: controls.preferred-height;
+                        content-height: controls.height;
                         controls := VerticalLayout {
-                            width: parent.width;
-                            padding: 18px;
-                            spacing: 10px;
-                            SectionTitle {
-                                text: "Pratinjau";
-                                detail: root.preview-meta;
-                                padding-left: 0px;
-                                padding-right: 0px;
-                            }
-                            Screen {
-                                height: self.width * 9 / 16;
-                                tile: root.preview;
-                                has-slide: root.has-preview;
-                                bg-index: root.bg-index;
-                                picture: root.view-picture;
-                                has-picture: root.has-view-picture;
-                                ring: Theme.accent;
-                                empty-text: "Pilih slide untuk dipratinjau";
-                            }
-                            Rectangle {
-                                height: 2px;
-                            }
-                            Btn {
-                                kind: "primary";
-                                text: "Tayangkan";
-                                icon: Icons.play;
-                                icon-filled: true;
-                                kbd: "F5";
-                                height: 52px;
-                                font-size: 16px;
-                                clicked => {
-                                    keys.focus();
-                                    root.go-live();
-                                }
-                            }
-                            Rectangle {
-                                height: 9px;
-                                Rectangle {
-                                    y: 4px;
-                                    height: 1px;
-                                    background: Theme.line;
-                                }
-                            }
+                            width: side.visible-width;
+                            height: Math.max(self.preferred-height, side.visible-height);
+                            padding: root.compact-bar ? 16px : 20px;
+                            padding-top: 18px;
+                            spacing: 12px;
                             HorizontalLayout {
                                 spacing: 8px;
                                 VerticalLayout {
                                     alignment: center;
                                     Rectangle {
-                                        width: 9px;
-                                        height: 9px;
-                                        border-radius: 4.5px;
+                                        width: 8px;
+                                        height: 8px;
+                                        border-radius: 4px;
                                         background: Theme.live;
                                     }
                                 }
                                 Text {
-                                    text: "Tayang";
+                                    text: "Layar jemaat";
                                     color: Theme.text;
                                     font-size: 15px;
                                     font-weight: 600;
                                     vertical-alignment: center;
                                 }
                                 Text {
-                                    text: root.live-meta;
+                                    text: !root.has-live ? "Belum ada yang tayang"
+                                        : root.blackout ? "Layar digelapkan"
+                                        : "Slide " + (root.live-page + 1) + " dari " + root.live-total;
                                     color: Theme.text-3;
                                     font-size: 12px;
                                     horizontal-alignment: right;
@@ -2766,71 +3330,155 @@ export component MainWindow inherits Window {
                                 bg-index: root.bg-index;
                                 picture: root.live-picture;
                                 has-picture: root.has-live-picture;
-                                ring: Theme.live;
+                                ring: root.has-live && !root.blackout ? Theme.live : Theme.border;
                                 empty-text: "Belum ada yang tayang";
                             }
-                            Rectangle {
-                                height: 2px;
-                            }
-                            GridLayout {
+                            HorizontalLayout {
                                 spacing: 8px;
-                                Row {
-                                    Btn {
-                                        text: "Sebelumnya";
-                                        font-size: 13px;
-                                        pad: 10px;
-                                        icon: Icons.left;
-                                        clicked => {
-                                            keys.focus();
-                                            root.navigate(false);
-                                        }
-                                    }
-                                    Btn {
-                                        text: "Berikutnya";
-                                        font-size: 13px;
-                                        pad: 10px;
-                                        icon: Icons.right;
-                                        clicked => {
-                                            keys.focus();
-                                            root.navigate(true);
-                                        }
+                                Text {
+                                    text: root.live-title;
+                                    color: Theme.text;
+                                    font-size: 13px;
+                                    font-weight: 600;
+                                    vertical-alignment: center;
+                                    overflow: elide;
+                                    horizontal-stretch: 0;
+                                }
+                                Text {
+                                    text: root.live-caption;
+                                    color: Theme.text-3;
+                                    font-size: 12px;
+                                    vertical-alignment: center;
+                                    overflow: elide;
+                                    horizontal-stretch: 1;
+                                }
+                            }
+                            HorizontalLayout {
+                                spacing: 8px;
+                                Btn {
+                                    text: "Sebelumnya";
+                                    icon: Icons.left;
+                                    kbd: root.compact-bar ? "" : "PgUp";
+                                    height: 48px;
+                                    font-size: 13px;
+                                    pad: 10px;
+                                    horizontal-stretch: 1;
+                                    clicked => {
+                                        keys.focus();
+                                        root.navigate(false);
                                     }
                                 }
-                                Row {
-                                    Btn {
-                                        text: root.blackout ? "Pulihkan" : "Gelapkan";
-                                        font-size: 13px;
-                                        pad: 10px;
-                                        icon: root.blackout ? Icons.sun : Icons.moon;
-                                        kbd: "F6";
-                                        on: root.blackout;
-                                        clicked => {
-                                            keys.focus();
-                                            root.toggle-blackout();
-                                        }
-                                    }
-                                    Btn {
-                                        text: root.fullscreen ? "Jendela" : "Layar penuh";
-                                        font-size: 13px;
-                                        pad: 10px;
-                                        icon: root.fullscreen ? Icons.minimize : Icons.maximize;
-                                        kbd: "F11";
-                                        clicked => {
-                                            keys.focus();
-                                            root.toggle-fullscreen();
-                                        }
+                                Btn {
+                                    text: "Berikutnya";
+                                    icon: Icons.right;
+                                    icon-after: true;
+                                    kind: "strong";
+                                    kbd: root.compact-bar ? "" : "PgDn";
+                                    height: 48px;
+                                    font-size: 13px;
+                                    pad: 10px;
+                                    horizontal-stretch: 1;
+                                    clicked => {
+                                        keys.focus();
+                                        root.navigate(true);
                                     }
                                 }
                             }
                             Rectangle {
                                 height: 4px;
                             }
-                            Text {
-                                text: "Latar umum";
-                                color: Theme.text-2;
-                                font-size: 13px;
+                            HorizontalLayout {
+                                spacing: 12px;
+                                Screen {
+                                    width: root.compact-bar ? 120px : 150px;
+                                    height: self.width * 9 / 16;
+                                    radius: 8px;
+                                    inset: 3px;
+                                    tile: root.preview;
+                                    has-slide: root.has-preview;
+                                    bg-index: root.bg-index;
+                                    picture: root.view-picture;
+                                    has-picture: root.has-view-picture;
+                                    ring: root.has-preview ? Theme.accent : Theme.border;
+                                    empty-text: "";
+                                }
+                                VerticalLayout {
+                                    alignment: center;
+                                    spacing: 3px;
+                                    horizontal-stretch: 1;
+                                    Text {
+                                        text: "Pratinjau";
+                                        color: Theme.accent;
+                                        font-size: 12px;
+                                        font-weight: 600;
+                                    }
+                                    Text {
+                                        text: root.has-preview ? root.preview-title : "Belum ada slide dipilih";
+                                        color: root.has-preview ? Theme.text : Theme.text-3;
+                                        font-size: 13px;
+                                        wrap: word-wrap;
+                                    }
+                                    if !root.compact-bar: Text {
+                                        text: !root.has-preview ? "Klik slide untuk dipratinjau."
+                                            : root.live-item-id == root.selected-id && root.preview-page == root.live-page && !root.blackout ? "Sudah tayang."
+                                            : "Belum terlihat jemaat. Tekan Tayangkan untuk menampilkan.";
+                                        color: Theme.text-3;
+                                        font-size: 12px;
+                                        wrap: word-wrap;
+                                    }
+                                }
+                            }
+                            Btn {
+                                kind: "primary";
+                                text: "Tayangkan";
+                                icon: Icons.play;
+                                icon-filled: true;
+                                kbd: "F5";
+                                height: 52px;
+                                font-size: 16px;
+                                clicked => {
+                                    keys.focus();
+                                    root.go-live();
+                                }
+                            }
+                            Rectangle {
+                                vertical-stretch: 1;
+                                min-height: 4px;
                             }
                             HorizontalLayout {
+                                spacing: 8px;
+                                Btn {
+                                    text: root.blackout ? "Pulihkan" : "Gelapkan";
+                                    icon: root.blackout ? Icons.sun : Icons.moon;
+                                    kbd: root.compact-bar ? "" : "F6";
+                                    on: root.blackout;
+                                    font-size: 13px;
+                                    pad: 10px;
+                                    horizontal-stretch: 1;
+                                    clicked => {
+                                        keys.focus();
+                                        root.toggle-blackout();
+                                    }
+                                }
+                                Btn {
+                                    text: root.fullscreen ? "Jendela" : "Layar penuh";
+                                    icon: root.fullscreen ? Icons.minimize : Icons.maximize;
+                                    kbd: root.compact-bar ? "" : "F11";
+                                    font-size: 13px;
+                                    pad: 10px;
+                                    horizontal-stretch: 1;
+                                    clicked => {
+                                        keys.focus();
+                                        root.toggle-fullscreen();
+                                    }
+                                }
+                            }
+                            if !root.compact-bar: Text {
+                                text: "Latar umum";
+                                color: Theme.text-2;
+                                font-size: 12px;
+                            }
+                            if !root.compact-bar: HorizontalLayout {
                                 spacing: 10px;
                                 for name[i] in Theme.slide-names: Swatch {
                                     index: i;
@@ -2947,7 +3595,7 @@ export component MainWindow inherits Window {
 
             // Bilah bawah: status, tombol cepat, dan pembaruan.
             Rectangle {
-                height: 36px;
+                height: 34px;
                 background: Theme.bar;
                 Rectangle {
                     y: 0;
@@ -2984,6 +3632,19 @@ export component MainWindow inherits Window {
                         VerticalLayout {
                             alignment: center;
                             Kbd {
+                                text: "F5";
+                            }
+                        }
+                        Text {
+                            text: "tayangkan";
+                            color: Theme.text-3;
+                            font-size: 12px;
+                            vertical-alignment: center;
+                        }
+                        VerticalLayout {
+                            alignment: center;
+                            padding-left: 8px;
+                            Kbd {
                                 text: "PgDn";
                             }
                         }
@@ -2997,24 +3658,24 @@ export component MainWindow inherits Window {
                             alignment: center;
                             padding-left: 8px;
                             Kbd {
-                                text: "PgUp";
+                                text: "F6";
                             }
                         }
                         Text {
-                            text: "sebelumnya";
+                            text: "gelapkan";
                             color: Theme.text-3;
                             font-size: 12px;
                             vertical-alignment: center;
                         }
-                        VerticalLayout {
+                        if !root.compact-bar: VerticalLayout {
                             alignment: center;
                             padding-left: 8px;
                             Kbd {
-                                text: "Esc";
+                                text: "Ctrl K";
                             }
                         }
-                        Text {
-                            text: "keluar layar penuh";
+                        if !root.compact-bar: Text {
+                            text: "cari";
                             color: Theme.text-3;
                             font-size: 12px;
                             vertical-alignment: center;

@@ -572,3 +572,27 @@ Belum diuji:
 - Proyektor 16:9 yang sebenarnya dari jarak duduk jemaat (ukuran referensi 4% tinggi layar).
 - Terjemahan Indonesia (TB) dan rentang yang melewati pasal di aplikasi; keduanya baru diuji lewat tes core.
 - macOS (menunggu CI).
+
+## Rilis 0.6.0 — 23 November 2026
+
+Berisi desain baru dari empat bagian di atas: layar operator, editor di kolom tengah, Alkitab di kolom tengah, dan referensi ayat di layar proyektor. Diuji di komputer pengembangan yang sama.
+
+- Versi workspace 0.6.0 (`Cargo.lock`: 3 crate Lentera) dan `app.manifest` 0.6.0.0.
+- `cargo test -p lentera-core --locked`: 84 lulus. `cargo fmt --all --check` dan `cargo clippy` untuk `lentera-core`, `lentera-app` (dengan dan tanpa `snapshot`), dan `lentera-win32` (`--all-targets -D warnings`) bersih. `THIRD-PARTY-NOTICES.txt` disusun ulang: 300 crate, tidak berubah.
+- Build rilis `lentera.exe`: 13.875.200 byte (0.5.0: 13.324.288 byte). FileVersion / ProductVersion 0.6.0, FileDescription "Lentera".
+- Uji alur UI build rilis di folder kosong: 35/35, versi 0.6.0. `lentera-win32` (profil `ci`): 9/9, versi 0.6.0.
+- **Format data.** Kode penyimpanan profil tidak berubah sejak v0.5.0. `alkitab.db` tidak mendapat tabel atau kolom baru; **Terakhir dibuka** hanya menambah baris `history` di tabel `meta`.
+- **Data 0.4.0 dibuka 0.6.0.** Salinan `lentera.exe` 0.4.0 dari instalasi (instalasinya tidak diubah) membuat folder data uji lewat uji alurnya (25/25): satu profil skema 1 dengan 5 materi dan susunan 3 materi, dan `alkitab.db` berisi 36 ayat uji. Build rilis 0.6.0 lalu membuka folder itu:
+  - Profil terbuka dengan kelima materi dan susunan ibadah.
+  - Materi ayat lama "Yohanes 3:16-20 (UJI)" yang dibuat 0.4.0 ditayangkan, dan proyektor menulis "Yohanes 3:16-17 (UJI)" di bawah slide pertama.
+  - Tab Alkitab memakai terjemahan dari 0.4.0. `yoh 3.17` lalu Enter menayangkan ayat itu, dan **Terakhir dibuka** berisi "Yohanes 3:17 · 1 ayat".
+  - Jendela ditutup lewat `SC_CLOSE` saat proyektor menyala, dan prosesnya keluar.
+  - Sesudahnya `library.db` berskema 2 dengan 5 materi dan 3 baris susunan, dan `alkitab.db` punya kunci `meta` `translation` dan `history`. `PRAGMA integrity_check` keduanya ok.
+- Log galat aplikasi uji kosong. Folder data uji, salinan 0.4.0, dan tangkapan layar dihapus setelah dipakai.
+
+Belum diuji:
+
+- Membuka data 0.6.0 dengan 0.5.0. Rilis 0.5.0 masih draf, jadi belum ada build 0.5.0 di komputer ini. Dari kode, tidak ada perubahan format.
+- Pembaruan otomatis 0.5.0 → 0.6.0 lewat GitHub Releases di instalasi asli. Ini baru bisa diuji setelah kedua rilis diterbitkan.
+- Mengetik dengan papan ketik asli (`:` dan Ctrl+K), gulir dengan roda mouse, dan proyektor 16:9 yang sebenarnya.
+- macOS (menunggu CI) dan PC sasaran dengan RAM 2–4 GB.

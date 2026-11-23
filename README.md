@@ -28,7 +28,7 @@ Memerlukan **Windows 10/11 64-bit**. Antarmuka ditujukan untuk layar sekitar 102
 ## Tampilan dan fitur
 
 - **Kiri:** susunan ibadah (naik, turun, lepas), lalu tab **Pustaka** (lirik / ayat dengan filter dan pencarian judul / isi) dan tab **Alkitab**.
-- **Alkitab:** impor terjemahan sekali (OpenSong XML, Zefania XML, TSV, atau EasyWorship `.ewb`), lalu ketik referensi seperti `Yoh 3:16-18` dan tekan Enter untuk menayangkan. Ayat juga bisa dipilih dari daftar satu pasal (Shift+klik untuk rentang). Slide dibagi otomatis 1–3 ayat dengan nomor ayat kecil; **+ Susunan** menyimpannya ke pustaka dan susunan ibadah.
+- **Alkitab:** impor terjemahan sekali (OpenSong XML, Zefania XML, TSV, atau EasyWorship `.ewb`). Tab **Alkitab** membuka Alkitab di kolom tengah: ketik referensi seperti `Yoh 3:16-18` dan tekan Enter untuk menayangkan, atau ketik referensinya di kotak cari (Ctrl+K). Ayat juga bisa dipilih dari daftar satu pasal (Shift+klik untuk rentang), dan **Terakhir dibuka** di kiri membuka lagi referensi sebelumnya. Slide dibagi otomatis 1–3 ayat dengan nomor ayat kecil; **Ke susunan** menyimpannya ke pustaka dan susunan ibadah.
 - **Tengah:** semua slide materi terpilih sebagai kartu. Klik untuk pratinjau, klik dua kali untuk langsung menayangkan.
 - **Kanan:** pratinjau, tombol **Tayangkan**, layar yang sedang tayang, tombol sebelumnya / berikutnya, gelapkan, layar penuh, dan latar umum (tiga warna atau gambar).
 - **Latar gambar:** tambahkan gambar JPG atau PNG ke galeri profil, lalu pakai satu gambar sebagai latar umum, atau beri setiap lagu dan ayat gambarnya sendiri. Teks di atas gambar tampil putih dengan garis tepi gelap. Gambar disalin ke profil dan diperkecil untuk layar 1920×1080; berkas aslinya tidak diubah.

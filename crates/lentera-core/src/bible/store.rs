@@ -17,6 +17,8 @@ pub const MAX_PASSAGE_VERSES: usize = 300;
 const CODE_MAX: usize = 12;
 /// Panjang maksimum nama terjemahan.
 const NAME_MAX: usize = 80;
+/// Jumlah referensi di daftar "Terakhir dibuka".
+pub const HISTORY_MAX: usize = 8;
 
 const SCHEMA_VERSION: i32 = 1;
 
@@ -69,6 +71,15 @@ pub struct Lookup {
     pub chapter_verses: Vec<Verse>,
     /// Ayat yang dirujuk, urut sesuai referensi. Kosong bila hanya nama kitab.
     pub verses: Vec<Verse>,
+}
+
+/// Satu referensi di daftar "Terakhir dibuka".
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Recent {
+    /// Tulisan baku referensi, misalnya "Yohanes 3:16-18".
+    pub label: String,
+    /// Jumlah ayat saat referensi ini terakhir dibuka.
+    pub verses: usize,
 }
 
 /// Basis data Alkitab yang sedang dibuka.
@@ -218,27 +229,73 @@ impl Bible {
         Ok(())
     }
 
+    fn meta(&self, key: &str) -> Option<String> {
+        self.conn
+            .query_row("SELECT value FROM meta WHERE key = ?1", [key], |row| {
+                row.get(0)
+            })
+            .ok()
+    }
+
+    fn set_meta(&self, key: &str, value: &str) -> Result<(), String> {
+        self.conn
+            .execute(
+                "INSERT INTO meta (key, value) VALUES (?1, ?2)
+                 ON CONFLICT (key) DO UPDATE SET value = excluded.value",
+                [key, value],
+            )
+            .map(|_| ())
+            .map_err(self.err())
+    }
+
     /// Terjemahan yang terakhir dipakai.
     pub fn last_translation(&self) -> Option<i64> {
-        self.conn
-            .query_row(
-                "SELECT value FROM meta WHERE key = 'translation'",
-                [],
-                |row| row.get::<_, String>(0),
-            )
-            .ok()
+        self.meta("translation")
             .and_then(|value| value.parse().ok())
     }
 
     pub fn set_last_translation(&self, id: i64) -> Result<(), String> {
-        self.conn
-            .execute(
-                "INSERT INTO meta (key, value) VALUES ('translation', ?1)
-                 ON CONFLICT (key) DO UPDATE SET value = excluded.value",
-                [id.to_string()],
-            )
-            .map(|_| ())
-            .map_err(self.err())
+        self.set_meta("translation", &id.to_string())
+    }
+
+    /// Referensi yang terakhir ditayangkan atau ditambahkan ke susunan, yang
+    /// terbaru dulu. Berlaku untuk semua terjemahan.
+    pub fn history(&self) -> Vec<Recent> {
+        let value = self.meta("history").unwrap_or_default();
+        value
+            .lines()
+            .filter_map(|line| {
+                let (verses, label) = line.split_once('\t')?;
+                let label = tidy(label);
+                if label.is_empty() {
+                    return None;
+                }
+                Some(Recent {
+                    label,
+                    verses: verses.parse().ok()?,
+                })
+            })
+            .take(HISTORY_MAX)
+            .collect()
+    }
+
+    /// Menaruh referensi di urutan teratas "Terakhir dibuka". Referensi yang
+    /// sama tidak dicatat dua kali.
+    pub fn remember(&self, label: &str, verses: usize) -> Result<(), String> {
+        let label = tidy(label);
+        if label.is_empty() {
+            return Ok(());
+        }
+        let mut list = self.history();
+        list.retain(|r| r.label.to_lowercase() != label.to_lowercase());
+        list.insert(0, Recent { label, verses });
+        list.truncate(HISTORY_MAX);
+        let value = list
+            .iter()
+            .map(|r| format!("{}\t{}", r.verses, r.label))
+            .collect::<Vec<_>>()
+            .join("\n");
+        self.set_meta("history", &value)
     }
 
     /// Jumlah pasal sebuah kitab di terjemahan (0 bila kitabnya tidak ada).
@@ -566,6 +623,32 @@ mod tests {
         assert_eq!(bible.translations().unwrap(), std::slice::from_ref(&second));
         assert_eq!(bible.chapter_count(first.id, 43).unwrap(), 0);
         assert_eq!(bible.chapter_count(second.id, 43).unwrap(), 3);
+    }
+
+    #[test]
+    fn history_keeps_latest_unique_references() {
+        let dir = TempDir::new("history");
+        let bible = Bible::open(&dir.0).unwrap();
+        assert!(bible.history().is_empty());
+        bible.remember("Yohanes 3:16-18", 3).unwrap();
+        bible.remember("Mazmur 23", 6).unwrap();
+        // Yang sama naik ke atas dan jumlah ayatnya diperbarui.
+        bible.remember(" yohanes  3:16-18 ", 3).unwrap();
+        bible.remember("\t\n", 1).unwrap();
+        let labels = |b: &Bible| b.history().into_iter().map(|r| r.label).collect::<Vec<_>>();
+        assert_eq!(labels(&bible), ["yohanes 3:16-18", "Mazmur 23"]);
+        assert_eq!(bible.history()[1].verses, 6);
+        for n in 1..=10 {
+            bible.remember(&format!("Roma {n}"), n).unwrap();
+        }
+        let list = bible.history();
+        assert_eq!(list.len(), HISTORY_MAX);
+        assert_eq!(list[0].label, "Roma 10");
+        assert_eq!(list[HISTORY_MAX - 1].label, "Roma 3");
+        drop(bible);
+
+        let bible = Bible::open(&dir.0).unwrap();
+        assert_eq!(bible.history(), list);
     }
 
     #[test]

@@ -14,7 +14,7 @@ pub use books::{BOOKS, Book, BookMatch, book, find_book};
 pub use import::{ImportedBible, parse_bible, read_bible_file};
 pub(crate) use import::{clean, finish};
 pub use reference::{END, Reference, Span, parse as parse_reference};
-pub use store::{BIBLE_DB, Bible, Lookup, MAX_PASSAGE_VERSES, Translation};
+pub use store::{BIBLE_DB, Bible, HISTORY_MAX, Lookup, MAX_PASSAGE_VERSES, Recent, Translation};
 
 /// Satu ayat.
 #[derive(Clone, Debug, PartialEq, Eq)]

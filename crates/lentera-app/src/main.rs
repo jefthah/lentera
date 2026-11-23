@@ -98,17 +98,21 @@ fn current_meta(item: &Item) -> String {
 /// Nama warna latar umum, urutannya sama dengan `Theme.slide-names`.
 const SLIDE_NAMES: [&str; 3] = ["Gelap", "Biru malam", "Terang"];
 
-fn tile(text: &str) -> SlideTile {
+/// Slide tanpa keterangan referensi; keterangan hanya untuk slide yang
+/// tayang (lihat `refresh_live`).
+fn tile(text: &str, verse: bool) -> SlideTile {
     SlideTile {
         text: text.into(),
         first: text.lines().next().unwrap_or_default().into(),
         lines: text.lines().count().max(1) as i32,
         chars: text.lines().map(|l| l.chars().count()).max().unwrap_or(0) as i32,
+        caption: SharedString::new(),
+        verse,
     }
 }
 
-fn tiles(slides: &[String]) -> Vec<SlideTile> {
-    slides.iter().map(|s| tile(s)).collect()
+fn tiles(slides: &[String], verse: bool) -> Vec<SlideTile> {
+    slides.iter().map(|s| tile(s, verse)).collect()
 }
 
 /// Huruf pertama nama profil, untuk lingkaran inisial.
@@ -643,7 +647,7 @@ impl App {
         self.ui.set_current_title(title.into());
         self.ui.set_current_meta(meta.into());
         self.ui.set_current_song(song);
-        self.slide_tiles.set_vec(tiles(&slides));
+        self.slide_tiles.set_vec(tiles(&slides, !song));
         self.refresh_preview();
     }
 
@@ -652,8 +656,9 @@ impl App {
         let current = st
             .selected
             .and_then(|id| st.library.item(id))
-            .map(|item| (item.title.clone(), item.slides()));
-        let Some((title, slides)) = current.filter(|(_, slides)| !slides.is_empty()) else {
+            .map(|item| (item.title.clone(), item.kind == Kind::Verse, item.slides()));
+        let Some((title, verse, slides)) = current.filter(|(_, _, slides)| !slides.is_empty())
+        else {
             drop(st);
             self.ui.set_has_preview(false);
             self.ui.set_preview(SlideTile::default());
@@ -666,7 +671,7 @@ impl App {
         let page = st.page;
         drop(st);
         self.ui.set_has_preview(true);
-        self.ui.set_preview(tile(&slides[page]));
+        self.ui.set_preview(tile(&slides[page], verse));
         self.ui
             .set_preview_meta(format!("{title} · {}/{}", page + 1, slides.len()).into());
         self.ui
@@ -676,7 +681,14 @@ impl App {
 
     fn refresh_live(&self) {
         let st = self.state.borrow();
-        let live_tile = st.live.as_ref().map(|s| tile(&s.text)).unwrap_or_default();
+        let live_tile = st
+            .live
+            .as_ref()
+            .map(|s| SlideTile {
+                caption: s.caption.as_str().into(),
+                ..tile(&s.text, s.kind == Kind::Verse)
+            })
+            .unwrap_or_default();
         let meta = match (&st.live, st.blackout) {
             (_, true) => "Layar digelapkan".to_owned(),
             (Some(s), false) => format!("{} · {}/{}", s.title, s.page + 1, s.total),
@@ -718,7 +730,8 @@ impl App {
         drop(st);
         match item {
             Some(item) => {
-                self.editor_tiles.set_vec(tiles(&item.slides()));
+                self.editor_tiles
+                    .set_vec(tiles(&item.slides(), item.kind == Kind::Verse));
                 self.ui.set_editor_song(item.kind == Kind::Song);
                 self.ui.set_editor_title(item.title.into());
                 self.ui.set_editor_body(item.content.into());
@@ -967,7 +980,8 @@ impl App {
         self.state.borrow_mut().dirty = true;
         self.ui.set_editor_dirty(true);
         let body = self.ui.get_editor_body();
-        self.editor_tiles.set_vec(tiles(&split_slides(&body)));
+        self.editor_tiles
+            .set_vec(tiles(&split_slides(&body), !self.ui.get_editor_song()));
         let weak = Rc::downgrade(self);
         self.save_timer
             .start(TimerMode::SingleShot, SAVE_DELAY, move || {
@@ -992,6 +1006,9 @@ impl App {
             }
         }
         self.ui.set_editor_song(song);
+        let body = self.ui.get_editor_body();
+        self.editor_tiles
+            .set_vec(tiles(&split_slides(&body), !song));
         self.persist();
         self.refresh_library();
         self.refresh_service();
@@ -3210,6 +3227,14 @@ impl App {
                 self.bible_go_live();
                 let live = self.state.borrow().live.as_ref().map(|s| s.item);
                 self.check("bible_live", live.is_some_and(Library::is_scratch));
+                // Referensi ayat di bawah teks di layar proyektor.
+                let projected = self.output.get_tile();
+                self.check(
+                    "projector_caption",
+                    projected.verse
+                        && projected.caption.starts_with("Yohanes 3:16")
+                        && projected.caption.ends_with(" (UJI)"),
+                );
                 self.check(
                     "bible_history",
                     self.ui.get_bible_history().row_count() == 1

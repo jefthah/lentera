@@ -2,7 +2,7 @@
 
 ## Belum dirilis
 
-Layar operator memakai desain baru. Yang dilihat jemaat kini ada di atas kolom kanan, susunan ibadah menunjukkan sampai mana ibadah berjalan, editor tidak lagi menutup kontrol tayang, dan Alkitab dibuka di kolom tengah.
+Layar operator memakai desain baru. Yang dilihat jemaat kini ada di atas kolom kanan, susunan ibadah menunjukkan sampai mana ibadah berjalan, editor tidak lagi menutup kontrol tayang, Alkitab dibuka di kolom tengah, dan layar proyektor menyebut referensi ayat yang tayang.
 
 **Layar operator baru:**
 
@@ -48,6 +48,11 @@ Layar operator memakai desain baru. Yang dilihat jemaat kini ada di atas kolom k
 - **Referensi dari kotak cari:**
   - Ketik referensi seperti `yoh 3:16` di kotak cari (**Ctrl+K**). Di atas daftar pustaka muncul **Buka Yohanes 3:16**. Tekan **Enter** atau klik baris itu untuk membukanya di Alkitab.
   - Mengetik di kotak cari saat tab Alkitab atau Susunan terbuka kini pindah ke tab Pustaka, supaya hasilnya terlihat.
+- **Referensi ayat di layar proyektor:**
+  - Di bawah ayat yang tayang tampil referensinya, misalnya "Yohanes 3:16 (TB)". Referensi ini mengikuti ayat di setiap slide, jadi slide "Yohanes 3:16-18" yang hanya berisi ayat 17 bertuliskan "Yohanes 3:17 (TB)".
+  - Referensi hanya muncul bila judul materi Ayat berupa referensi, misalnya hasil **Ke susunan** atau ayat TSV `Yoh 3:16`. Materi Ayat dengan judul lain dan lagu tidak berubah.
+  - **Layar jemaat** di kolom kanan ikut menampilkannya. Kartu slide di tengah dan Hasil slide tidak.
+  - Teks ayat memakai huruf Semibold, sedikit lebih tipis dari lirik, seperti di desain.
 - **Jendela sempit** (di bawah 1200 px, misalnya laptop 1024×640):
   - Kolom kiri dan kanan lebih sempit.
   - Susunan ibadah pindah ke tab **Susunan** di samping Pustaka dan Alkitab.

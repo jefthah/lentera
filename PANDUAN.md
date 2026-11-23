@@ -122,6 +122,8 @@ Nama kitab boleh ditulis lengkap (`Yohanes`), dengan singkatan TB (`Kej`, `Mzm`,
 
 **Slide ayat.** **Otomatis** membagi 1–3 ayat per slide menurut panjangnya, dengan nomor ayat kecil di depan setiap ayat. **1 ayat/slide** memberi tepat satu ayat per slide. Pasal baru selalu dimulai di slide baru. Baris dipotong supaya teks sebesar mungkin di layar 16:9.
 
+**Referensi di proyektor.** Di bawah ayat yang tayang, proyektor dan **Layar jemaat** menulis referensi ayat di slide itu, misalnya "Yohanes 3:16 (TB)". Referensi diambil dari judul materi Ayat, jadi hanya muncul bila judulnya berupa referensi seperti "Yohanes 3:16-18 (TB)" atau "Yoh 3:16". Ganti judul materi bila referensi tidak perlu tampil.
+
 **Menyimpan ke susunan.** Ayat yang dilihat atau ditayangkan dari tab Alkitab tidak masuk pustaka. Tekan **Ke susunan** untuk menyimpannya ke pustaka profil sebagai materi Ayat, misalnya "Yohanes 3:16-18 (TB)", sekaligus menambahkannya ke susunan ibadah. **Edit ayat** juga menyimpannya ke pustaka dulu; setelah itu teksnya bisa diubah seperti materi lain. Ayat yang sama tidak disimpan dua kali.
 
 **Menghapus terjemahan.** Ikon tempat sampah di samping pilihan terjemahan menghapus terjemahan itu dari komputer setelah konfirmasi. Materi ayat yang sudah disimpan di pustaka tidak ikut terhapus.

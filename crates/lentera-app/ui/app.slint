@@ -24,6 +24,11 @@ export struct SlideTile {
     first: string,
     lines: int,
     chars: int,
+    // Referensi ayat di bawah teks, misalnya "Yohanes 3:16 (TB)". Hanya diisi
+    // untuk slide yang tayang.
+    caption: string,
+    // Materi ayat: hurufnya sedikit lebih tipis dari lirik.
+    verse: bool,
 }
 
 // Satu ayat di daftar pasal tab Alkitab.
@@ -94,6 +99,9 @@ export global Theme {
     out property <color> picture-dim: #00000059;
     out property <color> picture-ink: #FFFFFF;
     out property <color> picture-outline: #000000B8;
+    // Referensi ayat di bawah teks, per latar umum dan di atas gambar.
+    out property <[color]> slide-caption: [#AEB7C6, #C9D6F2, #5C5850];
+    out property <color> picture-caption: #FFFFFFE6;
     // Warna lingkaran inisial profil. Jumlahnya sama dengan PROFILE_TONES di main.rs.
     out property <[color]> avatar: [#F2B441, #8DB4FF, #3FCB7E, #FF9EA2, #C9A7FF, #6FD6CF];
 }
@@ -661,23 +669,57 @@ component SlideText inherits Rectangle {
     in property <int> lines: 1;
     in property <int> chars: 10;
     in property <color> ink;
+    // Referensi ayat di bawah teks; kosong bila tidak ada.
+    in property <string> caption;
+    in property <color> caption-ink: root.ink;
+    // Ayat memakai huruf sedikit lebih tipis dari lirik.
+    in property <bool> verse;
     // Garis tepi gelap, untuk teks di atas gambar latar.
     in property <bool> outline;
+    // Ukuran dari desain layar 960×540: keterangan 22 px, 28 px di bawah ayat.
+    // Diukur dari bidang 16:9 yang muat di layar, supaya di monitor tegak
+    // keterangan tidak lebih besar dari ayatnya.
+    property <length> unit: Math.min(root.height, root.width * 9 / 16);
+    property <length> caption-size: root.unit * 0.041;
+    property <length> caption-gap: root.unit * 0.052;
+    property <length> caption-room: root.caption == "" ? 0px : root.caption-size * 1.3 + root.caption-gap;
+    // Tinggi yang tersedia untuk teks, dan ukuran huruf yang muat.
+    property <length> area: root.height * 0.84 - root.caption-room;
+    property <length> fit: Math.min(
+        root.area / (Math.max(root.lines, 1) * 1.32),
+        root.width * 0.88 / (Math.max(root.chars, 10) * 0.55),
+        root.height / 6.5);
+    // Dengan keterangan, teks dan keterangan bersama-sama di tengah layar.
+    property <length> block: root.caption == "" ? root.area : Math.min(Math.max(root.lines, 1) * root.fit * 1.32, root.area);
+    property <length> block-y: (root.height - root.block - root.caption-room) / 2;
     Text {
         x: parent.width * 0.06;
-        y: parent.height * 0.08;
+        y: root.block-y;
         width: parent.width * 0.88;
-        height: parent.height * 0.84;
+        height: root.block;
         text: root.text;
         color: root.ink;
         wrap: word-wrap;
         horizontal-alignment: center;
         vertical-alignment: center;
-        font-weight: 700;
-        font-size: Math.min(
-            parent.height * 0.84 / (Math.max(root.lines, 1) * 1.32),
-            parent.width * 0.88 / (Math.max(root.chars, 10) * 0.55),
-            parent.height / 6.5);
+        font-weight: root.verse ? 600 : 700;
+        font-size: root.fit;
+        stroke: root.outline ? Theme.picture-outline : transparent;
+        stroke-width: root.outline ? Math.max(self.font-size * 0.07, 1px) : 0px;
+        stroke-style: outside;
+    }
+    if root.caption != "": Text {
+        x: parent.width * 0.06;
+        y: root.block-y + root.block + root.caption-gap;
+        width: parent.width * 0.88;
+        height: root.caption-size * 1.3;
+        text: root.caption;
+        color: root.caption-ink;
+        font-size: root.caption-size;
+        font-weight: 600;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        overflow: elide;
         stroke: root.outline ? Theme.picture-outline : transparent;
         stroke-width: root.outline ? Math.max(self.font-size * 0.07, 1px) : 0px;
         stroke-style: outside;
@@ -747,6 +789,7 @@ component SlideTileView inherits Rectangle {
                 text: root.tile.text;
                 lines: root.tile.lines;
                 chars: root.tile.chars;
+                verse: root.tile.verse;
                 ink: root.has-picture ? Theme.picture-ink : Theme.slide-ink[root.bg-index];
                 outline: root.has-picture;
             }
@@ -811,6 +854,8 @@ component Screen inherits Rectangle {
     in property <bool> has-picture;
     in property <color> ring;
     in property <string> empty-text;
+    // Tampilkan referensi ayat seperti di proyektor (layar jemaat).
+    in property <bool> show-caption;
     in property <length> radius: 14px;
     in property <length> inset: 4px;
     border-radius: root.radius;
@@ -835,7 +880,10 @@ component Screen inherits Rectangle {
             text: root.tile.text;
             lines: root.tile.lines;
             chars: root.tile.chars;
+            verse: root.tile.verse;
+            caption: root.show-caption ? root.tile.caption : "";
             ink: root.has-picture ? Theme.picture-ink : Theme.slide-ink[root.bg-index];
+            caption-ink: root.has-picture ? Theme.picture-caption : Theme.slide-caption[root.bg-index];
             outline: root.has-picture;
         }
         if root.dark || !root.has-slide: Text {
@@ -3836,6 +3884,7 @@ export component MainWindow inherits Window {
                                         text: tile.text;
                                         lines: tile.lines;
                                         chars: tile.chars;
+                                        verse: tile.verse;
                                         ink: root.has-view-picture ? Theme.picture-ink : Theme.slide-ink[root.bg-index];
                                         outline: root.has-view-picture;
                                     }
@@ -3934,6 +3983,7 @@ export component MainWindow inherits Window {
                             Screen {
                                 height: self.width * 9 / 16;
                                 tile: root.live;
+                                show-caption: true;
                                 has-slide: root.has-live;
                                 dark: root.blackout;
                                 bg-index: root.bg-index;
@@ -4332,7 +4382,10 @@ export component OutputWindow inherits Window {
             text: root.tile.text;
             lines: root.tile.lines;
             chars: root.tile.chars;
+            verse: root.tile.verse;
+            caption: root.tile.caption;
             ink: root.has-picture ? Theme.picture-ink : Theme.slide-ink[root.bg-index];
+            caption-ink: root.has-picture ? Theme.picture-caption : Theme.slide-caption[root.bg-index];
             outline: root.has-picture;
         }
         TouchArea {

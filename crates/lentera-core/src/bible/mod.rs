@@ -109,6 +109,91 @@ pub fn superscript(text: &str) -> String {
         .collect()
 }
 
+/// Referensi untuk setiap slide materi ayat, misalnya "Yohanes 3:16-17 (TB)",
+/// untuk keterangan di bawah ayat di layar proyektor.
+///
+/// `title` adalah judul materi: referensi seperti "Yohanes 3:16-20", boleh
+/// diakhiri singkatan terjemahan dalam kurung. Nomor ayat dibaca dari angka
+/// kecil di awal baris slide (lihat [`passage_text`]). Slide tanpa angka itu
+/// memakai seluruh referensi judul. Bila judul bukan referensi, semua
+/// keterangan kosong.
+pub fn slide_captions(title: &str, slides: &[String]) -> Vec<String> {
+    let title = title.trim();
+    let (label, suffix) = match title.rfind(" (") {
+        Some(at) if title.ends_with(')') => title.split_at(at),
+        _ => (title, ""),
+    };
+    let Some(reference) = parse_reference(label).ok().filter(|r| !r.spans.is_empty()) else {
+        return vec![String::new(); slides.len()];
+    };
+    // Pasal yang dilalui, berurutan. Satu slide tidak pernah melewati batas
+    // pasal (lihat `passage_text`), jadi nomor ayat yang tidak naik berarti
+    // pasal berikutnya.
+    let mut chapters: Vec<u16> = Vec::new();
+    for span in &reference.spans {
+        for chapter in span.start.0..=span.end.0 {
+            if chapters.last() != Some(&chapter) {
+                chapters.push(chapter);
+            }
+        }
+    }
+    let whole = format!("{}{suffix}", reference.label());
+    let mut index = 0;
+    let mut previous = None;
+    slides
+        .iter()
+        .map(|slide| {
+            let Some((first, last)) = verse_numbers(slide) else {
+                return whole.clone();
+            };
+            if previous.is_some_and(|p| first <= p) && index + 1 < chapters.len() {
+                index += 1;
+            }
+            previous = Some(last);
+            let verses = if last > first {
+                format!("{first}-{last}")
+            } else {
+                first.to_string()
+            };
+            format!(
+                "{} {}:{verses}{suffix}",
+                reference.book.name, chapters[index]
+            )
+        })
+        .collect()
+}
+
+/// Nomor ayat pertama dan terakhir di sebuah slide, dari angka kecil di awal
+/// baris ("¹⁶…", atau "⁵⁻⁶…" untuk ayat gabungan).
+fn verse_numbers(slide: &str) -> Option<(u16, u16)> {
+    let mut range: Option<(u16, u16)> = None;
+    for line in slide.lines() {
+        let mut numbers: [Option<u16>; 2] = [None, None];
+        let mut part = 0;
+        for c in line.trim_start().chars() {
+            let digit = match c {
+                '\u{2070}' => 0,
+                '\u{00b9}' => 1,
+                '\u{00b2}' => 2,
+                '\u{00b3}' => 3,
+                '\u{2074}'..='\u{2079}' => c as u16 - 0x2070,
+                '\u{207b}' if part == 0 && numbers[0].is_some() => {
+                    part = 1;
+                    continue;
+                }
+                _ => break,
+            };
+            let value = numbers[part].unwrap_or(0);
+            numbers[part] = Some(value.saturating_mul(10).saturating_add(digit));
+        }
+        if let [Some(first), last] = numbers {
+            let last = last.unwrap_or(first).max(first);
+            range = Some(range.map_or((first, last), |(start, _)| (start, last)));
+        }
+    }
+    range
+}
+
 /// Memotong paragraf menjadi baris dengan lebar yang membuat teks paling
 /// besar di layar 16:9, memakai rumus ukuran teks yang sama dengan tampilan
 /// slide (`SlideText` di app.slint).
@@ -197,6 +282,56 @@ mod tests {
         );
         let one = split_slides(&passage_text(&verses, Packing::One));
         assert_eq!(one.len(), 6);
+    }
+
+    #[test]
+    fn captions_follow_the_verses_on_each_slide() {
+        let verses = [
+            verse(3, 35, "Pendek satu."),
+            verse(3, 36, "Pendek dua."),
+            verse(4, 1, "Pasal baru."),
+            verse(4, 2, "Dua."),
+            verse(4, 3, "Tiga."),
+            verse(4, 4, "Empat."),
+        ];
+        let slides = split_slides(&passage_text(&verses, Packing::Auto));
+        assert_eq!(
+            slide_captions("Yohanes 3:35-4:4 (TB)", &slides),
+            [
+                "Yohanes 3:35-36 (TB)",
+                "Yohanes 4:1-3 (TB)",
+                "Yohanes 4:4 (TB)"
+            ]
+        );
+        // Satu ayat, seperti di desain layar proyektor.
+        let one = split_slides(&passage_text(&verses[..1], Packing::One));
+        assert_eq!(
+            slide_captions("Yohanes 3:35 (TB)", &one),
+            ["Yohanes 3:35 (TB)"]
+        );
+        // Pasal utuh, ayat gabungan, dan singkatan kitab di judul.
+        let psalm = ["¹Satu\n²Dua".to_owned(), "³⁻⁴Tiga dan empat".to_owned()];
+        assert_eq!(
+            slide_captions("Mzm 23", &psalm),
+            ["Mazmur 23:1-2", "Mazmur 23:3-4"]
+        );
+    }
+
+    #[test]
+    fn captions_without_verse_numbers_or_reference() {
+        // Ayat dari TSV tanpa nomor kecil: seluruh referensi judul.
+        let plain = ["Karena begitu besar kasih Allah".to_owned()];
+        assert_eq!(slide_captions("Yoh 3:16", &plain), ["Yohanes 3:16"]);
+        // Judul yang bukan referensi: tanpa keterangan.
+        let sample = ["Satu".to_owned(), "Dua".to_owned()];
+        assert_eq!(
+            slide_captions("Ayat contoh — ganti dengan referensi", &sample),
+            ["", ""]
+        );
+        assert_eq!(slide_captions("Mazmur", &sample), ["", ""]);
+        // Angka kecil di tengah baris bukan nomor ayat.
+        let inside = ["Luas 3 m² saja".to_owned()];
+        assert_eq!(slide_captions("Kej 6:15", &inside), ["Kejadian 6:15"]);
     }
 
     #[test]

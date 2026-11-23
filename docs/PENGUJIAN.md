@@ -546,3 +546,29 @@ Belum diuji:
 - Kelancaran gulir pasal panjang dengan roda mouse asli.
 - Layar sentuh.
 - macOS (menunggu CI).
+
+## Desain baru: referensi ayat di layar proyektor — 23 November 2026
+
+Bagian keempat dari desain baru. Di bawah ayat yang tayang, proyektor dan **Layar jemaat** menulis referensi ayat di slide itu, misalnya "Yohanes 3:16 (TB)". Teks ayat memakai Semibold. Lirik di desain rata tengah, sama seperti sebelumnya, jadi tidak berubah. Diuji di komputer pengembangan yang sama, dengan dua monitor; monitor kedua tegak (1080×1920).
+
+- `cargo test -p lentera-core --locked`: 84 lulus. Tiga tes baru:
+  - referensi per slide, termasuk rentang yang melewati pasal, pasal utuh, ayat gabungan, dan singkatan kitab di judul;
+  - judul tanpa nomor ayat kecil (ayat TSV), judul yang bukan referensi, dan angka kecil di tengah baris;
+  - `Library::slide` membawa jenis materi dan referensinya.
+- `cargo fmt --all --check` dan `cargo clippy` untuk `lentera-core`, `lentera-app` (dengan dan tanpa `snapshot`), dan `lentera-win32` (`--all-targets -D warnings`) bersih. Tidak ada dependensi baru.
+- Build rilis `lentera.exe`: 13.875.200 byte.
+- Uji alur UI build rilis di folder kosong: 35/35. Pemeriksaan baru `projector_caption`: setelah "Yoh 3:16-20" ditayangkan, slide di proyektor bertanda ayat dan referensinya diawali "Yohanes 3:16" dan diakhiri "(UJI)". `lentera-win32` (profil `ci`): 9/9.
+- Tangkapan layar build rilis dengan KJV (domain publik) di folder data uji terpisah:
+  - **Monitor tegak, layar penuh:** "Yohanes 3:16 (KJV)" di bawah ayat. Ukuran referensi dihitung dari bidang 16:9 yang muat di layar, supaya tidak lebih besar dari ayatnya. Ini diperbaiki setelah tangkapan layar pertama.
+  - **Proyektor berjendela 960×540, latar Biru malam:** slide 2 dari "Yohanes 3:16-18" bertuliskan "Yohanes 3:17 (KJV)" dengan warna biru muda, ayat dan referensi bersama-sama di tengah.
+  - **Latar Terang:** referensi abu-abu gelap, terbaca.
+  - **Gambar latar** (gradasi terang buatan untuk uji): referensi putih bergaris tepi gelap seperti teks ayat.
+  - **Slide lirik:** tetap tebal, rata tengah, tanpa referensi.
+  - **Layar jemaat** di kolom kanan menampilkan referensi yang sama, dalam ukuran kecil.
+- Log galat aplikasi uji kosong. Folder data uji, salinan KJV, gambar uji, dan tangkapan layar dihapus setelah dipakai.
+
+Belum diuji:
+
+- Proyektor 16:9 yang sebenarnya dari jarak duduk jemaat (ukuran referensi 4% tinggi layar).
+- Terjemahan Indonesia (TB) dan rentang yang melewati pasal di aplikasi; keduanya baru diuji lewat tes core.
+- macOS (menunggu CI).

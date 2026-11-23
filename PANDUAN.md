@@ -36,12 +36,12 @@ Di jendela yang lebih sempit dari 1200 px, misalnya laptop 1024×640, susunan ib
 ## Mulai memakai
 
 1. Tekan **Baru** di Pustaka (atau Ctrl+N). Bila filter **Ayat** aktif, materi baru berjenis ayat; selain itu lirik lagu. Editor langsung terbuka.
-2. Tulis judul / referensi dan isi teks. **Satu baris kosong memisahkan slide**; hasilnya langsung terlihat di kolom **Hasil slide**. Perubahan tersimpan otomatis sekitar 1,5 detik setelah berhenti mengetik (Ctrl+S untuk menyimpan segera). Tekan **Kembali ke tayang** setelah selesai. Untuk mengubah materi yang ada, pilih materinya lalu **Edit lirik** atau **Edit ayat**.
+2. Tulis judul / referensi dan isi teks. **Satu baris kosong memisahkan slide**; hasilnya langsung terlihat di kolom **Hasil slide**. Perubahan tersimpan otomatis sekitar 1,5 detik setelah berhenti mengetik (Ctrl+S untuk menyimpan segera). Tekan **Kembali ke slide** setelah selesai. Untuk mengubah materi yang ada, pilih materinya lalu **Edit lirik** atau **Edit ayat**.
 3. Tekan **+ Susunan** di samping materi di Pustaka (muncul saat baris disorot atau dipilih), atau **Tambah ke susunan** di editor. Materi yang sama dapat ditambahkan beberapa kali. Sorot atau pilih baris di susunan untuk memunculkan tombol naik, turun, dan lepas.
 4. Klik slide di tengah untuk pratinjau, lalu tekan **Tayangkan** atau **F5**. Klik dua kali slide, materi pustaka, atau baris susunan untuk langsung menayangkan. Tombol **1–9** langsung menayangkan slide bernomor itu. Pratinjau dan layar tayang terpisah, jadi persiapan tidak langsung mengubah layar jemaat.
 5. Gunakan **Berikutnya / Sebelumnya** atau PageDown / PageUp. Setelah slide terakhir, Lentera berpindah ke materi berikutnya dalam susunan, melewati materi kosong.
 
-Saat mengedit, layar tayang tidak berubah sampai Anda menayangkan lagi. Bilah atas menampilkan apa yang sedang tayang.
+Editor terbuka di kolom tengah. Kolom kanan tetap menampilkan layar jemaat dan tombol tayang, jadi lirik bisa dibetulkan saat ibadah berjalan, dan **Berikutnya** / PageDown tetap bisa dipakai. Teks yang diubah baru terlihat di layar jemaat setelah slide itu ditayangkan lagi atau tayangan pindah slide. Di atas editor ada tanda **Tersimpan**, atau **Menyimpan…** selama perubahan belum tersimpan, dan tombol **Hapus**.
 
 Dengan satu monitor, jendela proyektor terbuka sebagai jendela biasa. Dengan dua monitor, sambungkan proyektor **sebelum membuka aplikasi**, aktifkan mode **Extend / Perluas** di Windows, lalu pilih monitor proyektor di menu proyektor (panah di tombol proyektor); jendela proyektor terbuka layar penuh di monitor itu. Konfigurasi dua monitor perlu diuji pada perangkat ibadah yang sebenarnya sebelum digunakan.
 

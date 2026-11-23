@@ -2,7 +2,7 @@
 
 ## Belum dirilis
 
-Layar operator memakai desain baru. Yang dilihat jemaat kini ada di atas kolom kanan, dan susunan ibadah menunjukkan sampai mana ibadah berjalan.
+Layar operator memakai desain baru. Yang dilihat jemaat kini ada di atas kolom kanan, susunan ibadah menunjukkan sampai mana ibadah berjalan, dan editor tidak lagi menutup kontrol tayang.
 
 **Layar operator baru:**
 
@@ -28,12 +28,18 @@ Layar operator memakai desain baru. Yang dilihat jemaat kini ada di atas kolom k
   - **Ctrl+K** pindah ke kotak cari.
   - **1–9** langsung menayangkan slide itu dari materi terpilih, saat tidak sedang mengetik.
   - **Esc** di kotak cari atau kotak teks lain kini hanya keluar dari kotak itu. Layar penuh dan proyektor tidak berubah.
+- **Editor di kolom tengah:**
+  - Kolom kanan dengan layar jemaat, **Sebelumnya / Berikutnya**, **Tayangkan**, dan **Gelapkan** tetap terlihat saat mengedit. Lirik bisa dibetulkan saat ibadah berjalan.
+  - Bilah atas tetap sama saat mengedit, termasuk tombol proyektor.
+  - Di atas editor: **Kembali ke slide** (dulu **Kembali ke tayang**, di bilah atas), tanda **Tersimpan** / **Menyimpan…**, dan **Hapus** (dulu **Hapus materi**).
+  - Formulir di kiri: **Judul**, **Jenis** (**Lirik lagu** amber atau **Ayat Alkitab** biru), dan **Isi**.
+  - **Hasil slide** di kanannya, satu kolom bernomor. Di bawahnya ada keterangan berapa slide lagi di bawah, lalu **Tambah ke susunan**.
 - **Jendela sempit** (di bawah 1200 px, misalnya laptop 1024×640):
   - Kolom kiri dan kanan lebih sempit.
   - Susunan ibadah pindah ke tab **Susunan** di samping Pustaka dan Alkitab.
   - Latar umum hanya ada di menu proyektor.
 
-Fungsi lain tidak berubah. Editor dan pencarian ayat Alkitab masih di tempat lama; keduanya menyusul dalam desain baru.
+Fungsi lain tidak berubah. Pencarian ayat Alkitab masih di kolom kiri; tempatnya di kolom tengah menyusul dalam desain baru.
 
 ## 0.5.0 — 22 November 2026 — beta
 

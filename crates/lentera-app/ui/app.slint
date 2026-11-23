@@ -548,11 +548,14 @@ component SegTab inherits Rectangle {
     in property <string> icon;
     in property <string> count;
     in property <bool> on;
+    // Warna tab terpilih: abu-abu, atau amber / biru untuk jenis materi.
+    in property <color> on-bg: Theme.active;
+    in property <color> on-fg: Theme.text;
     callback clicked();
     height: 32px;
     horizontal-stretch: 1;
     border-radius: 8px;
-    background: root.on ? Theme.active : touch.has-hover ? Theme.hover : transparent;
+    background: root.on ? root.on-bg : touch.has-hover ? Theme.hover : transparent;
     accessible-role: tab;
     accessible-label: root.text;
     accessible-checked: root.on;
@@ -566,14 +569,14 @@ component SegTab inherits Rectangle {
             alignment: center;
             Icon {
                 svg: root.icon;
-                color: root.on ? Theme.text : Theme.text-3;
+                color: root.on ? root.on-fg : Theme.text-3;
                 width: 15px;
                 height: 15px;
             }
         }
         Text {
             text: root.text;
-            color: root.on ? Theme.text : Theme.text-2;
+            color: root.on ? root.on-fg : Theme.text-2;
             font-size: 13px;
             font-weight: root.on ? 600 : 500;
             vertical-alignment: center;
@@ -1882,6 +1885,8 @@ export component MainWindow inherits Window {
     in-out property <string> editor-body;
     in property <bool> editor-song: true;
     in property <[SlideTile]> editor-slides;
+    // Ada perubahan editor yang belum tersimpan (disimpan otomatis sebentar lagi).
+    in property <bool> editor-dirty;
 
     in property <string> status: "Tersimpan otomatis";
     in property <bool> status-ok: true;
@@ -2143,19 +2148,6 @@ export component MainWindow inherits Window {
                             }
                         }
                     }
-                    if root.editing: VerticalLayout {
-                        alignment: center;
-                        Btn {
-                            text: "Kembali ke tayang";
-                            icon: Icons.back;
-                            height: 40px;
-                            full-text: true;
-                            clicked => {
-                                root.close-editor();
-                                keys.focus();
-                            }
-                        }
-                    }
                     Rectangle {
                         horizontal-stretch: 1;
                     }
@@ -2175,7 +2167,7 @@ export component MainWindow inherits Window {
                     Rectangle {
                         horizontal-stretch: 1;
                     }
-                    if !root.editing: HorizontalLayout {
+                    HorizontalLayout {
                         spacing: 8px;
                         horizontal-stretch: 0;
                         VerticalLayout {
@@ -2222,35 +2214,6 @@ export component MainWindow inherits Window {
                                 size: 40px;
                                 clicked => {
                                     about-popup.show();
-                                }
-                            }
-                        }
-                    }
-                    if root.editing && root.has-live: VerticalLayout {
-                        alignment: center;
-                        Rectangle {
-                            height: 40px;
-                            width: live-pill.preferred-width + 36px;
-                            border-radius: 12px;
-                            background: Theme.live-soft;
-                            border-width: 1px;
-                            border-color: #5A2226;
-                            HorizontalLayout {
-                                padding-left: 14px;
-                                spacing: 10px;
-                                VerticalLayout {
-                                    alignment: center;
-                                    Rectangle {
-                                        width: 8px;
-                                        height: 8px;
-                                        border-radius: 4px;
-                                        background: #FF5A60;
-                                    }
-                                }
-                                live-pill := Text {
-                                    text: root.blackout ? "Layar jemaat sedang gelap" : "Sedang tayang: " + root.live-meta;
-                                    color: #FFC9CB;
-                                    vertical-alignment: center;
                                 }
                             }
                         }
@@ -3198,89 +3161,265 @@ export component MainWindow inherits Window {
                     }
                 }
 
-                // Tengah, mode edit.
+                // Tengah, mode edit: formulir di kiri, hasil slide di kanan.
+                // Kontrol tayang di kolom kanan tetap terlihat, jadi lirik bisa
+                // dibetulkan saat ibadah berjalan.
                 if root.editing: VerticalLayout {
                     horizontal-stretch: 1;
-                    padding: 24px;
-                    padding-bottom: 14px;
-                    spacing: 8px;
-                    Text {
-                        text: "Judul";
-                        color: Theme.text-2;
-                        font-size: 13px;
-                    }
-                    LineEdit {
-                        text <=> root.editor-title;
-                        font-size: 20px;
-                        height: 46px;
-                        init => {
-                            if root.focus-title {
-                                self.focus();
-                                self.select-all();
+                    padding: 20px;
+                    padding-bottom: 16px;
+                    spacing: 16px;
+                    HorizontalLayout {
+                        spacing: 12px;
+                        Btn {
+                            text: "Kembali ke slide";
+                            icon: Icons.back;
+                            horizontal-stretch: 0;
+                            full-text: true;
+                            height: 38px;
+                            font-size: 13px;
+                            pad: 12px;
+                            clicked => {
+                                root.close-editor();
+                                keys.focus();
                             }
                         }
-                        edited => {
-                            root.editor-edited();
-                        }
-                    }
-                    HorizontalLayout {
-                        padding-top: 8px;
-                        padding-bottom: 6px;
-                        spacing: 6px;
-                        Text {
-                            text: "Jenis";
-                            color: Theme.text-2;
+                        if !root.compact-bar: Text {
+                            text: "Edit materi pustaka";
+                            color: Theme.text-3;
                             font-size: 13px;
                             vertical-alignment: center;
-                            width: 50px;
-                        }
-                        Chip {
-                            text: "Lirik lagu";
-                            on: root.editor-song;
-                            clicked => {
-                                root.set-song(true);
-                            }
-                        }
-                        Chip {
-                            text: "Ayat Alkitab";
-                            on: !root.editor-song;
-                            clicked => {
-                                root.set-song(false);
-                            }
                         }
                         Rectangle {
                             horizontal-stretch: 1;
                         }
-                    }
-                    Text {
-                        text: "Isi";
-                        color: Theme.text-2;
-                        font-size: 13px;
-                    }
-                    TextEdit {
-                        vertical-stretch: 1;
-                        text <=> root.editor-body;
-                        font-size: 16px;
-                        wrap: word-wrap;
-                        edited => {
-                            root.editor-edited();
+                        HorizontalLayout {
+                            spacing: 6px;
+                            horizontal-stretch: 0;
+                            if !root.editor-dirty: VerticalLayout {
+                                alignment: center;
+                                Icon {
+                                    svg: Icons.check;
+                                    color: Theme.ok;
+                                    width: 14px;
+                                    height: 14px;
+                                }
+                            }
+                            Text {
+                                text: root.editor-dirty ? "Menyimpan…" : "Tersimpan";
+                                color: root.editor-dirty ? Theme.text-3 : Theme.text-2;
+                                font-size: 13px;
+                                vertical-alignment: center;
+                            }
+                        }
+                        Btn {
+                            text: "Hapus";
+                            icon: Icons.trash;
+                            kind: "danger";
+                            horizontal-stretch: 0;
+                            full-text: true;
+                            height: 38px;
+                            font-size: 13px;
+                            pad: 12px;
+                            clicked => {
+                                root.delete-current();
+                            }
                         }
                     }
                     HorizontalLayout {
-                        spacing: 8px;
-                        Text {
-                            text: "Satu baris kosong memisahkan slide. Tersimpan otomatis setelah berhenti mengetik.";
-                            color: Theme.text-3;
-                            font-size: 13px;
-                            overflow: elide;
+                        vertical-stretch: 1;
+                        spacing: root.compact-bar ? 14px : 20px;
+                        VerticalLayout {
                             horizontal-stretch: 1;
+                            spacing: 8px;
+                            Text {
+                                text: "Judul";
+                                color: Theme.text-2;
+                                font-size: 13px;
+                            }
+                            LineEdit {
+                                text <=> root.editor-title;
+                                font-size: 18px;
+                                height: 46px;
+                                init => {
+                                    if root.focus-title {
+                                        self.focus();
+                                        self.select-all();
+                                    }
+                                }
+                                edited => {
+                                    root.editor-edited();
+                                }
+                            }
+                            Rectangle {
+                                height: 6px;
+                            }
+                            Text {
+                                text: "Jenis";
+                                color: Theme.text-2;
+                                font-size: 13px;
+                            }
+                            HorizontalLayout {
+                                alignment: start;
+                                Rectangle {
+                                    width: 250px;
+                                    height: 40px;
+                                    border-radius: 10px;
+                                    background: Theme.panel;
+                                    border-width: 1px;
+                                    border-color: Theme.border;
+                                    HorizontalLayout {
+                                        padding: 3px;
+                                        spacing: 2px;
+                                        SegTab {
+                                            text: "Lirik lagu";
+                                            icon: Icons.music;
+                                            on: root.editor-song;
+                                            on-bg: Theme.accent-soft;
+                                            on-fg: Theme.accent;
+                                            clicked => {
+                                                root.set-song(true);
+                                            }
+                                        }
+                                        SegTab {
+                                            text: "Ayat Alkitab";
+                                            icon: Icons.book;
+                                            on: !root.editor-song;
+                                            on-bg: Theme.verse-soft;
+                                            on-fg: Theme.verse;
+                                            clicked => {
+                                                root.set-song(false);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            Rectangle {
+                                height: 6px;
+                            }
+                            HorizontalLayout {
+                                spacing: 8px;
+                                Text {
+                                    text: "Isi";
+                                    color: Theme.text-2;
+                                    font-size: 13px;
+                                    horizontal-stretch: 0;
+                                }
+                                Text {
+                                    text: "Satu baris kosong = slide baru";
+                                    color: Theme.text-3;
+                                    font-size: 12px;
+                                    horizontal-alignment: right;
+                                    horizontal-stretch: 1;
+                                    overflow: elide;
+                                }
+                            }
+                            TextEdit {
+                                vertical-stretch: 1;
+                                text <=> root.editor-body;
+                                font-size: 16px;
+                                wrap: word-wrap;
+                                edited => {
+                                    root.editor-edited();
+                                }
+                            }
+                        }
+                        VerticalLayout {
+                            width: root.compact-bar ? 168px : 232px;
+                            spacing: 10px;
+                            SectionTitle {
+                                text: "Hasil slide";
+                                detail: root.editor-slides.length + " slide";
+                                padding-left: 0px;
+                                padding-right: 0px;
+                            }
+                            if root.editor-slides.length == 0: Text {
+                                text: "Belum ada slide. Tulis teks di kolom Isi.";
+                                color: Theme.text-3;
+                                font-size: 13px;
+                                wrap: word-wrap;
+                            }
+                            results := ScrollView {
+                                vertical-stretch: 1;
+                                property <length> tile-h: self.visible-width * 9 / 16;
+                                // Slide yang belum terlihat utuh di bawah.
+                                property <int> below: Math.max(0, root.editor-slides.length - Math.floor((self.visible-height - self.content-y + 12px) / (self.tile-h + 12px)));
+                                content-width: self.visible-width;
+                                content-height: Math.max(0px, root.editor-slides.length * (self.tile-h + 12px) - 12px);
+                                for tile[i] in root.editor-slides: Rectangle {
+                                    y: i * (results.tile-h + 12px);
+                                    width: results.visible-width;
+                                    height: results.tile-h;
+                                    border-radius: 10px;
+                                    border-width: 1px;
+                                    border-color: #2A303C;
+                                    clip: true;
+                                    background: Theme.slide-bg[root.bg-index];
+                                    if root.has-view-picture: PictureFill {
+                                        width: parent.width;
+                                        height: parent.height;
+                                        picture: root.view-picture;
+                                    }
+                                    SlideText {
+                                        width: parent.width;
+                                        height: parent.height;
+                                        text: tile.text;
+                                        lines: tile.lines;
+                                        chars: tile.chars;
+                                        ink: root.has-view-picture ? Theme.picture-ink : Theme.slide-ink[root.bg-index];
+                                        outline: root.has-view-picture;
+                                    }
+                                    Rectangle {
+                                        x: 8px;
+                                        y: 8px;
+                                        width: number.preferred-width + 12px;
+                                        height: 20px;
+                                        border-radius: 5px;
+                                        background: #0B0D12B3;
+                                        number := Text {
+                                            text: i + 1;
+                                            color: #E6E9EF;
+                                            font-size: 11px;
+                                            font-weight: 600;
+                                            horizontal-alignment: center;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+                                }
+                            }
+                            // Tinggi tetap: petunjuk ini tidak boleh mengubah tinggi daftar.
+                            Rectangle {
+                                height: 16px;
+                                // x dan y tetap: ukuran teks tidak ikut menentukan ukuran kotak.
+                                Text {
+                                    x: 0px;
+                                    y: 0px;
+                                    width: parent.width;
+                                    height: parent.height;
+                                    text: results.below > 0 ? "Gulir untuk " + results.below + " slide lagi" : "";
+                                    color: Theme.text-3;
+                                    font-size: 12px;
+                                    vertical-alignment: center;
+                                    overflow: elide;
+                                }
+                            }
+                            Btn {
+                                text: "Tambah ke susunan";
+                                icon: Icons.plus;
+                                height: 44px;
+                                font-size: 13px;
+                                pad: 10px;
+                                clicked => {
+                                    root.add-current-to-service();
+                                }
+                            }
                         }
                     }
                 }
 
-                // Kolom kanan, mode tayang: yang dilihat jemaat, pratinjau, dan
-                // kontrol. Tombol gelapkan dan layar penuh selalu di bawah.
-                if !root.editing: Rectangle {
+                // Kolom kanan: yang dilihat jemaat, pratinjau, dan kontrol, juga
+                // saat mengedit. Tombol gelapkan dan layar penuh selalu di bawah.
+                Rectangle {
                     width: root.compact-bar ? 300px : root.side-width;
                     background: Theme.panel;
                     side := ScrollView {
@@ -3494,94 +3633,6 @@ export component MainWindow inherits Window {
                                         root.show-backgrounds();
                                     }
                                 }
-                            }
-                        }
-                    }
-                    Rectangle {
-                        x: 0;
-                        width: 1px;
-                        background: Theme.line;
-                    }
-                }
-
-                // Kolom kanan, mode edit: hasil slide.
-                if root.editing: Rectangle {
-                    width: 360px;
-                    background: Theme.panel;
-                    VerticalLayout {
-                        padding: 18px;
-                        spacing: 12px;
-                        SectionTitle {
-                            text: "Hasil slide";
-                            detail: root.editor-slides.length + " slide";
-                            padding-left: 0px;
-                            padding-right: 0px;
-                        }
-                        if root.editor-slides.length == 0: Text {
-                            text: "Belum ada slide. Tulis teks di kolom Isi.";
-                            color: Theme.text-3;
-                            font-size: 13px;
-                            wrap: word-wrap;
-                        }
-                        results := ScrollView {
-                            vertical-stretch: 1;
-                            property <length> tile-w: (self.visible-width - 12px) / 2;
-                            property <length> tile-h: self.tile-w * 9 / 16 + 22px;
-                            content-width: self.visible-width;
-                            content-height: Math.ceil(root.editor-slides.length / 2) * (self.tile-h + 12px);
-                            for tile[i] in root.editor-slides: Rectangle {
-                                x: Math.mod(i, 2) * (results.tile-w + 12px);
-                                y: Math.floor(i / 2) * (results.tile-h + 12px);
-                                width: results.tile-w;
-                                height: results.tile-h;
-                                Rectangle {
-                                    y: 0;
-                                    height: parent.width * 9 / 16;
-                                    border-radius: 10px;
-                                    border-width: 1px;
-                                    border-color: #2A303C;
-                                    clip: true;
-                                    background: Theme.slide-bg[root.bg-index];
-                                    if root.has-view-picture: PictureFill {
-                                        width: parent.width;
-                                        height: parent.height;
-                                        picture: root.view-picture;
-                                    }
-                                    SlideText {
-                                        width: parent.width;
-                                        height: parent.height;
-                                        text: tile.text;
-                                        lines: tile.lines;
-                                        chars: tile.chars;
-                                        ink: root.has-view-picture ? Theme.picture-ink : Theme.slide-ink[root.bg-index];
-                                        outline: root.has-view-picture;
-                                    }
-                                }
-                                Text {
-                                    y: parent.width * 9 / 16 + 4px;
-                                    text: i + 1;
-                                    color: #C5CBD6;
-                                    font-size: 12px;
-                                    font-weight: 600;
-                                }
-                            }
-                        }
-                        Btn {
-                            kind: "primary";
-                            text: "Tambah ke susunan";
-                            icon: Icons.plus;
-                            height: 50px;
-                            font-size: 15px;
-                            clicked => {
-                                root.add-current-to-service();
-                            }
-                        }
-                        Btn {
-                            kind: "danger";
-                            text: "Hapus materi";
-                            icon: Icons.trash;
-                            clicked => {
-                                root.delete-current();
                             }
                         }
                     }

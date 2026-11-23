@@ -1,11 +1,16 @@
-use crate::{Item, Library};
+use crate::{Item, Kind, Library, bible};
 
 /// Satu slide yang siap ditampilkan di pratinjau atau proyektor.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Slide {
     pub item: u64,
+    pub kind: Kind,
     pub title: String,
     pub text: String,
+    /// Referensi ayat di slide ini untuk layar proyektor, misalnya
+    /// "Yohanes 3:16 (TB)". Kosong untuk lagu dan ayat yang judulnya bukan
+    /// referensi (lihat [`bible::slide_captions`]).
+    pub caption: String,
     /// Nomor slide, mulai dari 0.
     pub page: usize,
     /// Jumlah slide pada materi.
@@ -36,11 +41,17 @@ impl Library {
         let item = self.item(item)?;
         let slides = item.slides();
         let total = slides.len();
+        let captions = match item.kind {
+            Kind::Verse => bible::slide_captions(&item.title, &slides),
+            Kind::Song => Vec::new(),
+        };
         let text = slides.into_iter().nth(page)?;
         Some(Slide {
             item: item.id,
+            kind: item.kind,
             title: item.title.clone(),
             text,
+            caption: captions.into_iter().nth(page).unwrap_or_default(),
             page,
             total,
         })
@@ -150,8 +161,25 @@ mod tests {
             "Kasih Tuhan menyertai kita\nHari ini dan selamanya"
         );
         assert_eq!((slide.item, slide.page, slide.total), (1, 1, 2));
+        assert_eq!((slide.kind, slide.caption.as_str()), (Kind::Song, ""));
         assert!(library.slide(1, 2).is_none());
         assert!(library.slide(99, 0).is_none());
+    }
+
+    #[test]
+    fn verse_slide_carries_its_reference() {
+        let mut library = Library::blank();
+        let id = library.add(
+            Kind::Verse,
+            "Yohanes 3:16-17 (TB)".into(),
+            "¹⁶Karena begitu besar\n\n¹⁷Sebab Allah mengutus".into(),
+        );
+        let slide = library.slide(id, 1).unwrap();
+        assert_eq!(slide.kind, Kind::Verse);
+        assert_eq!(slide.caption, "Yohanes 3:17 (TB)");
+        // Judul yang bukan referensi tidak diberi keterangan.
+        let sample = library.add(Kind::Verse, "Bacaan pagi".into(), "Teks".into());
+        assert_eq!(library.slide(sample, 0).unwrap().caption, "");
     }
 
     #[test]

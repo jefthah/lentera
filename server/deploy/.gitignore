@@ -1,0 +1,5 @@
+# Dibuat di VPS; jangan di-commit.
+.env
+cadangan/
+*.log
+.tag-aktif

@@ -4,6 +4,7 @@
 //	lentera-server migrate up        menerapkan migrasi yang belum dijalankan
 //	lentera-server migrate down      membatalkan migrasi terakhir
 //	lentera-server migrate status    menampilkan status migrasi
+//	lentera-server health            memeriksa API yang sedang berjalan (health check Docker)
 package main
 
 import (
@@ -11,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -33,6 +35,15 @@ func main() {
 }
 
 func run(args []string, logger *slog.Logger) error {
+	// Health check hanya butuh alamat API, bukan seluruh konfigurasi.
+	if len(args) > 0 && args[0] == "health" {
+		addr := os.Getenv("HTTP_ADDR")
+		if addr == "" {
+			addr = "127.0.0.1:8310"
+		}
+		return checkHealth(addr)
+	}
+
 	cfg, err := config.Load()
 	if err != nil {
 		return err
@@ -61,8 +72,45 @@ func run(args []string, logger *slog.Logger) error {
 		defer pool.Close()
 		return database.Migrate(ctx, pool, migration, os.Stdout)
 	default:
-		return fmt.Errorf("perintah %q tidak dikenal; pakai serve atau migrate up|down|status", command)
+		return fmt.Errorf("perintah %q tidak dikenal; pakai serve, migrate up|down|status, atau health", command)
 	}
+}
+
+// checkHealth asks the API listening on addr for /v1/health. Docker runs it as the container
+// health check, because the image has no shell or curl.
+func checkHealth(addr string) error {
+	url, err := healthURL(addr)
+	if err != nil {
+		return err
+	}
+	client := http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Get(url)
+	if err != nil {
+		return fmt.Errorf("API tidak menjawab: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("API menjawab %s", resp.Status)
+	}
+
+	return nil
+}
+
+// healthURL turns a listen address such as ":8310" or "0.0.0.0:8310" into a URL that the same
+// machine can reach.
+func healthURL(addr string) (string, error) {
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return "", fmt.Errorf("HTTP_ADDR %q tidak valid: %w", addr, err)
+	}
+	switch host {
+	case "", "0.0.0.0":
+		host = "127.0.0.1"
+	case "::":
+		host = "::1"
+	}
+
+	return "http://" + net.JoinHostPort(host, port) + "/v1/health", nil
 }
 
 func serve(ctx context.Context, cfg config.Config, logger *slog.Logger) error {

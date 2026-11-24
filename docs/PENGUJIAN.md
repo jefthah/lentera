@@ -669,3 +669,38 @@ Folder data uji, database PostgreSQL sementara, log server, token uji, kredensia
 - macOS (Keychain). CI hanya membangun dan menjalankan uji alur tanpa server.
 - Dua komputer fisik yang berbeda, dan profil dengan ribuan materi lewat HTTP.
 - Mengetik dengan papan ketik asli di jendela masuk. Uji ini memakai pesan keyboard tiruan.
+
+## Berkas deploy server — 24 November 2026
+
+Berkas untuk menjalankan server di VPS: image Docker, compose production, `deploy.sh`, `cadangan.sh`, dan contoh situs Caddy (`server/deploy/`). Server belum di-deploy.
+
+- **Server:**
+  - `gofmt -l` dan `go vet ./...` bersih.
+  - `go test -count=1 ./...` lulus. Tes yang butuh PostgreSQL dilewati di komputer ini; CI menjalankannya.
+  - Dua tes baru memeriksa `lentera-server health`: alamat `0.0.0.0` / `:8310` / `[::]` diarahkan ke loopback, API sehat menghasilkan sukses, `503` dan API mati menghasilkan galat.
+- **Build Linux statis** (`CGO_ENABLED=0 GOOS=linux`): 12.128.418 byte.
+- **Compose:**
+  - `docker compose config` dengan `.env` uji: valid, dan nilai `MAIL_FROM` yang berspasi terbaca utuh.
+  - Tanpa `.env`, compose berhenti dengan pesan "isi … di .env".
+  - Layanan `migrate` hanya muncul dengan profil `migrasi`.
+- `sh -n` untuk `deploy.sh` dan `cadangan.sh`: sintaks valid.
+
+Belum diuji di komputer ini, karena daemon Docker Desktop tidak berjalan:
+
+- build image;
+- menjalankan `deploy.sh`.
+
+Keduanya dijalankan job CI baru **Image Docker dan alur deploy** di runner Linux:
+
+- dua kali deploy;
+- health dari host;
+- `401` tanpa token;
+- status container `healthy`;
+- cadangan sebelum migrasi kedua;
+- isi cadangan terbaca `pg_restore`.
+
+Belum diuji sama sekali:
+
+- Caddy dan HTTPS di VPS;
+- email lewat Resend;
+- kembali ke versi sebelumnya saat API baru tidak sehat.

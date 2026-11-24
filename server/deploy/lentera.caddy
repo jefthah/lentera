@@ -1,0 +1,17 @@
+# Situs Caddy untuk server Lentera. Salin ke /etc/caddy/sites/lentera.caddy,
+# ganti api.example.org dengan domain asli, lalu periksa dan muat ulang Caddy:
+#
+#   sudo caddy validate --config /etc/caddy/Caddyfile
+#   sudo systemctl reload caddy
+#
+# Caddy mengurus sertifikat HTTPS dan menulis X-Forwarded-For, yang dibaca
+# server untuk batas laju per alamat IP.
+api.example.org {
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:8310
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		-Server
+	}
+}

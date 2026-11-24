@@ -178,4 +178,4 @@ Setiap kesalahan berbentuk `{"error": {"code": "...", "message": "...", "field":
 - Login Google.
 - Latar video dan gambar di bucket.
 - Sinkron Alkitab yang diimpor.
-- Deploy ke VPS. Sampai server di-deploy dan variabel `LENTERA_SERVER` diisi, build rilis belum memakai server.
+- Deploy ke VPS. Berkas dan langkahnya sudah ada di [`server/deploy/`](../server/deploy/README.md). Sampai server di-deploy dan variabel `LENTERA_SERVER` diisi, build rilis belum memakai server.

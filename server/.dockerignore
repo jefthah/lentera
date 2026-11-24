@@ -1,0 +1,7 @@
+# Hanya kode Go yang masuk ke image.
+.env
+.env.*
+deploy/
+lentera-server
+lentera-server.exe
+*.dump

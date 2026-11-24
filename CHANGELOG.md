@@ -1,8 +1,8 @@
 # Riwayat rilis
 
-## Belum dirilis
+## 0.7.0 — 25 November 2026 — beta
 
-**Akun dan sinkron.** Profil yang sama bisa dipakai di beberapa komputer. Server Lentera sudah berjalan. Fitur ini aktif di build rilis yang alamat servernya diisi (`LENTERA_SERVER`). Tanpa alamat itu, Lentera tidak meminta masuk dan bekerja seperti 0.6.0.
+**Akun dan sinkron.** Profil yang sama bisa dipakai di beberapa komputer, misalnya laptop di rumah dan komputer gereja.
 
 - **Masuk dengan kode email.** Jendela **Masuk ke Lentera** muncul saat pertama kali dibuka: email, lalu kode 6 digit. Tidak ada kata sandi. Setelah masuk sekali, Lentera bisa dipakai tanpa internet.
 - **Yang disinkron:** lirik, ayat, susunan ibadah, nama profil, dan warna latar umum.
@@ -25,6 +25,8 @@
 - **Kotak konfirmasi "Keluar dari akun" kini muncul.**
   - Sebelumnya kotak itu tersembunyi, sehingga jendela Lentera terkunci dan tampak macet.
   - Semua kotak pesan Lentera kini dijaga supaya selalu tampil.
+
+**Memperbarui:** pengguna 0.1.1 sampai 0.6.0 menerima versi ini lewat pembaruan otomatis; pengguna 0.1.0 memasang installer sekali. Setelah pembaruan, Lentera meminta masuk saat pertama kali dibuka. Langkah ini butuh internet dan email, jadi lakukan di luar ibadah. Versi ini tidak mengubah format profil: sinkron hanya menambah tabel `synced` dan beberapa kunci di tabel `meta`, sehingga profil yang sudah dibuka 0.7.0 tetap bisa dibuka lagi oleh 0.6.0. Bila memperbarui langsung dari 0.4.0 atau sebelumnya, profil diperbarui untuk latar per materi seperti di 0.5.0, dan setelah itu tidak bisa dibuka lagi oleh 0.4.0 atau sebelumnya. Program kini sekitar 14,2 MB (0.6.0: 13,9 MB). Komponen pihak ketiga baru: `keyring` untuk menyimpan token di Windows Credential Manager, beserta `byteorder` dan `windows-sys` 0.60 yang dipakainya.
 
 ## 0.6.0 — 23 November 2026 — beta
 

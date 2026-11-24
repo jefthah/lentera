@@ -35,6 +35,21 @@ jobs:
           fi
           echo "VERSION=$version" >> "$GITHUB_ENV"
 
+      # Sejak 0.7.0 rilis memakai akun. Tanpa alamat server, build tetap jadi
+      # tetapi tanpa layar masuk dan sinkron, padahal catatan rilisnya
+      # menjanjikan keduanya.
+      - name: Alamat server terisi
+        env:
+          LENTERA_SERVER: ${{ vars.LENTERA_SERVER }}
+        run: |
+          case "$LENTERA_SERVER" in
+            https://?*) echo "LENTERA_SERVER terisi." ;;
+            *)
+              echo "::error::Variabel repositori LENTERA_SERVER harus berisi alamat https server Lentera."
+              exit 1
+              ;;
+          esac
+
       - name: Catatan rilis dari CHANGELOG.md
         run: |
           mkdir -p dist
@@ -56,8 +71,8 @@ jobs:
       # Sejak 0.2.0 yang dirilis adalah tampilan Slint (crates/lentera-app). Nama
       # programnya tetap lentera.exe supaya pembaruan dari 0.1.x tetap jalan.
       # Alamat server akun dari variabel repositori LENTERA_SERVER (misalnya
-      # https://api.contoh.org). Bila kosong, layar masuk dan sinkron tidak
-      # aktif dan Lentera berjalan seperti sebelumnya.
+      # https://api.contoh.org), yang sudah diperiksa di langkah "Alamat server
+      # terisi".
       - name: Build
         env:
           LENTERA_SERVER: ${{ vars.LENTERA_SERVER }}

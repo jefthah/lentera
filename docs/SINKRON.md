@@ -101,7 +101,7 @@ Logika sinkron ada di `crates/lentera-core/src/sync/`: `Engine` menjalankan satu
 
 ### Alamat server
 
-- Dibaca saat build dari variabel environment `LENTERA_SERVER`. Workflow rilis mengambilnya dari variabel repositori dengan nama yang sama.
+- Dibaca saat build dari variabel environment `LENTERA_SERVER`. Workflow rilis mengambilnya dari variabel repositori dengan nama yang sama, dan sejak 0.7.0 berhenti bila variabel itu kosong.
 - Bila kosong, layar masuk dan sinkron tidak aktif dan Lentera berjalan seperti 0.6.0.
 - Untuk uji, `lentera.exe --server http://127.0.0.1:8310` memakai server lain, dan `--server ""` mematikannya.
 - Uji alur UI (`--ui-smoke-test`) hanya memakai server bila `--server` diberikan.

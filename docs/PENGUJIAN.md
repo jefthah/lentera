@@ -755,3 +755,28 @@ Belum diuji sama sekali:
 - Caddy dan HTTPS di VPS;
 - email lewat Resend;
 - kembali ke versi sebelumnya saat API baru tidak sehat.
+
+## Rilis 0.7.0 — 25 November 2026
+
+Berisi login dan sinkron, serta perbaikan NUL dari EasyWorship dan kotak pesan tersembunyi (bagian 24 November di atas). Diuji di komputer pengembangan yang sama.
+
+- Versi workspace 0.7.0 (`Cargo.lock`: 3 crate Lentera) dan `app.manifest` 0.7.0.0.
+- `cargo fmt --all --check` bersih. `cargo clippy --all-targets -- -D warnings` bersih untuk `lentera-core` (dengan dan tanpa fitur `http`), `lentera-app` (dengan dan tanpa `snapshot`), dan `lentera-win32`.
+- `cargo test --locked`: 100 tes `lentera-core` lulus. Dua tes di `tests/server.rs` langsung selesai karena `LENTERA_TEST_SERVER` tidak diisi.
+- `THIRD-PARTY-NOTICES.txt` disusun ulang: 305 crate, tidak berubah dari `main`. Dibanding 0.6.0 ada 5 crate baru, semuanya dari `keyring`: `keyring` 3.6.3, `byteorder` 1.5.0, `windows-sys` 0.60.2, `windows-targets` 0.53.5, dan `windows_x86_64_msvc` 0.53.1.
+- Build rilis `lentera.exe` dengan `LENTERA_SERVER` berisi alamat server production: 14.223.360 byte (0.6.0: 13.875.200 byte). FileVersion / ProductVersion 0.7.0, FileDescription "Lentera".
+- Uji alur UI build rilis itu di folder kosong: 35/35, versi 0.7.0. Uji alur tidak memakai server bawaan dan tidak membuat `akun.json`, jadi langkah yang sama di `rilis.yml` tidak tertahan layar masuk.
+- **Data 0.6.0 dibuka 0.7.0.** Salinan `lentera.exe` 0.6.0 dari instalasi (instalasinya tidak diubah) membuat folder data uji lewat uji alurnya (35/35). Satu lirik lalu diberi karakter NUL, seperti lagu dari EasyWorship 7.
+  - Dengan server bawaan, build 0.7.0 menampilkan **Masuk ke Lentera** lebih dulu. Jendela itu ditutup tanpa mengirim kode, dan Lentera keluar.
+  - Dengan `--server` ke alamat lokal yang menolak koneksi, **Kirim kode masuk** menampilkan "Server Lentera tidak terjangkau" dan tombol **Buka tanpa masuk untuk sementara**. Tombol itu membuka profil "Ibadah Umum" dengan 5 materi dan susunan 3 materi, dan tombol akun menunjukkan "Belum masuk".
+  - Sesudah ditutup, `library.db` tetap skema 2 dengan 5 materi dan 3 baris susunan, tanpa NUL. `library.db.bak` masih berisi NUL itu. `PRAGMA integrity_check` keduanya ok.
+- **Profil 0.7.0 dibuka 0.6.0.** Profil yang sama diberi tabel `synced` (SQL yang sama dengan `sync/db.rs`) dan kunci `meta` sinkron, seperti profil yang sudah masuk akun. Salinan 0.6.0 membukanya dengan kelima materi dan susunan ibadah. Setelah ditutup, tabel `synced` (5 baris) dan kunci sinkron masih ada, dan `integrity_check` ok.
+- `rilis.yml` mendapat langkah **Alamat server terisi**: rilis berhenti bila variabel repositori `LENTERA_SERVER` kosong atau bukan alamat `https`.
+- Log galat aplikasi uji kosong. Folder data uji, salinan 0.6.0, dan tangkapan layar dihapus setelah dipakai.
+
+Belum diuji:
+
+- Masuk dengan build ini ke server production dan mengunduh profil akun di komputer kedua.
+- Langkah **Alamat server terisi**, yang baru berjalan saat tag di-push.
+- Pembaruan otomatis 0.6.0 → 0.7.0 lewat GitHub Releases di instalasi asli. Ini baru bisa diuji setelah rilis diterbitkan.
+- macOS (menunggu CI) dan PC sasaran dengan RAM 2–4 GB.

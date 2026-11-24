@@ -81,7 +81,7 @@ curl -fsS https://api.domain-anda/v1/health
 
 ## Mengaktifkan di rilis
 
-Isi variabel repositori GitHub **`LENTERA_SERVER`** dengan `https://api.domain-anda` (Settings → Secrets and variables → Actions → Variables). Build rilis berikutnya akan meminta masuk. Sebelum variabel itu diisi, rilis tetap tanpa layar masuk.
+Isi variabel repositori GitHub **`LENTERA_SERVER`** dengan `https://api.domain-anda` (Settings → Secrets and variables → Actions → Variables). Build rilis berikutnya akan meminta masuk. Sejak 0.7.0, workflow rilis berhenti bila variabel itu kosong.
 
 ## Memperbarui server
 

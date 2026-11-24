@@ -1,4 +1,4 @@
-# Lentera 0.6 — presentasi ibadah ringan
+# Lentera 0.7 — presentasi ibadah ringan
 
 Aplikasi presentasi ibadah berbasis Rust dan Slint untuk lirik, ayat, dan proyektor, untuk Windows dan macOS. Sasaran pengembangannya komputer dengan RAM 2–4 GB; ini sasaran, bukan hasil uji pada semua komputer lama.
 
@@ -11,7 +11,7 @@ Aplikasi presentasi ibadah berbasis Rust dan Slint untuk lirik, ayat, dan proyek
    - Atau klik tombolnya, lalu pilih **Yes**: Lentera ditutup, diperbarui, dan dibuka kembali. Proyektor ikut tertutup sebentar, jadi lakukan di luar ibadah.
 4. Untuk menghapus: Settings → Apps → **Lentera** → Uninstall. Data di `%LOCALAPPDATA%\Lentera` tidak ikut terhapus.
 
-Pengguna 0.1.1 sampai 0.5.0 menerima 0.6.0 lewat pembaruan otomatis di atas. Pengguna 0.1.0 (ZIP lama) cukup memasang installer sekali. Setelah 0.5.0 atau yang lebih baru membuka sebuah profil, profil itu tidak bisa dibuka lagi oleh 0.4.0 atau sebelumnya. Pengguna 0.2.1 atau sebelumnya: saat versi baru pertama kali dibuka, pustaka lama dipindahkan otomatis ke **Profil utama** (lihat **Data dan cadangan**).
+Pengguna 0.1.1 sampai 0.6.0 menerima 0.7.0 lewat pembaruan otomatis di atas. Pengguna 0.1.0 (ZIP lama) cukup memasang installer sekali. Setelah memperbarui ke 0.7.0, Lentera meminta masuk dengan email saat pertama kali dibuka (lihat **Akun dan sinkron**), jadi perbarui di luar ibadah. Setelah 0.5.0 atau yang lebih baru membuka sebuah profil, profil itu tidak bisa dibuka lagi oleh 0.4.0 atau sebelumnya. Pengguna 0.2.1 atau sebelumnya: saat versi baru pertama kali dibuka, pustaka lama dipindahkan otomatis ke **Profil utama** (lihat **Data dan cadangan**).
 
 Versi macOS belum punya installer; bangun dari kode sumber (lihat **Untuk pengembang**).
 
@@ -177,7 +177,7 @@ Nama profil yang sedang dibuka juga tampil di judul jendela. Pada jendela yang l
 
 Dengan akun Lentera, profil yang sama bisa dipakai di beberapa komputer, misalnya laptop di rumah dan komputer gereja. Yang disinkron: lirik, ayat, susunan ibadah, nama profil, dan warna latar umum. Pilihan monitor, gambar latar, latar per materi, dan Alkitab yang diimpor tetap milik masing-masing komputer.
 
-Akun baru aktif setelah server Lentera tersedia. Sampai saat itu, Lentera tidak meminta masuk dan bekerja seperti sebelumnya.
+Masuk pertama kali di setiap komputer butuh internet dan akses ke email. Salinan materi, susunan ibadah, dan nama profil disimpan di server Lentera.
 
 ### Masuk
 
@@ -235,6 +235,7 @@ Untuk menyimpan di lokasi lain, jalankan `lentera.exe --data-dir "D:\Data Ibadah
 ## Ruang lingkup versi ini
 
 - Lirik, ayat teks, tab Alkitab dengan referensi dan terjemahan yang diimpor, pencarian, editor, susunan ibadah, pratinjau, keluaran terpisah, layar penuh, blackout, dan latar berupa warna atau gambar, untuk semua materi atau per materi.
+- Akun dengan masuk lewat kode email, dan sinkron profil antarkomputer lewat server Lentera.
 - Windows 10/11 **64-bit** dengan installer dan pembaruan otomatis. macOS dari kode sumber. Antarmuka ditujukan untuk layar minimal sekitar 1024×640.
 - Impor lagu dan Alkitab EasyWorship 2009–8. Jadwal, tema, dan media EasyWorship belum ikut; gambar latar EasyWorship bisa ditambahkan satu per satu atau beberapa sekaligus lewat galeri latar.
 - Belum mencakup video, PowerPoint, NDI, streaming, atau pencarian kata di seluruh Alkitab.
@@ -242,7 +243,7 @@ Untuk menyimpan di lokasi lain, jalankan `lentera.exe --data-dir "D:\Data Ibadah
 
 ## Untuk pengembang
 
-Logika data, susunan ibadah, impor, dan penyimpanan ada di `crates/lentera-core` beserta pengujiannya. Penyimpanan SQLite per profil dan pemindahan `library.json` ada di `src/store.rs`; skemanya diberi versi lewat `PRAGMA user_version`. Alkitab ada di `src/bible/`: daftar 66 kitab, pembaca referensi, impor OpenSong / Zefania / TSV, pembagian slide ayat, dan `alkitab.db`. Impor EasyWorship ada di `src/easyworship/`: lagu SQLite + RTF (6–8), tabel Paradox (2009), dan Alkitab `.ewb`; semuanya hanya membaca. Aplikasi ada di `crates/lentera-app`: logika di `src/main.rs`, tata letak dan tema di `ui/app.slint`, pembaruan otomatis (Velopack) di `src/update.rs`. Tampilan digambar dengan renderer software Slint, tanpa browser tertanam atau server lokal. Tampilan Win32 lama ada di `crates/lentera-win32` dan tidak dirilis lagi. Rilis Windows dibuat oleh workflow `.github/workflows/rilis.yml` saat tag versi di-push. CI (`inti.yml`) berjalan untuk setiap PR dan push ke `main`; build ujinya memakai profil `ci` (release tanpa LTO) dan cache Rust yang diisi dari `main`. Rilis selalu dibangun bersih dengan profil `release`. Server login dan sinkron (Go + PostgreSQL) ada di `server/` dan sudah di-deploy dengan berkas di `server/deploy/`. Protokolnya ada di `docs/SINKRON.md`, logika sinkron di `crates/lentera-core/src/sync/`, dan layar masuk serta tombol akun di `crates/lentera-app/src/akun.rs`. Alamat server diambil saat build dari variabel `LENTERA_SERVER`. Bila kosong, layar masuk tidak aktif. Untuk uji, jalankan `lentera.exe --server http://127.0.0.1:8310`.
+Logika data, susunan ibadah, impor, dan penyimpanan ada di `crates/lentera-core` beserta pengujiannya. Penyimpanan SQLite per profil dan pemindahan `library.json` ada di `src/store.rs`; skemanya diberi versi lewat `PRAGMA user_version`. Alkitab ada di `src/bible/`: daftar 66 kitab, pembaca referensi, impor OpenSong / Zefania / TSV, pembagian slide ayat, dan `alkitab.db`. Impor EasyWorship ada di `src/easyworship/`: lagu SQLite + RTF (6–8), tabel Paradox (2009), dan Alkitab `.ewb`; semuanya hanya membaca. Aplikasi ada di `crates/lentera-app`: logika di `src/main.rs`, tata letak dan tema di `ui/app.slint`, pembaruan otomatis (Velopack) di `src/update.rs`. Tampilan digambar dengan renderer software Slint, tanpa browser tertanam atau server lokal. Tampilan Win32 lama ada di `crates/lentera-win32` dan tidak dirilis lagi. Rilis Windows dibuat oleh workflow `.github/workflows/rilis.yml` saat tag versi di-push. CI (`inti.yml`) berjalan untuk setiap PR dan push ke `main`; build ujinya memakai profil `ci` (release tanpa LTO) dan cache Rust yang diisi dari `main`. Rilis selalu dibangun bersih dengan profil `release`. Server login dan sinkron (Go + PostgreSQL) ada di `server/` dan sudah di-deploy dengan berkas di `server/deploy/`. Protokolnya ada di `docs/SINKRON.md`, logika sinkron di `crates/lentera-core/src/sync/`, dan layar masuk serta tombol akun di `crates/lentera-app/src/akun.rs`. Alamat server diambil saat build dari variabel `LENTERA_SERVER`. Bila kosong, layar masuk tidak aktif; workflow rilis berhenti bila variabel repositorinya kosong. Untuk uji, jalankan `lentera.exe --server http://127.0.0.1:8310`.
 
 Di Windows, pasang Rust stable dengan target `x86_64-pc-windows-msvc` serta Microsoft C++ Build Tools / Windows SDK. Di macOS, pasang Rust stable dan Xcode Command Line Tools. Dari folder proyek:
 

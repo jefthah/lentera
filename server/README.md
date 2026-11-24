@@ -22,6 +22,7 @@ API berjalan di `http://127.0.0.1:8310`. Tanpa `RESEND_API_KEY`, kode masuk tida
 | `lentera-server migrate up` | Menerapkan migrasi yang belum dijalankan |
 | `lentera-server migrate down` | Membatalkan migrasi terakhir |
 | `lentera-server migrate status` | Menampilkan status migrasi |
+| `lentera-server health` | Memeriksa `/v1/health` API yang berjalan di `HTTP_ADDR`; keluar dengan kode 1 bila tidak sehat |
 
 ## Tes
 
@@ -68,7 +69,10 @@ Tanpa kedua variabel itu, uji ini dilewati.
 | `internal/mail` | Email kode lewat Resend, atau ke log bila belum ada kunci |
 | `internal/config` | Variabel environment |
 | `internal/testdb` | Database sementara untuk tes |
+| `deploy` | Compose production, skrip deploy dan cadangan, contoh situs Caddy |
 
 ## Di production
 
 Wajib: `APP_ENV=production`, `DATABASE_URL`, `LOGIN_CODE_SECRET` (minimal 32 karakter), `RESEND_API_KEY`, dan `MAIL_FROM` dengan domain yang sudah diverifikasi di Resend. Server mendengarkan di alamat lokal (`HTTP_ADDR`) dan diharapkan berada di belakang Caddy yang menangani HTTPS. Alamat IP perangkat dibaca dari `X-Forwarded-For` hanya bila koneksi datang dari alamat lokal/privat. Batas laju disimpan di memori, jadi jalankan satu proses saja.
+
+Image Docker, compose production, skrip deploy dan cadangan, contoh situs Caddy, dan langkah-langkahnya ada di [deploy/](deploy/README.md). `lentera-server health` memeriksa API yang sedang berjalan dan dipakai sebagai health check container.

@@ -1,0 +1,75 @@
+# Server Lentera di VPS: PostgreSQL dan API, masing-masing di container sendiri.
+# PostgreSQL tidak membuka port ke host. API hanya mendengarkan 127.0.0.1, dan
+# HTTPS ditangani Caddy di host (lihat lentera.caddy).
+#
+# Jalankan lewat ./deploy.sh, bukan `docker compose up` langsung, supaya database
+# dicadangkan dan migrasi dijalankan sebelum API baru menyala. Rahasia diambil
+# dari .env di folder ini (salin dari env.contoh, jangan di-commit).
+name: lentera
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "3"
+
+x-api-env: &api-env
+  APP_ENV: production
+  DATABASE_URL: postgres://lentera:${POSTGRES_PASSWORD:?isi POSTGRES_PASSWORD di .env}@postgres:5432/lentera?sslmode=disable
+  LOGIN_CODE_SECRET: ${LOGIN_CODE_SECRET:?isi LOGIN_CODE_SECRET di .env}
+  RESEND_API_KEY: ${RESEND_API_KEY:?isi RESEND_API_KEY di .env}
+  MAIL_FROM: ${MAIL_FROM:?isi MAIL_FROM di .env}
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: lentera
+      POSTGRES_DB: lentera
+      # Hanya dipakai saat volume database pertama kali dibuat.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?isi POSTGRES_PASSWORD di .env}
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lentera -d lentera"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    mem_limit: 512m
+    logging: *logging
+
+  api:
+    image: lentera-server:${LENTERA_TAG:-latest}
+    build: ..
+    command: ["serve"]
+    restart: unless-stopped
+    environment: *api-env
+    ports:
+      - "127.0.0.1:${LENTERA_PORT:-8310}:8310"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 256m
+    logging: *logging
+
+  # Dijalankan deploy.sh sebelum API: docker compose run --rm migrate
+  migrate:
+    image: lentera-server:${LENTERA_TAG:-latest}
+    pull_policy: never
+    profiles: [migrasi]
+    command: ["migrate", "up"]
+    environment: *api-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    logging: *logging
+
+volumes:
+  postgres-data:

@@ -12,6 +12,7 @@ mod library;
 mod service;
 mod storage;
 mod store;
+pub mod sync;
 
 pub use import::{MAX_IMPORT_BYTES, SongImport, normalize_text, read_text_file};
 pub use library::{Item, Kind, Library, SCRATCH_ID_START, split_slides};

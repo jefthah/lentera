@@ -596,3 +596,76 @@ Belum diuji:
 - Pembaruan otomatis 0.5.0 → 0.6.0 lewat GitHub Releases di instalasi asli. Ini baru bisa diuji setelah kedua rilis diterbitkan.
 - Mengetik dengan papan ketik asli (`:` dan Ctrl+K), gulir dengan roda mouse, dan proyektor 16:9 yang sebenarnya.
 - macOS (menunggu CI) dan PC sasaran dengan RAM 2–4 GB.
+
+## Login dan sinkron di aplikasi — 24 November 2026
+
+Aplikasi Slint kini bisa memakai server di `server/`. Build rilis belum mengaktifkannya karena server belum di-deploy.
+
+Diuji di komputer pengembangan yang sama dengan:
+
+- server lokal (`lentera-server.exe` dari `server/`) dan PostgreSQL 18 di cluster sementara port 54331;
+- dua folder data uji terpisah, A dan B, yang masuk ke akun uji yang sama.
+
+### Tes otomatis
+
+- `cargo test -p lentera-core --locked`: 96 lulus. Dua belas tes baru menguji sinkron dengan server tiruan:
+  - profil lokal terkirim dan diunduh perangkat lain;
+  - materi, tanda hapus, dan susunan berpindah antarperangkat;
+  - perubahan terbaru menang;
+  - susunan diterapkan setelah halaman terakhir;
+  - suntingan saat permintaan berjalan tetap disimpan dan dikirim berikutnya;
+  - profil yang sudah sama hanya butuh daftar profil;
+  - offline dan sesi berakhir menghentikan putaran;
+  - server yang dipulihkan dari cadangan menerima semuanya lagi;
+  - profil yang dihapus dihapus di server dan tidak diunduh lagi;
+  - ganti nama berpindah, dan nama yang bentrok diberi nomor;
+  - profil yang dihapus pemiliknya atau milik akun lain dibiarkan dan terus dilaporkan;
+  - `akun.json` disimpan, dibaca, dan dihapus.
+- Uji integrasi dengan server sungguhan (`tests/server.rs`, fitur `http`, `LENTERA_TEST_SERVER` / `LENTERA_TEST_TOKEN`): 2/2. Yang diuji:
+  - dua perangkat berbagi profil lewat server;
+  - kode salah dan token rusak mendapat pesan yang jelas.
+- `cargo fmt --all --check` bersih. `cargo clippy --all-targets -- -D warnings` bersih untuk:
+  - `lentera-core`, dengan dan tanpa `http`;
+  - `lentera-app`, dengan dan tanpa `snapshot`;
+  - `lentera-win32`.
+- Dependensi baru: `keyring` 3.6.3, ditambah `byteorder`, `windows-sys` 0.60.2, `windows-targets` 0.53.5, dan `windows_x86_64_msvc` 0.53.1. `THIRD-PARTY-NOTICES.txt` disusun ulang: 305 crate.
+- Build rilis `lentera.exe`: 14.218.752 byte (0.6.0: 13.875.200 byte).
+- Uji alur UI build rilis di folder kosong tanpa `--server`: 35/35. Tidak ada jendela masuk, dan `akun.json` tidak dibuat.
+
+### Uji manual dengan build rilis dan `--server`
+
+- **Masuk di folder kosong A:**
+  - Email, lalu kode, dengan hitungan mundur **Kirim ulang**.
+  - Akun yang belum punya profil mendapat Profil utama, yang lalu terkirim ke akun.
+- **Masuk di folder kosong B:** setelah "Menyiapkan profil", B membuka profil dengan id yang sama. Tidak ada Profil utama contoh ganda.
+- **Antarperangkat:**
+  - Urutan susunan yang diubah di A muncul di B, dan pilihan di B tetap pada materi yang sama.
+  - Warna latar dan materi baru dari B muncul di A.
+- **Membuka lagi** memakai token tersimpan, tanpa jendela masuk. **Sinkron sekarang** berjalan.
+- **Server tidak terjangkau** (`--server http://127.0.0.1:9`) di folder yang sudah berisi profil:
+  - Jendela masuk menampilkan pesan dan **Buka tanpa masuk untuk sementara**.
+  - Lentera terbuka dengan status **Belum masuk**.
+  - **Masuk** dari menu akun membuka jendela masuk, dan **Batal** menutupnya.
+- **Sesi berakhir** (sesi akun dihapus di database): status **Masuk lagi**. Jendela masuk sudah berisi email akun, dan masuk lagi berhasil.
+- **Profil dihapus:**
+  - Profil "remaja" dibuat di A dan muncul di B.
+  - Profil itu dihapus di B. `akun.json` di B mencatatnya, dan server menjawab `DELETE` dengan `204`.
+  - A menerima `410` dan menunjukkan **Perlu perhatian** di setiap putaran. Setelah "remaja" dihapus juga di A, statusnya kembali **Tersinkron**.
+- **Keluar dari akun:**
+  - Setelah konfirmasi, proses keluar. `akun.json` dan kredensialnya terhapus, dan server menjawab logout dengan `204`.
+  - Saat dibuka lagi, jendela masuk muncul.
+
+### Diperbaiki selama pengujian
+
+- Baris menu akun tidak menerima klik karena dibuat dengan `if` di dalam `PopupWindow`. Sekarang baris itu memakai `visible`.
+- Keterangan profil yang dihapus pemiliknya hanya muncul di satu putaran. Sekarang muncul di setiap putaran sampai profilnya dihapus.
+
+Folder data uji, database PostgreSQL sementara, log server, token uji, kredensial uji, dan tangkapan layar dihapus setelah dipakai.
+
+### Belum diuji
+
+- Server di VPS di belakang Caddy, dan pengiriman kode lewat Resend.
+- Build rilis dengan `LENTERA_SERVER` terisi, dan pembaruan dari 0.6.0 ke versi dengan login di instalasi asli.
+- macOS (Keychain). CI hanya membangun dan menjalankan uji alur tanpa server.
+- Dua komputer fisik yang berbeda, dan profil dengan ribuan materi lewat HTTP.
+- Mengetik dengan papan ketik asli di jendela masuk. Uji ini memakai pesan keyboard tiruan.

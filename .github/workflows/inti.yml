@@ -61,6 +61,10 @@ jobs:
       - name: Clippy inti
         run: cargo clippy -p lentera-core --all-targets --locked -- -D warnings
 
+      # Klien HTTP untuk server akun (fitur `http`, dipakai aplikasi Slint).
+      - name: Clippy inti dengan klien server
+        run: cargo clippy -p lentera-core --all-targets --features http --locked -- -D warnings
+
       - name: Tes inti
         run: cargo test -p lentera-core --locked
 

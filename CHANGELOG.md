@@ -1,5 +1,21 @@
 # Riwayat rilis
 
+## Belum dirilis
+
+**Akun dan sinkron.** Profil yang sama bisa dipakai di beberapa komputer. Fitur ini aktif setelah server Lentera di-deploy dan alamatnya diisi saat build rilis (`LENTERA_SERVER`). Tanpa alamat itu, Lentera tidak meminta masuk dan bekerja seperti 0.6.0.
+
+- **Masuk dengan kode email.** Jendela **Masuk ke Lentera** muncul saat pertama kali dibuka: email, lalu kode 6 digit. Tidak ada kata sandi. Setelah masuk sekali, Lentera bisa dipakai tanpa internet.
+- **Yang disinkron:** lirik, ayat, susunan ibadah, nama profil, dan warna latar umum.
+  - Sinkron berjalan saat dibuka, setiap 30 detik, setelah berganti profil, setelah mengganti nama atau menghapus profil, dan lewat **Sinkron sekarang**.
+  - Pilihan monitor, gambar latar, latar per materi, dan Alkitab tetap per komputer.
+- **Data yang sudah ada:** profil di komputer ditambahkan ke akun. Komputer tanpa data mengunduh profil akun dulu, jadi tidak ada Profil utama ganda.
+- **Tombol akun di bilah atas** menunjukkan Tersinkron, Offline, Masuk lagi, atau Perlu perhatian. Menunya berisi email, keterangan, **Sinkron sekarang**, dan **Keluar dari akun**.
+  - **Keluar dari akun** menutup Lentera tanpa menghapus data.
+  - Jam komputer yang berbeda lebih dari 5 menit dari server diperingatkan.
+- **Aman saat server mati.** Bila server tidak terjangkau dan komputer sudah berisi profil, **Buka tanpa masuk untuk sementara** membuka data lokal. Sesi yang berakhir tidak mengunci aplikasi; Lentera hanya meminta **Masuk lagi**.
+- **Profil yang dihapus** di komputer lain tetap tersimpan di komputer ini, tetapi tidak disinkron lagi dan ditandai **Perlu perhatian**.
+- Token sesi disimpan di Windows Credential Manager, bukan di folder data.
+
 ## 0.6.0 — 23 November 2026 — beta
 
 Layar operator memakai desain baru. Yang dilihat jemaat kini ada di atas kolom kanan, susunan ibadah menunjukkan sampai mana ibadah berjalan, editor tidak lagi menutup kontrol tayang, Alkitab dibuka di kolom tengah, dan layar proyektor menyebut referensi ayat yang tayang.

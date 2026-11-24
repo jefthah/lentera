@@ -18,7 +18,13 @@ path = "src/main.rs"
 snapshot = ["dep:png"]
 
 [dependencies]
-lentera-core.workspace = true
+# Fitur `http`: klien server Lentera untuk masuk dan sinkron.
+lentera-core = { workspace = true, features = ["http"] }
+# Token sesi disimpan di Windows Credential Manager / Keychain macOS, bukan
+# di berkas biasa.
+keyring = { version = "3.6.3", default-features = false, features = [
+    "windows-native", "apple-native",
+] }
 # Laporan --ui-smoke-test.
 serde_json.workspace = true
 # Renderer software: tanpa OpenGL, ringan di PC lama, dan tidak memicu

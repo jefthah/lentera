@@ -55,7 +55,12 @@ jobs:
 
       # Sejak 0.2.0 yang dirilis adalah tampilan Slint (crates/lentera-app). Nama
       # programnya tetap lentera.exe supaya pembaruan dari 0.1.x tetap jalan.
+      # Alamat server akun dari variabel repositori LENTERA_SERVER (misalnya
+      # https://api.contoh.org). Bila kosong, layar masuk dan sinkron tidak
+      # aktif dan Lentera berjalan seperti sebelumnya.
       - name: Build
+        env:
+          LENTERA_SERVER: ${{ vars.LENTERA_SERVER }}
         run: cargo build -p lentera-app --release --locked
 
       - name: Uji alur UI

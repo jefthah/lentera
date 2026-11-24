@@ -1,6 +1,6 @@
 # Riwayat rilis
 
-## Belum dirilis
+## 0.6.0 — 23 November 2026 — beta
 
 Layar operator memakai desain baru. Yang dilihat jemaat kini ada di atas kolom kanan, susunan ibadah menunjukkan sampai mana ibadah berjalan, editor tidak lagi menutup kontrol tayang, Alkitab dibuka di kolom tengah, dan layar proyektor menyebut referensi ayat yang tayang.
 
@@ -58,7 +58,9 @@ Layar operator memakai desain baru. Yang dilihat jemaat kini ada di atas kolom k
   - Susunan ibadah pindah ke tab **Susunan** di samping Pustaka dan Alkitab.
   - Latar umum hanya ada di menu proyektor.
 
-Fungsi lain tidak berubah. Daftar **Terakhir dibuka** memakai tabel yang sudah ada di `alkitab.db`, jadi Alkitab yang sudah diimpor tetap bisa dibuka oleh versi sebelumnya.
+Fungsi lain tidak berubah.
+
+**Memperbarui:** pengguna 0.1.1 sampai 0.5.0 menerima versi ini lewat pembaruan otomatis; pengguna 0.1.0 memasang installer sekali. Versi ini tidak mengubah format data. Profil yang sudah dibuka 0.5.0 tetap bisa dibuka lagi oleh 0.5.0. Daftar **Terakhir dibuka** memakai tabel yang sudah ada di `alkitab.db`, jadi Alkitab yang sudah diimpor tetap bisa dibuka oleh versi sebelumnya. Bila memperbarui langsung dari 0.4.0 atau sebelumnya, profil diperbarui untuk latar per materi seperti di 0.5.0, dan setelah itu tidak bisa dibuka lagi oleh 0.4.0 atau sebelumnya. Program kini sekitar 13,9 MB (0.5.0: 13,3 MB). Tidak ada komponen pihak ketiga baru.
 
 ## 0.5.0 — 22 November 2026 — beta
 

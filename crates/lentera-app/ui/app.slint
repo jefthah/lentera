@@ -132,6 +132,8 @@ export global Icons {
     out property <string> play: "M7 4l13 8-13 8z";
     out property <string> chevron: "M6 9l6 6 6-6";
     out property <string> image: "M5 4h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z M4 16l5-5 4 4 2-2 5 5 M15.5 8.5h.01";
+    out property <string> cloud: "M7 18a4.5 4.5 0 0 1-.6-9A6 6 0 0 1 18 9.5a4.25 4.25 0 0 1-.5 8.5z";
+    out property <string> logout: "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4 M16 17l5-5-5-5 M21 12H9";
 }
 
 component Icon inherits Path {
@@ -1712,6 +1714,68 @@ component ProfileChip inherits Rectangle {
     }
 }
 
+// Status sinkron akun di bilah atas. Klik membuka menu akun (`account-menu`
+// di MainWindow).
+component AccountChip inherits Rectangle {
+    // 0 tersinkron, 1 menyinkron, 2 offline atau menunggu, 3 perlu tindakan.
+    in property <int> state;
+    in property <string> label;
+    // Hanya ikon, untuk jendela sempit.
+    in property <bool> compact;
+    callback clicked();
+    height: 40px;
+    preferred-width: row.preferred-width;
+    border-radius: 12px;
+    background: touch.pressed ? Theme.active : touch.has-hover ? Theme.hover : transparent;
+    border-width: 1px;
+    border-color: touch.has-hover ? Theme.border : transparent;
+    accessible-role: button;
+    accessible-label: "Akun dan sinkron: " + root.label;
+    accessible-action-default => {
+        root.clicked();
+    }
+    row := HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        spacing: 8px;
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 24px;
+                height: 22px;
+                Icon {
+                    svg: Icons.cloud;
+                    color: Theme.text-2;
+                    width: 22px;
+                    height: 22px;
+                }
+                Rectangle {
+                    x: 14px;
+                    y: 12px;
+                    width: 10px;
+                    height: 10px;
+                    border-radius: 5px;
+                    border-width: 2px;
+                    border-color: Theme.bar;
+                    background: root.state == 0 ? Theme.ok : root.state == 1 ? Theme.verse : root.state == 2 ? Theme.text-3 : Theme.accent;
+                }
+            }
+        }
+        if !root.compact: Text {
+            text: root.label;
+            color: root.state == 3 ? Theme.accent : Theme.text-2;
+            font-size: 13px;
+            vertical-alignment: center;
+        }
+    }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
 component ProfileCardView inherits Rectangle {
     in property <ProfileCard> card;
     callback clicked();
@@ -2131,6 +2195,17 @@ export component MainWindow inherits Window {
     in-out property <string> profile-form-target;
     in-out property <string> profile-form-error;
 
+    // Akun dan sinkron. Tombol akun hanya tampil bila sync-label terisi
+    // (Lentera memakai server); email kosong bila belum masuk.
+    in property <string> account-email;
+    // 0 tersinkron, 1 menyinkron, 2 offline atau menunggu, 3 perlu tindakan.
+    in property <int> sync-state;
+    in property <string> sync-label;
+    in property <string> sync-detail;
+    in property <bool> sync-login;
+    // Tepi kiri menu akun: tepi kiri tombol akun.
+    property <length> account-menu-x;
+
     callback search-changed();
     callback search-accepted();
     callback filter-changed(int);
@@ -2175,6 +2250,9 @@ export component MainWindow inherits Window {
     callback choose-profile(string);
     callback submit-profile-form();
     callback delete-profile(string);
+    callback sync-now();
+    callback sign-in-again();
+    callback sign-out();
     callback left-tab-changed(int);
     callback bible-translation-changed(int);
     callback bible-ref-edited();
@@ -2379,6 +2457,19 @@ export component MainWindow inherits Window {
                             }
                         }
                     }
+                    if root.sync-label != "": VerticalLayout {
+                        alignment: center;
+                        horizontal-stretch: 0;
+                        AccountChip {
+                            compact: root.compact-bar;
+                            state: root.sync-state;
+                            label: root.sync-label;
+                            clicked => {
+                                root.account-menu-x = self.absolute-position.x;
+                                account-menu.show();
+                            }
+                        }
+                    }
                     Rectangle {
                         horizontal-stretch: 1;
                     }
@@ -2457,6 +2548,73 @@ export component MainWindow inherits Window {
                     y: parent.height - 1px;
                     height: 1px;
                     background: Theme.line;
+                }
+                // Menu akun: email, keadaan sinkron, sinkron sekarang, keluar.
+                account-menu := PopupWindow {
+                    x: Math.max(8px, Math.min(root.account-menu-x, root.width - self.width - 8px));
+                    y: parent.height - 4px;
+                    width: 300px;
+                    close-policy: close-on-click-outside;
+                    Rectangle {
+                        background: Theme.raised;
+                        border-radius: 12px;
+                        border-width: 1px;
+                        border-color: Theme.border;
+                        VerticalLayout {
+                            padding: 12px;
+                            spacing: 6px;
+                            Text {
+                                text: root.account-email != "" ? "Masuk sebagai" : "Belum masuk ke akun";
+                                color: Theme.text-3;
+                                font-size: 12px;
+                            }
+                            if root.account-email != "": Text {
+                                text: root.account-email;
+                                color: Theme.text;
+                                font-size: 14px;
+                                font-weight: 600;
+                                overflow: elide;
+                            }
+                            Text {
+                                text: root.sync-detail;
+                                color: root.sync-state == 3 ? Theme.accent : Theme.text-2;
+                                font-size: 12px;
+                                wrap: word-wrap;
+                            }
+                            Rectangle {
+                                height: 9px;
+                                Rectangle {
+                                    y: 4px;
+                                    height: 1px;
+                                    background: Theme.line;
+                                }
+                            }
+                            // Baris menu tidak dibuat dengan `if`: baris kondisional
+                            // di PopupWindow tidak menerima klik.
+                            MenuRow {
+                                text: !root.sync-login ? "Sinkron sekarang" : root.account-email != "" ? "Masuk lagi" : "Masuk";
+                                hint: root.sync-login ? "Data di komputer ini tetap dipakai" : "Otomatis setiap 30 detik";
+                                clicked => {
+                                    account-menu.close();
+                                    if root.sync-login {
+                                        root.sign-in-again();
+                                    } else {
+                                        root.sync-now();
+                                    }
+                                }
+                            }
+                            MenuRow {
+                                visible: root.account-email != "";
+                                height: self.visible ? 48px : 0px;
+                                text: "Keluar dari akun";
+                                hint: "Lentera ditutup; data tetap di komputer ini";
+                                clicked => {
+                                    account-menu.close();
+                                    root.sign-out();
+                                }
+                            }
+                        }
+                    }
                 }
                 // Menu proyektor: monitor, latar umum, dan buka/tutup proyektor.
                 projector-menu := PopupWindow {
@@ -4324,6 +4482,184 @@ export component MainWindow inherits Window {
 }
 
 // Jendela yang dilihat jemaat (proyektor / layar kedua).
+// Layar masuk: muncul sebelum jendela operator bila Lentera belum masuk ke
+// akun, dan saat sesi perlu diperbarui.
+export component LoginWindow inherits Window {
+    in property <string> version;
+    // 0: email, 1: kode, 2: menyiapkan profil.
+    in-out property <int> step;
+    in-out property <string> email;
+    in-out property <string> code;
+    in property <string> error;
+    in property <bool> busy;
+    // Server tidak terjangkau dan komputer ini sudah punya data: boleh dibuka
+    // tanpa masuk dulu.
+    in property <bool> can-skip;
+    // Detik sampai kode boleh dikirim ulang.
+    in property <int> resend-wait;
+    // Masuk lagi saat Lentera sudah terbuka: ada tombol Batal.
+    in property <bool> again;
+    callback send-code();
+    callback verify();
+    callback change-email();
+    callback skip();
+    callback cancel();
+    title: "Masuk ke Lentera";
+    preferred-width: 520px;
+    preferred-height: 660px;
+    min-width: 420px;
+    min-height: 600px;
+    background: Theme.bg;
+
+    VerticalLayout {
+        padding: 32px;
+        alignment: center;
+        HorizontalLayout {
+            alignment: center;
+            VerticalLayout {
+                preferred-width: 380px;
+                max-width: 380px;
+                spacing: 14px;
+                HorizontalLayout {
+                    alignment: center;
+                    Image {
+                        source: @image-url("../assets/icon/lentera.svg");
+                        width: 64px;
+                        height: 64px;
+                    }
+                }
+                Text {
+                    text: root.step == 2 ? "Menyiapkan profil" : "Masuk ke Lentera";
+                    color: Theme.text;
+                    font-size: 26px;
+                    font-weight: 700;
+                    horizontal-alignment: center;
+                }
+                Text {
+                    text: root.step == 0
+                        ? "Masukkan email Anda. Lentera mengirim kode 6 digit, tanpa kata sandi. Profil, lirik, ayat, dan susunan ibadah tersimpan di akun ini dan ikut ke komputer lain."
+                        : root.step == 1 ? "Kode masuk dikirim ke " + root.email + ". Kode berlaku 10 menit; periksa juga folder spam."
+                        : "Mengambil profil dari akun Anda. Ini hanya sekali dan biasanya sebentar.";
+                    color: Theme.text-2;
+                    font-size: 14px;
+                    horizontal-alignment: center;
+                    wrap: word-wrap;
+                }
+                if root.step == 0: VerticalLayout {
+                    spacing: 8px;
+                    padding-top: 6px;
+                    Text {
+                        text: "Email";
+                        color: Theme.text-2;
+                        font-size: 13px;
+                    }
+                    LineEdit {
+                        placeholder-text: "nama@gereja.org";
+                        text <=> root.email;
+                        init => {
+                            self.focus();
+                        }
+                        accepted => {
+                            root.send-code();
+                        }
+                    }
+                }
+                if root.step == 0: Btn {
+                    text: root.busy ? "Mengirim kode…" : "Kirim kode masuk";
+                    kind: "primary";
+                    icon: Icons.right;
+                    icon-after: true;
+                    clicked => {
+                        root.send-code();
+                    }
+                }
+                if root.step == 1: VerticalLayout {
+                    spacing: 8px;
+                    padding-top: 6px;
+                    Text {
+                        text: "Kode masuk";
+                        color: Theme.text-2;
+                        font-size: 13px;
+                    }
+                    LineEdit {
+                        placeholder-text: "6 digit dari email";
+                        text <=> root.code;
+                        init => {
+                            self.focus();
+                        }
+                        accepted => {
+                            root.verify();
+                        }
+                    }
+                }
+                if root.step == 1: Btn {
+                    text: root.busy ? "Memeriksa kode…" : "Masuk";
+                    kind: "primary";
+                    icon: Icons.check;
+                    clicked => {
+                        root.verify();
+                    }
+                }
+                if root.step == 1: HorizontalLayout {
+                    alignment: space-between;
+                    Btn {
+                        text: "Ganti email";
+                        kind: "ghost";
+                        icon: Icons.back;
+                        clicked => {
+                            root.change-email();
+                        }
+                    }
+                    Btn {
+                        text: root.resend-wait > 0 ? "Kirim ulang (" + root.resend-wait + ")" : "Kirim ulang";
+                        kind: "ghost";
+                        clicked => {
+                            root.send-code();
+                        }
+                    }
+                }
+                if root.error != "": Text {
+                    text: root.error;
+                    color: Theme.danger;
+                    font-size: 13px;
+                    horizontal-alignment: center;
+                    wrap: word-wrap;
+                }
+                if root.can-skip: VerticalLayout {
+                    spacing: 6px;
+                    padding-top: 6px;
+                    Btn {
+                        text: "Buka tanpa masuk untuk sementara";
+                        clicked => {
+                            root.skip();
+                        }
+                    }
+                    Text {
+                        text: "Data di komputer ini tetap bisa dipakai. Sinkron baru berjalan setelah Anda masuk.";
+                        color: Theme.text-3;
+                        font-size: 12px;
+                        horizontal-alignment: center;
+                        wrap: word-wrap;
+                    }
+                }
+                if root.again: Btn {
+                    text: "Batal";
+                    kind: "ghost";
+                    clicked => {
+                        root.cancel();
+                    }
+                }
+            }
+        }
+        Text {
+            text: "Lentera " + root.version;
+            color: Theme.num;
+            font-size: 11px;
+            horizontal-alignment: center;
+        }
+    }
+}
+
 export component OutputWindow inherits Window {
     in property <SlideTile> tile;
     in property <bool> has-slide;

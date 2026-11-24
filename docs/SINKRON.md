@@ -1,6 +1,6 @@
 # Login dan sinkron Lentera — protokol API
 
-Dokumen ini untuk pengembang. Isinya kontrak antara aplikasi Lentera dan server di folder [`server/`](../server/README.md). Aplikasi belum memakai server ini; menghubungkan aplikasi ke server adalah langkah berikutnya.
+Dokumen ini untuk pengembang. Isinya kontrak antara aplikasi Lentera dan server di folder [`server/`](../server/README.md), lalu cara aplikasi memakainya (bagian [Di aplikasi Lentera](#di-aplikasi-lentera)). Server belum di-deploy, jadi build rilis belum mengaktifkan layar masuk.
 
 ## Prinsip
 
@@ -93,6 +93,66 @@ Jawaban:
 
 Materi yang melewati batas ditolak bersama seluruh permintaan (`422`), jadi aplikasi perlu memeriksa batas ini sebelum mengirim dan memberi tahu pengguna materi mana yang terlalu besar.
 
+## Di aplikasi Lentera
+
+Logika sinkron ada di `crates/lentera-core/src/sync/`: `Engine` menjalankan satu putaran sebagai urutan permintaan, dan klien HTTP (`HttpApi`) hanya ikut dengan fitur `http`. Tampilan dan alurnya ada di `crates/lentera-app/src/akun.rs`.
+
+### Alamat server
+
+- Dibaca saat build dari variabel environment `LENTERA_SERVER`. Workflow rilis mengambilnya dari variabel repositori dengan nama yang sama.
+- Bila kosong, layar masuk dan sinkron tidak aktif dan Lentera berjalan seperti 0.6.0.
+- Untuk uji, `lentera.exe --server http://127.0.0.1:8310` memakai server lain, dan `--server ""` mematikannya.
+- Uji alur UI (`--ui-smoke-test`) hanya memakai server bila `--server` diberikan.
+
+### Masuk
+
+- Selama folder data belum punya `akun.json`, jendela **Masuk ke Lentera** muncul sebelum layar operator: email, lalu kode 6 digit.
+- Bila server tidak terjangkau (offline atau `5xx`) dan folder data sudah berisi profil, ada tombol **Buka tanpa masuk untuk sementara**. Lentera lalu terbuka dengan status **Belum masuk**. Tanpa data lokal, tombol ini tidak ada.
+- **Folder data kosong:** setelah masuk, profil akun diunduh dulu (langkah "Menyiapkan profil") sebelum folder data dibuka, supaya Profil utama contoh tidak ikut terkirim. Akun yang belum punya profil mendapat Profil utama baru, yang lalu dikirim ke akun.
+- **Folder data yang sudah berisi** langsung dibuka, dan semua profilnya ditambahkan ke akun pada sinkron pertama. Profil dari server yang namanya sudah dipakai profil lokal diberi akhiran " (2)", " (3)", dan seterusnya.
+- **Masuk lagi** (setelah `401`) harus memakai akun yang sama. Akun lain ditolak, dan sesi barunya langsung diakhiri.
+- **Keluar dari akun** menghapus token dan `akun.json`, mengakhiri sesi di server, lalu menutup Lentera. Data profil tetap ada.
+
+### Penyimpanan
+
+- **Token sesi:** di Windows Credential Manager / macOS Keychain, dengan layanan `Lentera` dan nama `{server}|{folder data}`. Karena itu folder data uji (`--data-dir`) tidak memakai sesi folder utama.
+- **`akun.json` di folder data:** alamat server, id dan email akun, serta daftar profil yang dihapus di perangkat ini. Token tidak disimpan di sini.
+- **`library.db`:** catatan sinkron per profil ada di tabel `synced` dan kunci `meta` `sync_*`. Semuanya tambahan pada skema 2, jadi profil tetap bisa dibuka Lentera 0.5 dan 0.6.
+
+### Kapan sinkron berjalan
+
+- Saat aplikasi dibuka, lalu setiap 30 detik.
+- Setelah profil diganti namanya, dibuka, atau dihapus.
+- Saat pengguna menekan **Sinkron sekarang**.
+
+Permintaan HTTP berjalan di thread lain. Basis data hanya diubah di thread tampilan, dan perubahan disimpan dulu sebelum setiap permintaan. Bila sinkron mengubah profil yang sedang dibuka, pustaka, susunan, dan latarnya dibaca ulang. Slide yang sedang tayang tidak berubah.
+
+### Status
+
+Tombol akun di bilah atas menampilkan salah satu status ini:
+
+- **Menyinkron…** (hanya bila putaran berjalan lebih dari 0,8 detik)
+- **Tersinkron**
+- **Offline**
+- **Menunggu** (`429`)
+- **Masuk lagi** (`401`)
+- **Perlu perhatian**
+- **Sinkron gagal**
+- **Belum masuk**
+
+Jam komputer yang berbeda lebih dari 5 menit dari `server_time` diperingatkan di menu akun.
+
+### Profil yang dihapus
+
+- **Dihapus di perangkat ini:** dicatat di `akun.json`. Profil itu tidak diunduh lagi, dan dihapus di server bila akun ini pemiliknya.
+- **Dihapus pemiliknya di server (`410`) atau tidak bisa diakses lagi (`404`):** profil tetap ada di komputer ini tetapi tidak disinkron lagi. Statusnya **Perlu perhatian** sampai profil itu dihapus lewat **Pilih profil**.
+
+### Belum ikut sinkron
+
+- Pilihan monitor, karena itu milik perangkat.
+- Gambar latar dan latar per materi. Latar per materi di perangkat ini tidak terhapus saat materinya diperbarui dari server.
+- Alkitab yang diimpor (`alkitab.db`), termasuk **Terakhir dibuka**.
+
 ## Kesalahan
 
 Setiap kesalahan berbentuk `{"error": {"code": "...", "message": "...", "field": "..."}}`. `message` berbahasa Indonesia dan boleh ditampilkan apa adanya.
@@ -105,7 +165,7 @@ Setiap kesalahan berbentuk `{"error": {"code": "...", "message": "...", "field":
 | 404 | `profile_not_found`, `not_found` | Profil tidak ada atau akun ini bukan anggotanya. |
 | 409 | `cursor_ahead` | Server lebih lama daripada perangkat, misalnya setelah server dipulihkan dari cadangan. Ubah cursor ke 0 dan kirim ulang semua materi lokal. |
 | 409 | `profile_taken`, `profile_busy` | Id profil bentrok; buat id baru atau coba lagi. |
-| 410 | `profile_deleted` | Profil dihapus pemiliknya; tawarkan untuk menyimpannya sebagai profil lokal saja. |
+| 410 | `profile_deleted` | Profil dihapus pemiliknya. Simpan sebagai profil lokal yang tidak disinkron lagi, lalu beri tahu pengguna. |
 | 413 | `request_too_large` | Pecah kiriman jadi lebih kecil. |
 | 422 | `validation_failed`, `service_unknown_item`, `code_expired`, `invalid_code`, `too_many_attempts`, `profile_limit` | Tampilkan pesan; `field` menunjuk bagian yang salah. |
 | 429 | `rate_limited` | Tunggu sesuai header `Retry-After`. |
@@ -117,4 +177,5 @@ Setiap kesalahan berbentuk `{"error": {"code": "...", "message": "...", "field":
 - Daftar sesi per perangkat dan keluar dari semua perangkat.
 - Login Google.
 - Latar video dan gambar di bucket.
-- Deploy ke VPS.
+- Sinkron Alkitab yang diimpor.
+- Deploy ke VPS. Sampai server di-deploy dan variabel `LENTERA_SERVER` diisi, build rilis belum memakai server.

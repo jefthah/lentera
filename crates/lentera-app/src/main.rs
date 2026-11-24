@@ -6,6 +6,7 @@
 
 #![cfg_attr(windows, windows_subsystem = "windows")]
 
+mod akun;
 mod update;
 
 use std::{
@@ -13,7 +14,7 @@ use std::{
     collections::{HashMap, HashSet},
     ffi::OsString,
     path::{Path, PathBuf},
-    rc::Rc,
+    rc::{Rc, Weak},
     sync::mpsc,
     time::Duration,
 };
@@ -47,6 +48,8 @@ const PROFILE_TONES: u32 = 6;
 struct Args {
     data_dir: Option<PathBuf>,
     update_source: Option<String>,
+    /// Alamat server akun, mengganti alamat bawaan rilis.
+    server: Option<String>,
     smoke: bool,
     /// Argumen asli, dipakai lagi saat Lentera dibuka ulang setelah pembaruan.
     raw: Vec<OsString>,
@@ -57,6 +60,7 @@ fn parse_args() -> Args {
     let mut args = Args {
         data_dir: None,
         update_source: None,
+        server: None,
         smoke: false,
         raw: raw.clone(),
     };
@@ -66,6 +70,9 @@ fn parse_args() -> Args {
             Some("--data-dir") => args.data_dir = items.next().map(PathBuf::from),
             Some("--update-source") => {
                 args.update_source = items.next().map(|v| v.to_string_lossy().into_owned())
+            }
+            Some("--server") => {
+                args.server = items.next().map(|v| v.to_string_lossy().into_owned())
             }
             Some("--ui-smoke-test") => args.smoke = true,
             _ => {}
@@ -324,6 +331,16 @@ struct App {
     status_timer: Timer,
     smoke_timer: Timer,
     smoke: RefCell<Option<Smoke>>,
+    /// Server akun, bila Lentera memakai akun.
+    server: RefCell<Option<String>>,
+    /// Akun yang masuk dan putaran sinkronnya.
+    account: RefCell<Option<akun::Account>>,
+    sync_timer: Timer,
+    sync_busy_timer: Timer,
+    /// Layar masuk lagi yang sedang terbuka.
+    relogin: RefCell<Option<Rc<akun::Login>>>,
+    /// Referensi ke diri sendiri untuk callback timer dan thread latar.
+    me: Weak<App>,
     _lock: DataLock,
 }
 
@@ -350,7 +367,7 @@ impl App {
         let ui = MainWindow::new().map_err(|e| e.to_string())?;
         let output = OutputWindow::new().map_err(|e| e.to_string())?;
         let background = library.background as i32;
-        let app = Rc::new(Self {
+        let app = Rc::new_cyclic(|me| Self {
             ui,
             output,
             state: RefCell::new(State {
@@ -387,6 +404,12 @@ impl App {
             status_timer: Timer::default(),
             smoke_timer: Timer::default(),
             smoke: RefCell::default(),
+            server: RefCell::default(),
+            account: RefCell::default(),
+            sync_timer: Timer::default(),
+            sync_busy_timer: Timer::default(),
+            relogin: RefCell::default(),
+            me: me.clone(),
             _lock: lock,
         });
         let ui = &app.ui;
@@ -467,6 +490,9 @@ impl App {
         connect!(app.ui.on_choose_profile, |a, id| a.choose_profile(&id));
         connect!(app.ui.on_submit_profile_form, |a| a.submit_profile_form());
         connect!(app.ui.on_delete_profile, |a, id| a.delete_profile(&id));
+        connect!(app.ui.on_sync_now, |a| a.sync_now());
+        connect!(app.ui.on_sign_in_again, |a| a.sign_in_again());
+        connect!(app.ui.on_sign_out, |a| a.sign_out());
         connect!(app.ui.on_left_tab_changed, |a, tab| a.left_tab_changed(tab));
         connect!(app.ui.on_bible_translation_changed, |a, _index| a
             .bible_translation_changed());
@@ -2855,6 +2881,7 @@ impl App {
                     self.refresh_profile_label();
                     self.refresh_profiles();
                     self.ui.set_profile_form(0);
+                    self.sync_now();
                 })
             }
             _ => Ok(()),
@@ -2899,6 +2926,7 @@ impl App {
             Ok(()) => {
                 self.refresh_profiles();
                 self.status("Profil dihapus.", true);
+                self.sync_profile_removed(id);
             }
             Err(e) => {
                 dialog(
@@ -2953,6 +2981,7 @@ impl App {
         self.close_profiles();
         let name = self.state.borrow().store.name().to_owned();
         self.status(&format!("Profil {name} dibuka."), true);
+        self.sync_now();
     }
 
     // ----- Pembaruan dan penutupan -----
@@ -3582,6 +3611,14 @@ fn window_icons(window: &slint::Window) {
 #[cfg(not(windows))]
 fn window_icons(_window: &slint::Window) {}
 
+/// Bekal membuka jendela operator, disiapkan sebelum layar masuk.
+struct Launch {
+    dir: PathBuf,
+    lock: DataLock,
+    smoke: bool,
+    update_source: Option<String>,
+}
+
 fn run(args: &Args) -> Result<(), String> {
     if args.smoke && args.data_dir.is_none() {
         return Err("Pengujian UI wajib memakai --data-dir terpisah.".into());
@@ -3589,18 +3626,13 @@ fn run(args: &Args) -> Result<(), String> {
     let dir = args.data_dir.clone().unwrap_or_else(default_data_dir);
     std::fs::create_dir_all(&dir).map_err(|e| format!("Folder data tidak bisa dibuat: {e}"))?;
     let lock = DataLock::acquire(&dir.join(LOCK_FILE))?;
-    // Profil pertama; dibuat (dan `library.json` lama dipindahkan) bila belum ada.
-    let Opened {
-        store,
-        library,
-        fresh: is_new,
-    } = Store::open(&dir)?;
 
     let backend = slint::BackendSelector::new()
         .backend_name("winit".into())
         .renderer_name("software".into());
-    // Ikon jendela sejak dibuat (operator dan proyektor). Ukuran pastinya
-    // dipasang lagi oleh `window_icons` setelah skala layar diketahui.
+    // Ikon jendela sejak dibuat (operator, proyektor, dan layar masuk).
+    // Ukuran pastinya dipasang lagi oleh `window_icons` setelah skala layar
+    // diketahui.
     #[cfg(windows)]
     let backend = backend.with_winit_window_attributes_hook(|attributes| {
         use winit::platform::windows::{IconExtWindows, WindowAttributesExtWindows};
@@ -3613,6 +3645,49 @@ fn run(args: &Args) -> Result<(), String> {
         .select()
         .map_err(|e| format!("Tampilan tidak bisa dimulai: {e}"))?;
 
+    let launch = Launch {
+        dir: dir.clone(),
+        lock,
+        smoke: args.smoke,
+        update_source: args.update_source.clone(),
+    };
+    // Jendela operator; dibuat sekarang, atau setelah masuk ke akun.
+    let app: Rc<RefCell<Option<Rc<App>>>> = Rc::default();
+    let mut login = None;
+    match akun::server(args.server.as_deref(), args.smoke) {
+        None => *app.borrow_mut() = Some(open_app(launch)?),
+        Some(server) => match akun::saved_account(&server, &dir) {
+            Some(account) => {
+                let opened = open_app(launch)?;
+                opened.start_sync(account);
+                *app.borrow_mut() = Some(opened);
+            }
+            None => login = Some(akun::sign_in_first(server, launch, app.clone())?),
+        },
+    }
+
+    slint::run_event_loop().map_err(|e| e.to_string())?;
+    drop(login);
+    // Melepas kunci folder data sebelum pembaruan dipasang.
+    drop(app);
+    Ok(())
+}
+
+/// Membuka profil terakhir dan menampilkan jendela operator.
+fn open_app(launch: Launch) -> Result<Rc<App>, String> {
+    let Launch {
+        dir,
+        lock,
+        smoke,
+        update_source,
+    } = launch;
+    // Profil pertama; dibuat (dan `library.json` lama dipindahkan) bila belum ada.
+    let Opened {
+        store,
+        library,
+        fresh: is_new,
+    } = Store::open(&dir)?;
+
     let app = App::new(library, store, lock, dir.clone())?;
     app.connect();
     app.refresh_library();
@@ -3623,14 +3698,13 @@ fn run(args: &Args) -> Result<(), String> {
     app.persist();
     // Lebih dari satu profil: tanyakan dulu siapa yang memakai. Profil yang
     // terakhir dibuka sudah terbuka di belakangnya.
-    if !args.smoke && app.refresh_profiles() > 1 {
+    if !smoke && app.refresh_profiles() > 1 {
         app.show_profiles();
     }
     app.ui.show().map_err(|e| e.to_string())?;
 
     let weak = Rc::downgrade(&app);
-    let smoke = args.smoke.then(|| dir.join("ui-smoke-result.json"));
-    let source = args.update_source.clone();
+    let smoke = smoke.then(|| dir.join("ui-smoke-result.json"));
     Timer::single_shot(Duration::from_millis(300), move || {
         let Some(app) = weak.upgrade() else {
             return;
@@ -3644,14 +3718,10 @@ fn run(args: &Args) -> Result<(), String> {
         }
         match smoke {
             Some(report) => app.start_smoke(report),
-            None => app.check_updates(source),
+            None => app.check_updates(update_source),
         }
     });
-
-    slint::run_event_loop().map_err(|e| e.to_string())?;
-    // Melepas kunci folder data sebelum pembaruan dipasang.
-    drop(app);
-    Ok(())
+    Ok(app)
 }
 
 fn main() {

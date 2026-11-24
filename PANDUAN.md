@@ -173,6 +173,53 @@ Lentera membuka profil yang terakhir dipakai. Bila ada lebih dari satu profil, l
 
 Nama profil yang sedang dibuka juga tampil di judul jendela. Pada jendela yang lebih sempit dari 1200 px, tombol profil hanya menampilkan lingkarannya.
 
+## Akun dan sinkron
+
+Dengan akun Lentera, profil yang sama bisa dipakai di beberapa komputer, misalnya laptop di rumah dan komputer gereja. Yang disinkron: lirik, ayat, susunan ibadah, nama profil, dan warna latar umum. Pilihan monitor, gambar latar, latar per materi, dan Alkitab yang diimpor tetap milik masing-masing komputer.
+
+Akun baru aktif setelah server Lentera tersedia. Sampai saat itu, Lentera tidak meminta masuk dan bekerja seperti sebelumnya.
+
+### Masuk
+
+Saat Lentera pertama kali dibuka di sebuah komputer, termasuk setelah pembaruan, jendela **Masuk ke Lentera** muncul sebelum layar operator:
+
+1. Ketik email, lalu tekan **Kirim kode masuk**. Tidak ada kata sandi. Email yang belum terdaftar langsung mendapat akun baru.
+2. Ketik kode 6 digit dari email, lalu tekan **Masuk**.
+   - Kode berlaku 10 menit.
+   - **Kirim ulang** bisa ditekan setelah hitungan mundurnya habis.
+   - **Ganti email** kembali ke langkah pertama.
+
+Setelah masuk sekali, Lentera tidak meminta masuk lagi di komputer itu dan tetap bisa dipakai tanpa internet. Perubahan disimpan di komputer dan dikirim saat online lagi.
+
+Profil yang sudah ada di komputer ditambahkan ke akun. Di komputer yang belum punya data, Lentera mengunduh profil akun dulu. Bila dua komputer punya profil dengan nama sama, profil kedua diberi akhiran " (2)".
+
+Bila server tidak terjangkau saat harus masuk dan komputer ini sudah berisi profil, tombol **Buka tanpa masuk untuk sementara** membuka data di komputer ini. Masuk nanti lewat tombol akun.
+
+### Tombol akun
+
+Tombol akun ada di bilah atas, di kiri tombol proyektor. Tombol ini menunjukkan keadaan sinkron:
+
+- **Tersinkron:** profil di komputer ini sama dengan di akun. Sinkron berjalan otomatis setiap 30 detik saat online, setelah berganti profil, dan setelah mengganti nama atau menghapus profil.
+- **Offline:** server tidak terjangkau. Lentera tetap bisa dipakai seperti biasa.
+- **Menunggu:** server sedang sibuk, dan sinkron dicoba lagi sebentar lagi.
+- **Masuk lagi:** sesi akun berakhir, misalnya karena keluar dari komputer lain. Data di komputer ini tetap bisa dipakai. Masuk lagi harus dengan email yang sama.
+- **Belum masuk:** Lentera dibuka tanpa masuk.
+- **Perlu perhatian** atau **Sinkron gagal:** klik tombolnya untuk membaca keterangannya.
+
+Klik tombol akun untuk melihat email yang masuk, keterangan sinkron, dan **Sinkron sekarang**. Tombol yang sama juga berisi **Masuk** atau **Masuk lagi** bila perlu, dan **Keluar dari akun**.
+
+**Keluar dari akun** menutup Lentera. Data profil tetap di komputer ini, dan Lentera meminta masuk saat dibuka lagi.
+
+### Menghapus profil
+
+Profil yang dihapus lewat **Pilih profil** tidak diunduh lagi ke komputer ini. Bila Anda pemilik profil itu, profil juga dihapus dari akun dan dari komputer lain.
+
+Bila profil dihapus dari komputer lain, komputer ini tetap menyimpan isinya tetapi tidak menyinkronkannya lagi. Tombol akun menunjukkan **Perlu perhatian** sampai profil itu dihapus juga di sini.
+
+### Jam komputer
+
+Perubahan terbaru ditentukan dari jam komputer yang mengubahnya. Bila jam komputer berbeda lebih dari 5 menit dari jam server, Lentera memperingatkannya di menu akun. Perbaiki tanggal dan jam Windows supaya perubahan baru tidak kalah oleh perubahan lama.
+
 ## Data dan cadangan
 
 Folder data ada di `%LOCALAPPDATA%\Lentera` (macOS: `~/Library/Application Support/Lentera`). Data disimpan per profil di `profiles\<id profil>\library.db`, sebuah basis data SQLite, termasuk susunan ibadah, pilihan monitor, dan latar. Gambar latar profil ada di `profiles\<id profil>\backgrounds`. Saat Lentera 0.5.0 atau yang lebih baru pertama kali membuka profil dari versi 0.4.0 atau sebelumnya, `library.db` diperbarui otomatis untuk latar per materi; setelah itu profil tidak bisa dibuka lagi oleh versi lama. Profil yang dihapus dipindahkan ke `profiles-deleted\<id profil>`.
@@ -195,7 +242,7 @@ Untuk menyimpan di lokasi lain, jalankan `lentera.exe --data-dir "D:\Data Ibadah
 
 ## Untuk pengembang
 
-Logika data, susunan ibadah, impor, dan penyimpanan ada di `crates/lentera-core` beserta pengujiannya. Penyimpanan SQLite per profil dan pemindahan `library.json` ada di `src/store.rs`; skemanya diberi versi lewat `PRAGMA user_version`. Alkitab ada di `src/bible/`: daftar 66 kitab, pembaca referensi, impor OpenSong / Zefania / TSV, pembagian slide ayat, dan `alkitab.db`. Impor EasyWorship ada di `src/easyworship/`: lagu SQLite + RTF (6–8), tabel Paradox (2009), dan Alkitab `.ewb`; semuanya hanya membaca. Aplikasi ada di `crates/lentera-app`: logika di `src/main.rs`, tata letak dan tema di `ui/app.slint`, pembaruan otomatis (Velopack) di `src/update.rs`. Tampilan digambar dengan renderer software Slint, tanpa browser tertanam atau server lokal. Tampilan Win32 lama ada di `crates/lentera-win32` dan tidak dirilis lagi. Rilis Windows dibuat oleh workflow `.github/workflows/rilis.yml` saat tag versi di-push. CI (`inti.yml`) berjalan untuk setiap PR dan push ke `main`; build ujinya memakai profil `ci` (release tanpa LTO) dan cache Rust yang diisi dari `main`. Rilis selalu dibangun bersih dengan profil `release`. Server login dan sinkron (Go + PostgreSQL, belum dipakai aplikasi) ada di `server/`; protokolnya di `docs/SINKRON.md`.
+Logika data, susunan ibadah, impor, dan penyimpanan ada di `crates/lentera-core` beserta pengujiannya. Penyimpanan SQLite per profil dan pemindahan `library.json` ada di `src/store.rs`; skemanya diberi versi lewat `PRAGMA user_version`. Alkitab ada di `src/bible/`: daftar 66 kitab, pembaca referensi, impor OpenSong / Zefania / TSV, pembagian slide ayat, dan `alkitab.db`. Impor EasyWorship ada di `src/easyworship/`: lagu SQLite + RTF (6–8), tabel Paradox (2009), dan Alkitab `.ewb`; semuanya hanya membaca. Aplikasi ada di `crates/lentera-app`: logika di `src/main.rs`, tata letak dan tema di `ui/app.slint`, pembaruan otomatis (Velopack) di `src/update.rs`. Tampilan digambar dengan renderer software Slint, tanpa browser tertanam atau server lokal. Tampilan Win32 lama ada di `crates/lentera-win32` dan tidak dirilis lagi. Rilis Windows dibuat oleh workflow `.github/workflows/rilis.yml` saat tag versi di-push. CI (`inti.yml`) berjalan untuk setiap PR dan push ke `main`; build ujinya memakai profil `ci` (release tanpa LTO) dan cache Rust yang diisi dari `main`. Rilis selalu dibangun bersih dengan profil `release`. Server login dan sinkron (Go + PostgreSQL, belum di-deploy) ada di `server/`. Protokolnya ada di `docs/SINKRON.md`, logika sinkron di `crates/lentera-core/src/sync/`, dan layar masuk serta tombol akun di `crates/lentera-app/src/akun.rs`. Alamat server diambil saat build dari variabel `LENTERA_SERVER`. Bila kosong, layar masuk tidak aktif. Untuk uji, jalankan `lentera.exe --server http://127.0.0.1:8310`.
 
 Di Windows, pasang Rust stable dengan target `x86_64-pc-windows-msvc` serta Microsoft C++ Build Tools / Windows SDK. Di macOS, pasang Rust stable dan Xcode Command Line Tools. Dari folder proyek:
 

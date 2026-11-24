@@ -7,15 +7,20 @@
 //!   library.lock                 kunci satu proses (nama sama dengan versi lama)
 //!   library.json                 data Lentera ≤ 0.2.x; setelah dipindahkan ke
 //!                                profil pertama, berkas ini dibiarkan sebagai cadangan
+//!   akun.json                    akun yang sedang masuk (lihat crate::sync)
 //!   profiles/<id profil>/library.db
 //! ```
 //!
 //! [`Item::id`](crate::Item) adalah id lokal yang hanya berlaku di perangkat
-//! ini, sehingga kode tampilan tidak berubah. Untuk sinkron nanti, setiap
-//! materi juga punya `uid` (UUID v7) beserta waktu dibuat, diubah, dan
-//! dihapus. Materi yang dihapus disimpan sebagai tanda hapus tanpa judul dan
-//! isi, supaya penghapusan bisa ikut tersinkron dan id lokalnya tidak dipakai
-//! ulang.
+//! ini, sehingga kode tampilan tidak berubah. Untuk sinkron, setiap materi
+//! juga punya `uid` (UUID v7) beserta waktu dibuat, diubah, dan dihapus.
+//! Materi yang dihapus disimpan sebagai tanda hapus tanpa judul dan isi,
+//! supaya penghapusan ikut tersinkron dan id lokalnya tidak dipakai ulang.
+//!
+//! Waktu perubahan nama profil, susunan ibadah, dan latar dicatat di tabel
+//! `meta` ([`NAME_AT`], [`SERVICE_AT`], [`BACKGROUND_AT`]). Catatan sinkron
+//! lain ada di tabel `synced` yang dibuat `crate::sync`. Keduanya tidak
+//! mengubah versi skema, jadi profil tetap bisa dibuka Lentera 0.5 dan 0.6.
 
 use crate::{Kind, LIBRARY_FILE, Library};
 use rusqlite::{Connection, OpenFlags, OptionalExtension, params};
@@ -25,7 +30,7 @@ use std::{
     fs,
     hash::{DefaultHasher, Hash, Hasher},
     path::{Path, PathBuf},
-    time::{SystemTime, UNIX_EPOCH},
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 use uuid::Uuid;
 
@@ -44,9 +49,16 @@ pub const PROFILE_NAME_MAX: usize = 40;
 /// Versi skema basis data (`PRAGMA user_version`). Versi 2 menambah
 /// `items.background`; profil versi 1 diperbarui saat dibuka (lihat
 /// [`upgrade`]).
-const SCHEMA_VERSION: i32 = 2;
+pub(crate) const SCHEMA_VERSION: i32 = 2;
 
-const SCHEMA: &str = "
+/// Kunci `meta`: waktu nama profil terakhir diganti (milidetik, UTC).
+pub(crate) const NAME_AT: &str = "name_at";
+/// Kunci `meta`: waktu susunan ibadah terakhir diubah.
+pub(crate) const SERVICE_AT: &str = "service_at";
+/// Kunci `meta`: waktu warna latar umum terakhir diganti.
+pub(crate) const BACKGROUND_AT: &str = "background_at";
+
+pub(crate) const SCHEMA: &str = "
 CREATE TABLE meta (
     key   TEXT PRIMARY KEY,
     value TEXT NOT NULL
@@ -175,7 +187,13 @@ pub fn rename_profile(data_dir: &Path, id: &str, name: &str) -> Result<(), Strin
     let path = profile_db(data_dir, id)?;
     let conn = connect(&path)?;
     read_profile(&conn, id, &path)?.ok_or_else(|| format!("Profil {id} tidak ditemukan."))?;
-    set_meta(&conn, "name", &name).map_err(|e| db_error(&path, e))
+    write_name(&conn, &name).map_err(|e| db_error(&path, e))
+}
+
+/// Menyimpan nama profil beserta waktu penggantiannya, untuk sinkron.
+fn write_name(conn: &Connection, name: &str) -> rusqlite::Result<()> {
+    set_meta(conn, "name", name)?;
+    set_meta(conn, NAME_AT, &now_ms().to_string())
 }
 
 /// Memindahkan profil ke [`DELETED_PROFILES_DIR`]. Profil terakhir tidak bisa
@@ -298,6 +316,7 @@ impl Store {
         tx.execute_batch(SCHEMA)
             .and_then(|()| tx.pragma_update(None, "user_version", SCHEMA_VERSION))
             .and_then(|()| set_meta(&tx, "name", name))
+            .and_then(|()| set_meta(&tx, NAME_AT, &created_at.to_string()))
             .and_then(|()| set_meta(&tx, "created_at", &created_at.to_string()))
             .and_then(|()| set_meta(&tx, "opened_at", &created_at.to_string()))
             .map_err(|e| db_error(&path, e))?;
@@ -326,9 +345,21 @@ impl Store {
     /// Mengganti nama profil yang sedang dibuka.
     pub fn rename(&mut self, name: &str) -> Result<(), String> {
         let name = check_name(&self.data_dir, name, Some(&self.id))?;
-        set_meta(&self.conn, "name", &name).map_err(|e| db_error(&self.path, e))?;
+        write_name(&self.conn, &name).map_err(|e| db_error(&self.path, e))?;
         self.name = name;
         Ok(())
+    }
+
+    /// Membaca ulang pustaka setelah basis data diubah dari luar (misalnya
+    /// oleh sinkron), lalu menjadikannya keadaan tersimpan. Perubahan di
+    /// pustaka lama yang belum disimpan hilang, jadi simpan dulu sebelumnya.
+    pub fn reload(&mut self) -> Result<Library, String> {
+        if let Some(name) = get_meta(&self.conn, "name").map_err(|e| db_error(&self.path, e))? {
+            self.name = name;
+        }
+        let library = self.load()?;
+        *self.saved.borrow_mut() = Snapshot::of(&library, true);
+        Ok(library)
     }
 
     /// Lokasi berkas basis data profil.
@@ -478,9 +509,11 @@ impl Store {
                     add.execute(params![position as i64, to_sql_id(*id)?])
                         .map_err(err)?;
                 }
+                set_meta(&tx, SERVICE_AT, &now.to_string()).map_err(err)?;
             }
             if library.background != saved.background || !saved.ready {
                 set_meta(&tx, "background", &library.background.to_string()).map_err(err)?;
+                set_meta(&tx, BACKGROUND_AT, &now.to_string()).map_err(err)?;
             }
             if library.background_image != saved.background_image || !saved.ready {
                 let name = library.background_image.as_deref().unwrap_or_default();
@@ -511,7 +544,7 @@ fn backup(path: &Path) -> std::io::Result<()> {
 }
 
 /// Membuka basis data profil yang sudah ada (tidak membuat berkas baru).
-fn connect(path: &Path) -> Result<Connection, String> {
+pub(crate) fn connect(path: &Path) -> Result<Connection, String> {
     let conn = Connection::open_with_flags(
         path,
         OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX,
@@ -523,15 +556,18 @@ fn connect(path: &Path) -> Result<Connection, String> {
 
 /// Mode jurnal bawaan (rollback) dipertahankan karena juga aman di flashdisk
 /// dan folder jaringan; `synchronous = FULL` (2) menjaga data saat listrik padam.
-fn configure(conn: &Connection) -> rusqlite::Result<()> {
+/// Sinkron membuka koneksi kedua ke profil yang sama, jadi koneksi yang
+/// bertemu kunci menunggu sebentar alih-alih langsung gagal.
+pub(crate) fn configure(conn: &Connection) -> rusqlite::Result<()> {
     conn.pragma_update(None, "foreign_keys", true)?;
-    conn.pragma_update(None, "synchronous", 2)
+    conn.pragma_update(None, "synchronous", 2)?;
+    conn.busy_timeout(Duration::from_secs(5))
 }
 
 /// Memperbarui skema profil lama ke [`SCHEMA_VERSION`] dalam satu transaksi.
 /// Profil yang sudah diperbarui tidak bisa dibuka Lentera versi lama, yang
 /// menolaknya dengan pesan "dibuat oleh Lentera versi yang lebih baru".
-fn upgrade(conn: &Connection, path: &Path) -> Result<(), String> {
+pub(crate) fn upgrade(conn: &Connection, path: &Path) -> Result<(), String> {
     let err = |e| db_error(path, e);
     let version: i32 = conn
         .pragma_query_value(None, "user_version", |row| row.get(0))
@@ -551,7 +587,11 @@ fn upgrade(conn: &Connection, path: &Path) -> Result<(), String> {
 }
 
 /// Membaca identitas profil. `None` berarti pembuatannya belum selesai.
-fn read_profile(conn: &Connection, id: &str, path: &Path) -> Result<Option<Profile>, String> {
+pub(crate) fn read_profile(
+    conn: &Connection,
+    id: &str,
+    path: &Path,
+) -> Result<Option<Profile>, String> {
     let err = |e| db_error(path, e);
     let version: i32 = conn
         .pragma_query_value(None, "user_version", |row| row.get(0))
@@ -592,7 +632,7 @@ fn read_profile(conn: &Connection, id: &str, path: &Path) -> Result<Option<Profi
 }
 
 /// Lokasi basis data profil. `id` harus nama satu folder, bukan jalur.
-fn profile_db(data_dir: &Path, id: &str) -> Result<PathBuf, String> {
+pub(crate) fn profile_db(data_dir: &Path, id: &str) -> Result<PathBuf, String> {
     let plain = !id.is_empty()
         && !id.starts_with('.')
         && Path::new(id).file_name().and_then(|n| n.to_str()) == Some(id);
@@ -604,7 +644,11 @@ fn profile_db(data_dir: &Path, id: &str) -> Result<PathBuf, String> {
 
 /// Merapikan dan memeriksa nama profil: tidak kosong, tidak terlalu panjang,
 /// dan belum dipakai profil lain (huruf besar/kecil dianggap sama).
-fn check_name(data_dir: &Path, name: &str, except: Option<&str>) -> Result<String, String> {
+pub(crate) fn check_name(
+    data_dir: &Path,
+    name: &str,
+    except: Option<&str>,
+) -> Result<String, String> {
     let name = name.split_whitespace().collect::<Vec<_>>().join(" ");
     if name.is_empty() {
         return Err("Nama profil belum diisi.".into());
@@ -624,14 +668,14 @@ fn check_name(data_dir: &Path, name: &str, except: Option<&str>) -> Result<Strin
     Ok(name)
 }
 
-fn get_meta(conn: &Connection, key: &str) -> rusqlite::Result<Option<String>> {
+pub(crate) fn get_meta(conn: &Connection, key: &str) -> rusqlite::Result<Option<String>> {
     conn.query_row("SELECT value FROM meta WHERE key = ?1", [key], |row| {
         row.get(0)
     })
     .optional()
 }
 
-fn set_meta(conn: &Connection, key: &str, value: &str) -> rusqlite::Result<()> {
+pub(crate) fn set_meta(conn: &Connection, key: &str, value: &str) -> rusqlite::Result<()> {
     conn.execute(
         "INSERT INTO meta (key, value) VALUES (?1, ?2)
          ON CONFLICT (key) DO UPDATE SET value = excluded.value",
@@ -649,14 +693,14 @@ fn fingerprint(item: &crate::Item) -> u64 {
     hasher.finish()
 }
 
-fn kind_name(kind: Kind) -> &'static str {
+pub(crate) fn kind_name(kind: Kind) -> &'static str {
     match kind {
         Kind::Song => "song",
         Kind::Verse => "verse",
     }
 }
 
-fn kind_from(name: &str) -> Result<Kind, String> {
+pub(crate) fn kind_from(name: &str) -> Result<Kind, String> {
     match name {
         "song" => Ok(Kind::Song),
         "verse" => Ok(Kind::Verse),
@@ -672,13 +716,13 @@ fn to_sql_id(value: u64) -> Result<i64, String> {
     i64::try_from(value).map_err(|_| format!("ID materi terlalu besar: {value}"))
 }
 
-fn now_ms() -> i64 {
+pub(crate) fn now_ms() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0, |d| d.as_millis() as i64)
 }
 
-fn db_error(path: &Path, e: rusqlite::Error) -> String {
+pub(crate) fn db_error(path: &Path, e: rusqlite::Error) -> String {
     format!("Basis data pustaka {} bermasalah.\n{e}", path.display())
 }
 

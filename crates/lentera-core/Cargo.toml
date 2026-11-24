@@ -22,3 +22,12 @@ miniz_oxide = "0.8"
 # Gambar latar: hanya JPEG dan PNG. Crate ini sudah ikut di aplikasi lewat
 # Slint, jadi tidak menambah crate baru.
 image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
+# Klien HTTP server login dan sinkron (fitur `http`). Sudah ikut di aplikasi
+# lewat Velopack dengan fitur yang sama (rustls + gzip), jadi tidak menambah
+# crate baru.
+ureq = { version = "3.4", optional = true }
+
+[features]
+# Klien HTTP untuk server Lentera (`sync::HttpApi`). Tanpa fitur ini inti
+# tetap tanpa akses jaringan, dan sinkron bisa diuji dengan server tiruan.
+http = ["dep:ureq"]

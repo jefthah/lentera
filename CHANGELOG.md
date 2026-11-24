@@ -2,7 +2,7 @@
 
 ## Belum dirilis
 
-**Akun dan sinkron.** Profil yang sama bisa dipakai di beberapa komputer. Fitur ini aktif setelah server Lentera di-deploy dan alamatnya diisi saat build rilis (`LENTERA_SERVER`). Tanpa alamat itu, Lentera tidak meminta masuk dan bekerja seperti 0.6.0.
+**Akun dan sinkron.** Profil yang sama bisa dipakai di beberapa komputer. Server Lentera sudah berjalan. Fitur ini aktif di build rilis yang alamat servernya diisi (`LENTERA_SERVER`). Tanpa alamat itu, Lentera tidak meminta masuk dan bekerja seperti 0.6.0.
 
 - **Masuk dengan kode email.** Jendela **Masuk ke Lentera** muncul saat pertama kali dibuka: email, lalu kode 6 digit. Tidak ada kata sandi. Setelah masuk sekali, Lentera bisa dipakai tanpa internet.
 - **Yang disinkron:** lirik, ayat, susunan ibadah, nama profil, dan warna latar umum.

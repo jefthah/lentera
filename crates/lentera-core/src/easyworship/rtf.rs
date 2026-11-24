@@ -88,6 +88,15 @@ impl Parser {
         if self.pending_skip > 0 {
             self.pending_skip -= 1;
         } else if !self.group.skip {
+            self.text(c);
+        }
+    }
+
+    /// Menambah satu karakter teks. Karakter kontrol selain tab dibuang:
+    /// lirik EasyWorship 7 kadang berisi NUL di ujung baris, yang tidak tampil
+    /// di EasyWorship tetapi ditolak server sinkron Lentera.
+    fn text(&mut self, c: char) {
+        if !c.is_control() || c == '\t' {
             self.current.text.push(c);
         }
     }
@@ -110,13 +119,10 @@ impl Parser {
                     let c = char::decode_utf16([high, unit as u16])
                         .next()
                         .and_then(Result::ok);
-                    self.current.text.push(c.unwrap_or('\u{fffd}'));
+                    self.text(c.unwrap_or('\u{fffd}'));
                 }
             }
-            _ => self
-                .current
-                .text
-                .push(char::from_u32(unit).unwrap_or('\u{fffd}')),
+            _ => self.text(char::from_u32(unit).unwrap_or('\u{fffd}')),
         }
     }
 
@@ -421,6 +427,17 @@ mod tests {
         );
         assert!(slides_of("").is_empty());
         assert!(slides_of(r"{\rtf1\ansi{\fonttbl{\f0 Arial;}}\par\par}").is_empty());
+    }
+
+    #[test]
+    fn control_characters_are_dropped() {
+        // NUL ditulis langsung, sebagai \'00, atau sebagai \u0.
+        let rtf = "{\\rtf1\\ansi Bait satu\0\\'00\\par Bait\\u0 ? dua\\par}";
+        assert_eq!(slides_of(rtf), vec!["Bait satu\nBait dua"]);
+        // Paragraf yang hanya berisi NUL tampak kosong di EasyWorship, jadi
+        // diperlakukan seperti paragraf kosong (pemisah slide EasyWorship 2009).
+        let rtf = "{\\rtf1\\ansi A\\par\0\\par B\\par}";
+        assert_eq!(slides_of(rtf), vec!["A", "B"]);
     }
 
     #[test]

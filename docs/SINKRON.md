@@ -93,6 +93,8 @@ Jawaban:
 
 Materi yang melewati batas ditolak bersama seluruh permintaan (`422`), jadi aplikasi perlu memeriksa batas ini sebelum mengirim dan memberi tahu pengguna materi mana yang terlalu besar.
 
+Judul dan isi juga harus UTF-8 yang sah dan tidak boleh berisi karakter NUL. Pesan galatnya menyebut "karakter yang tidak sah", bukan ukuran. Aplikasi membuang karakter kontrol selain baris baru dan tab sebelum menyimpan dan sebelum mengirim. Karakter seperti itu, misalnya NUL di lirik EasyWorship 7, tidak tampil di layar.
+
 ## Di aplikasi Lentera
 
 Logika sinkron ada di `crates/lentera-core/src/sync/`: `Engine` menjalankan satu putaran sebagai urutan permintaan, dan klien HTTP (`HttpApi`) hanya ikut dengan fitur `http`. Tampilan dan alurnya ada di `crates/lentera-app/src/akun.rs`.

@@ -670,6 +670,57 @@ Folder data uji, database PostgreSQL sementara, log server, token uji, kredensia
 - Dua komputer fisik yang berbeda, dan profil dengan ribuan materi lewat HTTP.
 - Mengetik dengan papan ketik asli di jendela masuk. Uji ini memakai pesan keyboard tiruan.
 
+## Perbaikan NUL dari EasyWorship dan kotak pesan tersembunyi — 24 November 2026
+
+Dua bug ditemukan saat lagu EasyWorship pengguna dikirim ke server production. Lagu dikirim lewat build rilis dengan `--server`, ke profil "EasyWorship" berisi 569 lagu.
+
+**1. Karakter NUL menghentikan sinkron.**
+
+- **Gejala:** profil tertaut ke akun, tetapi tidak ada satu lagu pun yang terkirim.
+  - 7 lagu EasyWorship 7 berisi `\0` di ujung baris atau slide.
+  - Server menolak seluruh kiriman (`422`) dengan pesan keliru "Isi materi paling besar 1 MB".
+- **Perbaikan:**
+  - pembaca RTF EasyWorship membuang karakter kontrol;
+  - `Library::add` dan `Library::update` memakai `clean_text`;
+  - `Store` membersihkan materi lama saat profil dibuka, dengan waktu ubah diperbarui (cadangan `.db.bak` tetap berisi data asli);
+  - `dirty_items` membersihkan materi sebelum dikirim;
+  - server memberi pesan "karakter yang tidak sah" yang terpisah dari pesan ukuran.
+- **Tes baru:**
+  - `\0`, `\'00`, dan `\u0` di RTF;
+  - `clean_text`, `add`, `update`, dan `clean_items`;
+  - profil 0.6 berisi NUL dibersihkan saat dibuka;
+  - sinkron profil berisi NUL yang belum dibuka. Server palsu di tes kini menolak NUL seperti server sungguhan.
+  - Kasus NUL di judul dan isi di tes server (berjalan di CI dengan PostgreSQL).
+- **Database EasyWorship asli** (salinan, hanya dibaca):
+  - EW7: 483 lagu dan 7 kosong;
+  - EW2009: 510 lagu dan 7 kosong;
+  - 0 lagu berisi karakter kontrol;
+  - jumlah lagu yang diimpor sama dengan sebelum perbaikan.
+
+**2. Kotak konfirmasi "Keluar dari akun" tidak tampil.**
+
+- **Gejala:** setelah **Keluar dari akun** diklik, jendela Lentera terkunci.
+  - Kotak pesan `#32770` sudah dibuat tetapi `IsWindowVisible` bernilai false.
+  - **Penyebab:** Windows baru menampilkan `MessageBox` saat antrean pesan kosong. Kotak itu dibuka di callback, tepat setelah menu akun (`PopupWindow`) ditutup. Selama callback berjalan, winit terus mengulang permintaan gambar ulang, jadi antrean tidak pernah kosong. Penyebab yang sama sudah dicatat di `pick_file_then`.
+- **Perbaikan:** `dialog()` memakai `DialogGuard` (`crates/lentera-app/src/dialog_guard.rs`).
+  - Selama kotak pesan terbuka, thread lain memunculkan kotak dialog berjudul sama yang masih tersembunyi.
+  - Thread itu hanya memakai fungsi yang tidak mengirim pesan ke thread UI: `EnumThreadWindows`, `GetClassNameW`, `InternalGetWindowText`, dan `ShowWindowAsync`.
+- **Uji dengan build rilis:**
+  - folder uji "masuk" ke server yang tidak terjangkau (`http://127.0.0.1:9`), dengan token palsu di Credential Manager;
+  - klik dikirim lewat `PostMessage`.
+- **Build 0.6 lama:** kotak "Keluar dari akun" tetap tersembunyi selama 6 detik, dan jendela utama dinonaktifkan.
+- **Build baru:**
+  - kotak tampil berisi "Keluar dari uji@contoh.test?";
+  - setelah Ya, proses keluar dalam ±1 detik;
+  - `akun.json` dan kredensial uji terhapus.
+- **Pengecekan lain:**
+  - `cargo test --workspace`: 100 tes core lulus. Tes integrasi dengan server sungguhan (`tests/server.rs`) dilewati, karena `LENTERA_TEST_SERVER` tidak diisi;
+  - clippy `-D warnings` dan `cargo fmt --check` bersih;
+  - uji alur UI build rilis 35/35;
+  - `go vet` bersih dan `go test ./...` lulus. Tes PostgreSQL dilewati di komputer ini.
+
+Folder data uji, token palsu, salinan database EasyWorship, dan tangkapan layar dihapus setelah dipakai.
+
 ## Berkas deploy server — 24 November 2026
 
 Berkas untuk menjalankan server di VPS: image Docker, compose production, `deploy.sh`, `cadangan.sh`, dan contoh situs Caddy (`server/deploy/`). Server belum di-deploy.

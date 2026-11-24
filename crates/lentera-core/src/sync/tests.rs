@@ -171,6 +171,15 @@ impl Api for FakeServer {
         if request.cursor > p.revision {
             return Err(api_error(409, "cursor_ahead"));
         }
+        // Seperti server sungguhan: satu materi berisi NUL membuat seluruh
+        // kiriman ditolak.
+        if request
+            .items
+            .iter()
+            .any(|i| i.title.contains('\0') || i.content.contains('\0'))
+        {
+            return Err(api_error(422, "validation_failed"));
+        }
         let mut own = Vec::new();
         let mut losers = Vec::new();
         for item in &request.items {
@@ -336,6 +345,51 @@ fn first_sync_uploads_local_profile_and_other_device_downloads_it() {
     assert_eq!(copy.background, 1);
     let song = copy.items.iter().find(|i| i.title == "Kasih-Mu").unwrap();
     assert_eq!(song.content, "Bait satu\n\nBait dua");
+}
+
+#[test]
+fn nul_in_old_imports_does_not_block_the_upload() {
+    let a = TempDir::new("nul-a");
+    let server = FakeServer::new();
+    let opened = Store::open(&a.0).unwrap();
+    let id = opened.store.id().to_owned();
+    let path = opened.store.path().to_owned();
+    drop(opened);
+    // Lagu EasyWorship 7 yang diimpor Lentera 0.6, belum pernah dibuka lagi.
+    rusqlite::Connection::open(&path)
+        .unwrap()
+        .execute(
+            "UPDATE items SET title = ?1, content = ?2 WHERE id = 1",
+            ["TAHUN YOBEL\0", "S'bab ini tahun pembebasan\0"],
+        )
+        .unwrap();
+
+    let report = sync(&a.0, &server, Some(&id));
+    assert_eq!(report.stop, None, "{report:?}");
+    assert_eq!(report.problems, Vec::<String>::new());
+    let sent = |title: &str| {
+        let profiles = server.profiles.borrow();
+        let (item, _) = profiles[&id]
+            .items
+            .values()
+            .find(|(item, _)| item.title == title)
+            .cloned()
+            .unwrap();
+        item
+    };
+    assert_eq!(sent("TAHUN YOBEL").content, "S'bab ini tahun pembebasan");
+
+    // Saat dibuka, profil juga dibersihkan di komputer ini dan versi bersih
+    // dikirim lagi tanpa masalah.
+    let (_, library) = open(&a.0, &id);
+    assert_eq!(
+        library.item(1).unwrap().content,
+        "S'bab ini tahun pembebasan"
+    );
+    let report = sync(&a.0, &server, Some(&id));
+    assert_eq!(report.stop, None, "{report:?}");
+    assert_eq!(report.problems, Vec::<String>::new());
+    assert_eq!(sent("TAHUN YOBEL").content, "S'bab ini tahun pembebasan");
 }
 
 #[test]

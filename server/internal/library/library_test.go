@@ -412,6 +412,19 @@ func TestInvalidPushesAreRejectedWhole(t *testing.T) {
 		failure(t, err, "validation_failed")
 		_ = name
 	}
+	// NUL disebut sebagai karakter yang tidak sah, bukan sebagai ukuran.
+	nulContent := song(1, "a", ms(-1))
+	nulContent.Content = "Bait\x00"
+	for field, item := range map[string]library.Item{
+		"title":   song(1, "a\x00b", ms(-1)),
+		"content": nulContent,
+	} {
+		_, err := store.Sync(ctx, budi, uid(100), library.SyncRequest{Items: []library.Item{item}})
+		var e *library.Error
+		if !errors.As(err, &e) || !strings.HasSuffix(e.Field, "."+field) || !strings.Contains(e.Message, "karakter yang tidak sah") {
+			t.Fatalf("NUL in %s: err = %+v", field, err)
+		}
+	}
 	if pull := sync(t, store, budi, uid(100), library.SyncRequest{}); pull.Cursor != 0 {
 		t.Fatalf("invalid pushes changed the profile: %+v", pull)
 	}

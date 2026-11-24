@@ -300,11 +300,13 @@ fn read_paradox_songs(file: &Path) -> Result<Vec<(String, String)>, String> {
         .collect())
 }
 
-/// Lagu dari judul dan lirik RTF; `None` bila liriknya kosong.
+/// Lagu dari judul dan lirik RTF; `None` bila liriknya kosong. Karakter
+/// kontrol liar di judul dibuang (yang di lirik dibuang pembaca RTF).
 fn song(title: &str, words: &str) -> Option<Song> {
     let slides = rtf::slides(&rtf::paragraphs(words));
     let content = slides.join("\n\n");
     let first_line = content.lines().next()?.to_owned();
+    let title = crate::clean_text(title);
     let title = title.split_whitespace().collect::<Vec<_>>().join(" ");
     Some(Song {
         title: if title.is_empty() { first_line } else { title },

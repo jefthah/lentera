@@ -85,6 +85,22 @@ impl Library {
     }
 }
 
+/// Karakter kontrol yang tidak punya arti di lirik atau ayat, misalnya NUL
+/// sisa format EasyWorship. Baris baru dan tab tetap dipakai.
+fn is_stray_control(c: char) -> bool {
+    c.is_control() && !matches!(c, '\n' | '\r' | '\t')
+}
+
+/// Teks tanpa karakter kontrol liar. Server sinkron menolak materi berisi
+/// NUL, dan karakter kontrol lain juga tidak tampil di layar.
+pub fn clean_text(text: &str) -> String {
+    if text.contains(is_stray_control) {
+        text.chars().filter(|&c| !is_stray_control(c)).collect()
+    } else {
+        text.to_owned()
+    }
+}
+
 pub fn split_slides(text: &str) -> Vec<String> {
     let normalized = text.replace("\r\n", "\n").replace('\r', "\n");
     let mut slides = Vec::new();
@@ -177,11 +193,25 @@ impl Library {
         self.items.push(Item {
             id,
             kind,
-            title,
-            content,
+            title: clean_text(&title),
+            content: clean_text(&content),
             background: None,
         });
         id
+    }
+    /// Membuang karakter kontrol liar dari judul dan isi semua materi, misalnya
+    /// NUL di lagu yang diimpor dari EasyWorship oleh Lentera 0.6. Hasilnya
+    /// jumlah materi yang berubah.
+    pub fn clean_items(&mut self) -> usize {
+        let mut changed = 0;
+        for item in &mut self.items {
+            if item.title.contains(is_stray_control) || item.content.contains(is_stray_control) {
+                item.title = clean_text(&item.title);
+                item.content = clean_text(&item.content);
+                changed += 1;
+            }
+        }
+        changed
     }
     /// Gambar latar khusus satu materi pustaka; `None` kembali ke latar umum.
     /// Materi sementara tidak punya latar sendiri. `false` bila materinya
@@ -224,13 +254,14 @@ impl Library {
         let Some(item) = self.items.iter_mut().find(|i| i.id == id) else {
             return false;
         };
+        let title = clean_text(title);
         let title = title.trim();
         item.title = if title.is_empty() {
             "Tanpa judul".into()
         } else {
             title.into()
         };
-        item.content = content.replace("\r\n", "\n");
+        item.content = clean_text(&content.replace("\r\n", "\n"));
         true
     }
     /// Membaca `library.json` Lentera ≤ 0.2.x. Bila berkas tidak ada, hasilnya
@@ -322,6 +353,28 @@ impl Library {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn stray_control_characters_are_removed() {
+        assert_eq!(
+            clean_text("Kasih\0-Mu\u{1b}\r\n\tTuhan 🙏\u{85}\0"),
+            "Kasih-Mu\r\n\tTuhan 🙏"
+        );
+        let mut library = Library::blank();
+        let id = library.add(Kind::Song, "Ju\0dul".into(), "Bait\0 satu".into());
+        assert_eq!(library.item(id).unwrap().title, "Judul");
+        assert_eq!(library.item(id).unwrap().content, "Bait satu");
+        assert!(library.update(id, "\0 Baru \0", "A\0\r\nB"));
+        assert_eq!(library.item(id).unwrap().title, "Baru");
+        assert_eq!(library.item(id).unwrap().content, "A\nB");
+
+        // Data lama yang sudah berisi NUL.
+        library.items[0].content.push('\0');
+        let clean = library.add(Kind::Verse, "Ayat".into(), "Teks".into());
+        assert_eq!(library.clean_items(), 1);
+        assert_eq!(library.item(id).unwrap().content, "A\nB");
+        assert_eq!(library.item(clean).unwrap().content, "Teks");
+        assert_eq!(library.clean_items(), 0);
+    }
     #[test]
     fn slides_keep_unicode_and_ignore_repeated_blank_lines() {
         assert_eq!(

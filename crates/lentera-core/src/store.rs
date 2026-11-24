@@ -235,7 +235,8 @@ impl Store {
         let fresh = !legacy.exists();
         // Galat di sini (berkas lama rusak) menghentikan pembukaan sebelum
         // profil dibuat; berkas asli tetap utuh.
-        let library = Library::load(&legacy)?;
+        let mut library = Library::load(&legacy)?;
+        library.clean_items();
         let store = Self::create(data_dir, DEFAULT_PROFILE_NAME)?;
         store.save(&library)?;
         Ok(Opened {
@@ -261,13 +262,14 @@ impl Store {
             name: profile.name,
             saved: RefCell::default(),
         };
-        let library = store.load()?;
+        let mut library = store.load()?;
         *store.saved.borrow_mut() = Snapshot::of(&library, true);
         // Cadangan isi profil saat berhasil dibuka. Aman disalin karena tidak
         // ada transaksi yang berjalan dan folder data sedang dikunci. Gagal
         // membuat cadangan atau mencatat waktu buka tidak menghalangi pembukaan.
         let _ = backup(&store.path);
         let _ = set_meta(&store.conn, "opened_at", &now_ms().to_string());
+        store.clean(&mut library);
         Ok(Opened {
             store,
             library,
@@ -357,9 +359,20 @@ impl Store {
         if let Some(name) = get_meta(&self.conn, "name").map_err(|e| db_error(&self.path, e))? {
             self.name = name;
         }
-        let library = self.load()?;
+        let mut library = self.load()?;
         *self.saved.borrow_mut() = Snapshot::of(&library, true);
+        self.clean(&mut library);
         Ok(library)
+    }
+
+    /// Menyimpan ulang materi yang berisi karakter kontrol liar (misalnya NUL
+    /// dari impor EasyWorship Lentera 0.6) tanpa karakter itu, supaya bisa
+    /// disinkron. Waktu ubah materi itu diperbarui. Bila gagal disimpan,
+    /// pembukaan tetap berlanjut dan penyimpanan berikutnya ikut menulisnya.
+    fn clean(&self, library: &mut Library) {
+        if library.clean_items() > 0 {
+            let _ = self.save(library);
+        }
     }
 
     /// Lokasi berkas basis data profil.
@@ -945,6 +958,46 @@ mod tests {
         });
         assert!(store.save(&library).is_err());
         assert_eq!(store.load().unwrap(), Library::default());
+    }
+
+    #[test]
+    fn nul_from_old_imports_is_removed_when_the_profile_opens() {
+        let dir = TempDir::new("nul");
+        let Opened { store, .. } = Store::open(&dir.0).unwrap();
+        // Seperti lagu EasyWorship 7 yang diimpor Lentera 0.6.
+        store
+            .conn
+            .execute(
+                "UPDATE items SET title = ?1, content = ?2 WHERE id = 1",
+                ["Semua Baik\0", "Kau jadikan hidupku berarti\0"],
+            )
+            .unwrap();
+        let (_, _, _, _, before, _) = row(&store, 1);
+        let (_, _, _, _, untouched, _) = row(&store, 2);
+        let id = store.id().to_owned();
+        drop(store);
+        pause();
+
+        let Opened { store, library, .. } = Store::open_profile(&dir.0, &id).unwrap();
+        assert_eq!(library.item(1).unwrap().title, "Semua Baik");
+        assert_eq!(
+            library.item(1).unwrap().content,
+            "Kau jadikan hidupku berarti"
+        );
+        let (_, title, content, _, after, _) = row(&store, 1);
+        assert_eq!(
+            (title.as_str(), content.as_str()),
+            ("Semua Baik", "Kau jadikan hidupku berarti")
+        );
+        // Waktu ubah diperbarui supaya versi bersih ikut sinkron.
+        assert!(after > before);
+        assert_eq!(row(&store, 2).4, untouched);
+        // Cadangan saat dibuka tetap berisi data asli.
+        let bak = Connection::open(store.path().with_extension("db.bak")).unwrap();
+        let content: String = bak
+            .query_row("SELECT content FROM items WHERE id = 1", [], |r| r.get(0))
+            .unwrap();
+        assert!(content.ends_with('\0'));
     }
 
     #[test]

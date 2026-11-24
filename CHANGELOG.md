@@ -16,6 +16,16 @@
 - **Profil yang dihapus** di komputer lain tetap tersimpan di komputer ini, tetapi tidak disinkron lagi dan ditandai **Perlu perhatian**.
 - Token sesi disimpan di Windows Credential Manager, bukan di folder data.
 
+**Perbaikan:**
+
+- **Lagu dari EasyWorship 7 tidak lagi menghentikan sinkron.**
+  - Sebagian lirik EasyWorship 7 berisi karakter NUL tak terlihat di ujung baris. Server menolak karakter itu, sehingga satu lagu saja membuat seluruh kiriman gagal, dengan pesan keliru "Isi materi paling besar 1 MB".
+  - Kini impor EasyWorship, impor berkas, dan editor membuang karakter kontrol seperti itu. Baris baru dan tab tetap ada.
+  - Lagu yang sudah diimpor Lentera 0.6 dibersihkan saat profilnya dibuka, dan sebelum dikirim ke server.
+- **Kotak konfirmasi "Keluar dari akun" kini muncul.**
+  - Sebelumnya kotak itu tersembunyi, sehingga jendela Lentera terkunci dan tampak macet.
+  - Semua kotak pesan Lentera kini dijaga supaya selalu tampil.
+
 ## 0.6.0 — 23 November 2026 — beta
 
 Layar operator memakai desain baru. Yang dilihat jemaat kini ada di atas kolom kanan, susunan ibadah menunjukkan sampai mana ibadah berjalan, editor tidak lagi menutup kontrol tayang, Alkitab dibuka di kolom tengah, dan layar proyektor menyebut referensi ayat yang tayang.

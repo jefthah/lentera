@@ -7,6 +7,8 @@
 #![cfg_attr(windows, windows_subsystem = "windows")]
 
 mod akun;
+#[cfg(windows)]
+mod dialog_guard;
 mod update;
 
 use std::{
@@ -229,6 +231,10 @@ fn dialog(
     if let Some(window) = parent {
         message = message.set_parent(&window.window_handle());
     }
+    // Kotak pesan yang dibuka saat jendela masih perlu digambar ulang (misalnya
+    // tepat setelah menu sembulan ditutup) tidak tampil sendiri.
+    #[cfg(windows)]
+    let _guard = dialog_guard::DialogGuard::start(title);
     message.show()
 }
 

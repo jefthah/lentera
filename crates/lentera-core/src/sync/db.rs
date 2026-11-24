@@ -230,11 +230,17 @@ impl SyncDb {
         let mut chunk = Chunk::default();
         let mut bytes = 0;
         while let Some(row) = rows.next().map_err(|e| self.err(e))? {
+            // Karakter kontrol liar (misalnya NUL dari impor EasyWorship
+            // Lentera 0.6) ditolak server dan membuat seluruh kiriman gagal,
+            // jadi dibuang dulu. Profil yang dibuka membersihkannya juga di
+            // komputer ini (`Store::open_profile`).
+            let title: String = row.get(2).map_err(|e| self.err(e))?;
+            let content: String = row.get(3).map_err(|e| self.err(e))?;
             let item = RemoteItem {
                 id: row.get(0).map_err(|e| self.err(e))?,
                 kind: row.get(1).map_err(|e| self.err(e))?,
-                title: row.get(2).map_err(|e| self.err(e))?,
-                content: row.get(3).map_err(|e| self.err(e))?,
+                title: crate::clean_text(&title),
+                content: crate::clean_text(&content),
                 created_at: row.get(4).map_err(|e| self.err(e))?,
                 updated_at: row.get(5).map_err(|e| self.err(e))?,
                 deleted_at: row.get(6).map_err(|e| self.err(e))?,

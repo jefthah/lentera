@@ -748,10 +748,16 @@ func prepareItem(item Item, field string) (Item, *Error) {
 		item.Title, item.Content = "", ""
 		return item, nil
 	}
-	if !utf8.ValidString(item.Title) || strings.ContainsRune(item.Title, 0) || utf8.RuneCountInString(item.Title) > TitleMax {
+	if !utf8.ValidString(item.Title) || strings.ContainsRune(item.Title, 0) {
+		return Item{}, invalidField(field+".title", "Judul materi berisi karakter yang tidak sah (misalnya NUL).")
+	}
+	if utf8.RuneCountInString(item.Title) > TitleMax {
 		return Item{}, invalidField(field+".title", fmt.Sprintf("Judul materi paling panjang %d karakter.", TitleMax))
 	}
-	if !utf8.ValidString(item.Content) || strings.ContainsRune(item.Content, 0) || len(item.Content) > ContentMaxBytes {
+	if !utf8.ValidString(item.Content) || strings.ContainsRune(item.Content, 0) {
+		return Item{}, invalidField(field+".content", "Isi materi berisi karakter yang tidak sah (misalnya NUL).")
+	}
+	if len(item.Content) > ContentMaxBytes {
 		return Item{}, invalidField(field+".content", "Isi materi paling besar 1 MB.")
 	}
 

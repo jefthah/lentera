@@ -2,7 +2,7 @@
 
 Server login dan sinkron untuk Lentera: login dengan kode email, profil, dan sinkron lirik, ayat, susunan ibadah, serta latar antarperangkat. Ditulis dengan Go dan PostgreSQL, mengikuti pola server JD Sign: `net/http`, pgx, migrasi goose yang tertanam di program, dan email lewat Resend.
 
-Kontrak API untuk aplikasi ada di [docs/SINKRON.md](../docs/SINKRON.md). Aplikasi Lentera sudah bisa memakai server ini, tetapi server belum di-deploy, jadi build rilis belum mengaktifkan layar masuk.
+Kontrak API untuk aplikasi ada di [docs/SINKRON.md](../docs/SINKRON.md). Server ini sudah di-deploy dengan berkas di [`deploy/`](deploy/README.md). Build rilis aplikasi memakainya setelah variabel repositori `LENTERA_SERVER` diisi; sebelum itu, build rilis tidak menampilkan layar masuk.
 
 ## Menjalankan di komputer sendiri
 

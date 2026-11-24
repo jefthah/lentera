@@ -1,6 +1,6 @@
 # Login dan sinkron Lentera — protokol API
 
-Dokumen ini untuk pengembang. Isinya kontrak antara aplikasi Lentera dan server di folder [`server/`](../server/README.md), lalu cara aplikasi memakainya (bagian [Di aplikasi Lentera](#di-aplikasi-lentera)). Server belum di-deploy, jadi build rilis belum mengaktifkan layar masuk.
+Dokumen ini untuk pengembang. Isinya kontrak antara aplikasi Lentera dan server di folder [`server/`](../server/README.md), lalu cara aplikasi memakainya (bagian [Di aplikasi Lentera](#di-aplikasi-lentera)). Server sudah di-deploy dengan berkas di [`server/deploy/`](../server/deploy/README.md). Build rilis mengaktifkan layar masuk setelah variabel repositori `LENTERA_SERVER` diisi.
 
 ## Prinsip
 
@@ -180,4 +180,5 @@ Setiap kesalahan berbentuk `{"error": {"code": "...", "message": "...", "field":
 - Login Google.
 - Latar video dan gambar di bucket.
 - Sinkron Alkitab yang diimpor.
-- Deploy ke VPS. Berkas dan langkahnya sudah ada di [`server/deploy/`](../server/deploy/README.md). Sampai server di-deploy dan variabel `LENTERA_SERVER` diisi, build rilis belum memakai server.
+- Deploy otomatis dari GitHub Actions. Deploy masih dijalankan manual dengan [`server/deploy/deploy.sh`](../server/deploy/README.md).
+- Cadangan database ke luar server.

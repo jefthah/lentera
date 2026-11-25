@@ -825,3 +825,22 @@ Belum diuji:
 - Proyektor sungguhan dan dua monitor dengan video.
 - Pemutaran berjam-jam (kebocoran memori jangka panjang).
 - macOS, yang hanya menampilkan gambar diam (menunggu CI).
+
+## Rilis 0.8.0 — 25 November 2026
+
+Berisi latar video (bagian di atas). Diuji di komputer pengembangan yang sama.
+
+- Versi workspace 0.8.0 (`Cargo.lock`: 3 crate Lentera) dan `app.manifest` 0.8.0.0.
+- `cargo fmt --all --check` bersih. `cargo clippy --all-targets --locked -- -D warnings` bersih untuk `lentera-core` (dengan dan tanpa `http`), `lentera-app` (dengan dan tanpa `snapshot`), dan `lentera-win32`.
+- `cargo test --locked`: 105 tes `lentera-core` dan tes `lentera-app` lulus. Dua tes di `tests/server.rs` langsung selesai karena `LENTERA_TEST_SERVER` tidak diisi.
+- `THIRD-PARTY-NOTICES.txt` disusun ulang: 305 crate, tidak berubah dari 0.7.0.
+- Build rilis `lentera.exe` tanpa `LENTERA_SERVER`: 14.262.784 byte. FileVersion / ProductVersion 0.8.0, FileDescription "Lentera".
+- Uji alur UI build rilis itu di folder kosong: 35/35 tanpa video dan 40/40 dengan video Natal 1080p, versi 0.8.0.
+- Catatan rilis dari `CHANGELOG.md` terbaca dengan perintah `awk` yang sama dengan `rilis.yml` (18 baris, bagian `## 0.8.0`).
+- CI PR #29 (Inti Lentera #61) lulus di Windows dan macOS.
+
+Belum diuji:
+
+- Profil yang memakai video dibuka lagi oleh 0.7.0. Perilakunya (video tidak tampil, materi kembali ke latar umum atau warna) dibaca dari kode 0.7.0, tidak dijalankan.
+- Pembaruan otomatis 0.7.0 → 0.8.0 lewat GitHub Releases, setelah rilis diterbitkan.
+- PC gereja dan proyektor sungguhan dengan video.

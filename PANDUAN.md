@@ -1,4 +1,4 @@
-# Lentera 0.7 — presentasi ibadah ringan
+# Lentera 0.8 — presentasi ibadah ringan
 
 Aplikasi presentasi ibadah berbasis Rust dan Slint untuk lirik, ayat, dan proyektor, untuk Windows dan macOS. Sasaran pengembangannya komputer dengan RAM 2–4 GB; ini sasaran, bukan hasil uji pada semua komputer lama.
 
@@ -11,7 +11,7 @@ Aplikasi presentasi ibadah berbasis Rust dan Slint untuk lirik, ayat, dan proyek
    - Atau klik tombolnya, lalu pilih **Yes**: Lentera ditutup, diperbarui, dan dibuka kembali. Proyektor ikut tertutup sebentar, jadi lakukan di luar ibadah.
 4. Untuk menghapus: Settings → Apps → **Lentera** → Uninstall. Data di `%LOCALAPPDATA%\Lentera` tidak ikut terhapus.
 
-Pengguna 0.1.1 sampai 0.6.0 menerima 0.7.0 lewat pembaruan otomatis di atas. Pengguna 0.1.0 (ZIP lama) cukup memasang installer sekali. Setelah memperbarui ke 0.7.0, Lentera meminta masuk dengan email saat pertama kali dibuka (lihat **Akun dan sinkron**), jadi perbarui di luar ibadah. Setelah 0.5.0 atau yang lebih baru membuka sebuah profil, profil itu tidak bisa dibuka lagi oleh 0.4.0 atau sebelumnya. Pengguna 0.2.1 atau sebelumnya: saat versi baru pertama kali dibuka, pustaka lama dipindahkan otomatis ke **Profil utama** (lihat **Data dan cadangan**).
+Pengguna 0.1.1 sampai 0.7.0 menerima 0.8.0 lewat pembaruan otomatis di atas. Pengguna 0.1.0 (ZIP lama) cukup memasang installer sekali. Bila memperbarui dari 0.6.0 atau sebelumnya, Lentera meminta masuk dengan email saat pertama kali dibuka (lihat **Akun dan sinkron**), jadi perbarui di luar ibadah. Setelah 0.5.0 atau yang lebih baru membuka sebuah profil, profil itu tidak bisa dibuka lagi oleh 0.4.0 atau sebelumnya. Pengguna 0.2.1 atau sebelumnya: saat versi baru pertama kali dibuka, pustaka lama dipindahkan otomatis ke **Profil utama** (lihat **Data dan cadangan**).
 
 Versi macOS belum punya installer; bangun dari kode sumber (lihat **Untuk pengembang**).
 

@@ -1,5 +1,23 @@
 # Riwayat rilis
 
+## Belum dirilis
+
+**Latar video.** Video bisa dipakai sebagai latar umum atau latar per materi, sama seperti gambar. Untuk sekarang hanya di Windows.
+
+- **Tambah gambar atau video** di galeri latar menerima video MP4, M4V, MOV, dan WMV sampai 500 MB, satu per satu atau beberapa sekaligus. Bila EasyWorship terpasang, pemilih berkas terbuka di folder gambar atau video EasyWorship.
+- **Di proyektor** video diputar berulang tanpa suara, dengan lirik di atasnya seperti di atas gambar.
+  - Video tetap berjalan saat slide berganti, selama latarnya sama.
+  - Video berhenti saat proyektor ditutup atau digelapkan, lalu mulai lagi dari awal.
+- **Layar jemaat** di kolom kanan ikut bergerak, dengan sepertiga frame supaya ringan. Slide, pratinjau, dan galeri memakai gambar diam dari detik pertama video, dan galeri memberi tanda **Video**.
+- **Ringan:** video didecode di GPU lewat Media Foundation bawaan Windows, tanpa codec tambahan. Bila GPU tidak bisa dipakai, video didecode CPU. Video yang lebih besar dari 1920×1080 diperkecil saat diputar.
+- **Bila video tidak bisa diputar**, Lentera memberi pesan dan proyektor memakai gambar diamnya.
+- Video disalin apa adanya ke folder profil, tanpa diperkecil. Seperti gambar latar, video tetap per komputer dan tidak disinkron.
+- Di macOS tombolnya tetap **Tambah gambar**; video belum bisa diputar di sana.
+
+**Kebutuhan:** dengan video 1080p, Lentera memakai sekitar 200 MiB RAM (tanpa video sekitar 40 MiB) dan sekitar sepertiga inti CPU. Video 4K butuh sekitar 330 MiB. Di komputer yang tidak bisa decode di GPU, video 1080p butuh sekitar 310 MiB dan hampir satu inti, sedangkan 4K sekitar 850 MiB dan lebih dari dua inti. Pakai video 1080p.
+
+**Membuka profil dengan versi lama:** format profil tidak berubah. Lentera 0.7.0 atau sebelumnya tidak menampilkan video di galeri, dan materi atau latar umum yang memakai video kembali ke latar umum atau warna. Berkas videonya tetap ada di profil. Program kini sekitar 14,3 MB (0.7.0: 14,2 MB), tanpa komponen pihak ketiga baru.
+
 ## 0.7.0 — 25 November 2026 — beta
 
 **Akun dan sinkron.** Profil yang sama bisa dipakai di beberapa komputer, misalnya laptop di rumah dan komputer gereja.

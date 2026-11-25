@@ -177,6 +177,19 @@ pub fn bible_locations() -> Vec<PathBuf> {
 /// yang berisi gambar JPG atau PNG. Dipakai sebagai folder awal saat
 /// menambahkan gambar latar.
 pub fn image_locations() -> Vec<PathBuf> {
+    resource_locations("Images", crate::background::is_supported)
+}
+
+/// Folder video EasyWorship 6–8 di komputer ini (`…\Resources\Videos`) yang
+/// berisi video MP4, M4V, MOV, atau WMV. Dipakai sebagai folder awal saat
+/// menambahkan latar bila tidak ada folder gambar.
+pub fn video_locations() -> Vec<PathBuf> {
+    resource_locations("Videos", crate::background::is_video_file)
+}
+
+/// Folder `Resources\<sub>` setiap profil EasyWorship yang berisi berkas
+/// yang cocok dengan `wanted`.
+fn resource_locations(sub: &str, wanted: fn(&Path) -> bool) -> Vec<PathBuf> {
     let Some(public) = std::env::var_os("PUBLIC") else {
         return Vec::new();
     };
@@ -189,13 +202,10 @@ pub fn image_locations() -> Vec<PathBuf> {
     };
     let mut found: Vec<PathBuf> = entries
         .filter_map(Result::ok)
-        .map(|e| e.path().join("Resources").join("Images"))
+        .map(|e| e.path().join("Resources").join(sub))
         .filter(|dir| {
-            std::fs::read_dir(dir).is_ok_and(|files| {
-                files
-                    .filter_map(Result::ok)
-                    .any(|f| crate::background::is_supported(&f.path()))
-            })
+            std::fs::read_dir(dir)
+                .is_ok_and(|files| files.filter_map(Result::ok).any(|f| wanted(&f.path())))
         })
         .collect();
     found.sort();

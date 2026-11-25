@@ -10,6 +10,7 @@ mod akun;
 #[cfg(windows)]
 mod dialog_guard;
 mod update;
+mod video;
 
 use std::{
     cell::{Cell, RefCell},
@@ -17,8 +18,12 @@ use std::{
     ffi::OsString,
     path::{Path, PathBuf},
     rc::{Rc, Weak},
-    sync::mpsc,
-    time::Duration,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, AtomicU64, Ordering},
+        mpsc,
+    },
+    time::{Duration, Instant},
 };
 
 use lentera_core::background::{self, Added, Picture};
@@ -32,8 +37,8 @@ use lentera_core::{
 use rfd::{MessageButtons, MessageDialog, MessageDialogResult, MessageLevel};
 use slint::winit_030::{WinitWindowAccessor, winit};
 use slint::{
-    CloseRequestResponse, ComponentHandle, Image, Model, ModelRc, Rgb8Pixel, SharedPixelBuffer,
-    SharedString, Timer, TimerMode, VecModel,
+    CloseRequestResponse, ComponentHandle, Image, Model, ModelRc, Rgb8Pixel, Rgba8Pixel,
+    SharedPixelBuffer, SharedString, Timer, TimerMode, VecModel,
 };
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::monitor::MonitorHandle;
@@ -198,9 +203,39 @@ fn to_image(picture: Picture) -> Image {
     Image::from_rgb8(buffer)
 }
 
-/// Nama latar tanpa ".jpg", untuk ditampilkan.
+/// Nama latar tanpa ekstensi, untuk ditampilkan.
 fn background_label(name: &str) -> &str {
-    name.strip_suffix(".jpg").unwrap_or(name)
+    background::label(name)
+}
+
+/// Membuat lagi gambar diam video latar `name` bila hilang, misalnya setelah
+/// folder `posters` terhapus. Butuh sepersekian detik.
+fn ensure_poster(profile_dir: &Path, name: &str) {
+    if !background::is_video(name) || background::has_poster(profile_dir, name) {
+        return;
+    }
+    if let Ok(path) = background::video_path(profile_dir, name)
+        && let Ok(poster) = video::poster(&path)
+    {
+        let _ = background::save_poster(profile_dir, name, &poster);
+    }
+}
+
+/// Video untuk uji alur (`--ui-smoke-test`), dari variabel LENTERA_SMOKE_VIDEO.
+fn smoke_video() -> Option<PathBuf> {
+    let path = PathBuf::from(std::env::var_os("LENTERA_SMOKE_VIDEO")?);
+    (video::SUPPORTED && path.is_file()).then_some(path)
+}
+
+/// Menambahkan satu gambar atau video ke latar profil. Dijalankan di thread
+/// lain: memperkecil foto atau membuka video butuh waktu di PC lemah.
+fn add_background_file(profile_dir: &Path, path: &Path) -> Result<Added, String> {
+    if background::is_video_file(path) {
+        let poster = video::poster(path)?;
+        background::add_video(profile_dir, path, &poster)
+    } else {
+        background::add(profile_dir, path)
+    }
 }
 
 /// "Monitor 2" di tombol status proyektor; kosong bila monitor tidak terbaca.
@@ -304,6 +339,8 @@ struct Smoke {
     waits: u32,
     checks: Vec<(String, bool)>,
     report: PathBuf,
+    /// Akhir jeda pemutaran video (LENTERA_SMOKE_HOLD).
+    hold_until: Option<Instant>,
 }
 
 /// Batas tunggu satu langkah uji, dalam detak 450 ms (sekitar 5 detik).
@@ -327,6 +364,13 @@ struct App {
     bg_target: Cell<Option<u64>>,
     /// Gambar kecil daftar latar profil yang sedang dibuka.
     bg_thumbs: RefCell<HashMap<String, Image>>,
+    /// Video latar yang sedang diputar di proyektor, menurut letak berkasnya.
+    video: RefCell<Option<(PathBuf, video::Player)>>,
+    /// Naik setiap kali video berganti atau berhenti; frame dari pemutar lama
+    /// yang masih di jalan diabaikan.
+    video_serial: Arc<AtomicU64>,
+    /// Jumlah frame video yang sudah tampil di proyektor (untuk uji alur).
+    video_frames: Arc<AtomicU64>,
     adding: RefCell<Option<Adding>>,
     adding_timer: Timer,
     bible: RefCell<BibleState>,
@@ -401,6 +445,9 @@ impl App {
             pictures: RefCell::default(),
             bg_target: Cell::default(),
             bg_thumbs: RefCell::default(),
+            video: RefCell::default(),
+            video_serial: Arc::default(),
+            video_frames: Arc::default(),
             adding: RefCell::default(),
             adding_timer: Timer::default(),
             bible: RefCell::default(),
@@ -420,6 +467,7 @@ impl App {
         });
         let ui = &app.ui;
         ui.set_version(VERSION.into());
+        ui.set_video_supported(video::SUPPORTED);
         ui.set_library(ModelRc::from(app.library_rows.clone()));
         ui.set_service(ModelRc::from(app.service_rows.clone()));
         ui.set_slides(ModelRc::from(app.slide_tiles.clone()));
@@ -2309,30 +2357,120 @@ impl App {
     fn apply_live_background(&self) {
         let live = self.state.borrow().live.as_ref().map(|slide| slide.item);
         let picture = self.picture_for(live);
-        let caption = {
+        let (caption, name, showing) = {
             let st = self.state.borrow();
-            live.and_then(|id| st.library.item(id))
-                .map_or_else(String::new, |item| {
-                    let latar = match (&item.background, &st.library.background_image) {
-                        (Some(own), _) => background_label(own).to_owned(),
-                        (None, Some(general)) => background_label(general).to_owned(),
-                        (None, None) => SLIDE_NAMES
-                            .get(st.library.background)
-                            .copied()
-                            .unwrap_or_default()
-                            .to_owned(),
-                    };
-                    format!("{} · latar {latar}", kind_label(item.kind))
-                })
+            let item = live.and_then(|id| st.library.item(id));
+            // Sesudah `picture_for`: latar yang hilang sudah dilepas.
+            let name = item
+                .and_then(|item| item.background.clone())
+                .or_else(|| st.library.background_image.clone());
+            let caption = item.map_or_else(String::new, |item| {
+                let latar = match &name {
+                    Some(name) if background::is_video(name) => {
+                        format!("video {}", background_label(name))
+                    }
+                    Some(name) => background_label(name).to_owned(),
+                    None => SLIDE_NAMES
+                        .get(st.library.background)
+                        .copied()
+                        .unwrap_or_default()
+                        .to_owned(),
+                };
+                format!("{} · latar {latar}", kind_label(item.kind))
+            });
+            (caption, name, st.output_visible && !st.blackout)
         };
         self.ui.set_live_caption(caption.into());
+        // Video hanya diputar saat proyektor terbuka dan tidak digelapkan.
+        let video = name.filter(|name| showing && background::is_video(name));
         let has = picture.is_some();
-        let image = picture.unwrap_or_default();
-        self.ui.set_live_picture(image.clone());
-        self.ui.set_has_live_picture(has);
-        self.output.set_picture(image);
-        self.output.set_has_picture(has);
+        if !self.play_video(video) {
+            let image = picture.unwrap_or_default();
+            self.ui.set_live_picture(image.clone());
+            self.ui.set_has_live_picture(has);
+            self.output.set_picture(image);
+            self.output.set_has_picture(has);
+        }
         self.prune_pictures();
+    }
+
+    /// Memutar video latar `name` di proyektor, atau menghentikan video yang
+    /// sedang diputar (`None`). Mengembalikan `true` bila video itu memang
+    /// sudah berputar, supaya frame yang tampil tidak ditimpa gambar diamnya
+    /// setiap kali slide berganti.
+    fn play_video(&self, name: Option<String>) -> bool {
+        let path = name.and_then(|name| background::video_path(&self.profile_dir(), &name).ok());
+        let mut current = self.video.borrow_mut();
+        if path.is_some() && current.as_ref().map(|(p, _)| p) == path.as_ref() {
+            return true;
+        }
+        // Pemutar lama berhenti sendiri; frame yang masih di jalan diabaikan.
+        *current = None;
+        let serial = self.video_serial.fetch_add(1, Ordering::SeqCst) + 1;
+        let Some(path) = path else {
+            return false;
+        };
+        let (output, ui) = (self.output.as_weak(), self.ui.as_weak());
+        let (now, shown) = (self.video_serial.clone(), self.video_frames.clone());
+        let busy = Arc::new(AtomicBool::new(false));
+        let mut frames = 0u32;
+        let deliver = move |frame: SharedPixelBuffer<Rgba8Pixel>| {
+            // Tampilan belum selesai dengan frame sebelumnya: buang yang ini.
+            if busy.swap(true, Ordering::SeqCst) {
+                return false;
+            }
+            // Layar jemaat di jendela operator kecil; sepertiga frame cukup dan
+            // menghemat CPU.
+            frames = frames.wrapping_add(1);
+            let mirror = frames % 3 == 1;
+            let (output, ui) = (output.clone(), ui.clone());
+            let (done, now, shown) = (busy.clone(), now.clone(), shown.clone());
+            let sent = slint::invoke_from_event_loop(move || {
+                done.store(false, Ordering::SeqCst);
+                if now.load(Ordering::SeqCst) != serial {
+                    return;
+                }
+                let image = Image::from_rgba8(frame);
+                if mirror && let Some(ui) = ui.upgrade() {
+                    ui.set_live_picture(image.clone());
+                    ui.set_has_live_picture(true);
+                }
+                if let Some(output) = output.upgrade() {
+                    output.set_picture(image);
+                    output.set_has_picture(true);
+                    shown.fetch_add(1, Ordering::Relaxed);
+                }
+            });
+            if sent.is_err() {
+                busy.store(false, Ordering::SeqCst);
+            }
+            sent.is_ok()
+        };
+        let (ui, now) = (self.ui.as_weak(), self.video_serial.clone());
+        let failed = move |error: String| {
+            let _ = slint::invoke_from_event_loop(move || {
+                if now.load(Ordering::SeqCst) == serial
+                    && let Some(ui) = ui.upgrade()
+                {
+                    ui.set_status(
+                        format!("Video latar tidak bisa diputar: {error} Proyektor memakai gambar diamnya.")
+                            .into(),
+                    );
+                    ui.set_status_ok(false);
+                }
+            });
+        };
+        *current = Some((path.clone(), video::play(path, deliver, failed)));
+        false
+    }
+
+    /// Menghentikan video yang sedang diputar dan menunggu berkasnya dilepas,
+    /// sebelum berkas itu dihapus.
+    fn stop_video_now(&self) {
+        self.video_serial.fetch_add(1, Ordering::SeqCst);
+        if let Some((_, player)) = self.video.borrow_mut().take() {
+            player.stop_and_wait();
+        }
     }
 
     /// Gambar latar umum. Gambar yang hilang atau rusak dilepas: latar umum
@@ -2380,7 +2518,9 @@ impl App {
         if let Some(image) = self.pictures.borrow().get(name) {
             return Ok(image.clone());
         }
-        let image = to_image(background::load(&self.profile_dir(), name)?);
+        let dir = self.profile_dir();
+        ensure_poster(&dir, name);
+        let image = to_image(background::load(&dir, name)?);
         self.pictures
             .borrow_mut()
             .insert(name.to_owned(), image.clone());
@@ -2461,6 +2601,7 @@ impl App {
                 let picture = thumbs
                     .entry(name.clone())
                     .or_insert_with(|| {
+                        ensure_poster(&dir, name);
                         background::thumbnail(&dir, name)
                             .map(to_image)
                             .unwrap_or_default()
@@ -2468,9 +2609,10 @@ impl App {
                     .clone();
                 BackgroundTile {
                     name: name.into(),
-                    label: background_label(name).into(),
+                    label: background::label(name).into(),
                     picture,
                     on: current.as_deref() == Some(name),
+                    video: background::is_video(name),
                 }
             })
             .collect();
@@ -2535,21 +2677,46 @@ impl App {
 
     fn add_backgrounds(self: &Rc<Self>) {
         if self.adding.borrow().is_some() {
-            self.status("Gambar latar masih ditambahkan; tunggu sebentar.", false);
+            self.status("Latar masih ditambahkan; tunggu sebentar.", false);
             return;
         }
-        let mut picker = rfd::FileDialog::new()
-            .set_title("Tambah gambar latar")
-            .add_filter("Gambar JPG atau PNG", &background::EXTENSIONS);
-        if let Some(dir) = easyworship::image_locations().into_iter().next() {
+        let mut picker = rfd::FileDialog::new();
+        if video::SUPPORTED {
+            let all: Vec<&str> = background::EXTENSIONS
+                .iter()
+                .chain(&background::VIDEO_EXTENSIONS)
+                .copied()
+                .collect();
+            picker = picker
+                .set_title("Tambah gambar atau video latar")
+                .add_filter("Gambar atau video", &all)
+                .add_filter("Gambar JPG atau PNG", &background::EXTENSIONS)
+                .add_filter(
+                    "Video MP4, M4V, MOV, atau WMV",
+                    &background::VIDEO_EXTENSIONS,
+                );
+        } else {
+            picker = picker
+                .set_title("Tambah gambar latar")
+                .add_filter("Gambar JPG atau PNG", &background::EXTENSIONS);
+        }
+        let folder = easyworship::image_locations()
+            .into_iter()
+            .chain(
+                easyworship::video_locations()
+                    .into_iter()
+                    .filter(|_| video::SUPPORTED),
+            )
+            .next();
+        if let Some(dir) = folder {
             picker = picker.set_directory(dir);
         }
         self.pick_files_then(picker, |app, paths| app.add_background_files(paths));
     }
 
-    /// Menambahkan gambar di thread lain, karena memperkecil foto besar bisa
-    /// butuh sepersekian detik per gambar di komputer yang lemah. Kemajuan
-    /// tampil di bilah status.
+    /// Menambahkan gambar dan video di thread lain, karena memperkecil foto
+    /// besar atau membuka video bisa butuh sepersekian detik per berkas di
+    /// komputer yang lemah. Kemajuan tampil di bilah status.
     fn add_background_files(self: &Rc<Self>, paths: Vec<PathBuf>) {
         if paths.is_empty() || self.adding.borrow().is_some() {
             return;
@@ -2559,7 +2726,7 @@ impl App {
         let total = paths.len();
         std::thread::spawn(move || {
             for path in paths {
-                if send.send(background::add(&dir, &path)).is_err() {
+                if send.send(add_background_file(&dir, &path)).is_err() {
                     return;
                 }
             }
@@ -2574,7 +2741,7 @@ impl App {
             existing: Vec::new(),
             failed: Vec::new(),
         });
-        self.status(&format!("Menambahkan gambar latar… 0 dari {total}"), true);
+        self.status(&format!("Menambahkan latar… 0 dari {total}"), true);
         let weak = Rc::downgrade(self);
         self.adding_timer
             .start(TimerMode::Repeated, Duration::from_millis(120), move || {
@@ -2609,12 +2776,7 @@ impl App {
         if !finished {
             if let Some(adding) = self.adding.borrow().as_ref() {
                 self.ui.set_status(
-                    format!(
-                        "Menambahkan gambar latar… {} dari {}",
-                        adding.done(),
-                        adding.total
-                    )
-                    .into(),
+                    format!("Menambahkan latar… {} dari {}", adding.done(), adding.total).into(),
                 );
             }
             return;
@@ -2636,10 +2798,7 @@ impl App {
         self.refresh_background_tiles();
         let mut parts = Vec::new();
         if !adding.added.is_empty() {
-            parts.push(format!(
-                "{} gambar latar ditambahkan",
-                count(adding.added.len())
-            ));
+            parts.push(format!("{} latar ditambahkan", count(adding.added.len())));
         }
         if !adding.existing.is_empty() {
             parts.push(format!("{} sudah ada", count(adding.existing.len())));
@@ -2662,7 +2821,7 @@ impl App {
             dialog(
                 Some(self.ui.window()),
                 MessageLevel::Warning,
-                "Sebagian gambar tidak bisa ditambahkan",
+                "Sebagian latar tidak bisa ditambahkan",
                 &text,
                 MessageButtons::Ok,
             );
@@ -2677,16 +2836,23 @@ impl App {
                 st.library.background_users(name),
             )
         };
+        let (what, which) = if background::is_video(name) {
+            ("video", "Video")
+        } else {
+            ("gambar", "Gambar")
+        };
         let mut text = format!(
-            "Hapus \"{}\" dari latar profil ini?\n\nBerkas gambar asli di komputer tidak ikut terhapus.",
+            "Hapus \"{}\" dari latar profil ini?\n\nBerkas {what} asli di komputer tidak ikut terhapus.",
             background_label(name)
         );
         if general {
-            text.push_str("\nGambar ini latar umum; latar umum kembali ke warna.");
+            text.push_str(&format!(
+                "\n{which} ini latar umum; latar umum kembali ke warna."
+            ));
         }
         if items > 0 {
             text.push_str(&format!(
-                "\nGambar ini latar {} materi; materi itu kembali memakai latar umum.",
+                "\n{which} ini latar {} materi; materi itu kembali memakai latar umum.",
                 count(items)
             ));
         }
@@ -2703,7 +2869,15 @@ impl App {
     }
 
     fn remove_background_now(&self, name: &str) {
-        if let Err(e) = background::remove(&self.profile_dir(), name) {
+        // Windows tidak bisa menghapus video yang sedang diputar.
+        let dir = self.profile_dir();
+        if background::is_video(name)
+            && self.video.borrow().as_ref().map(|(path, _)| path)
+                == background::video_path(&dir, name).ok().as_ref()
+        {
+            self.stop_video_now();
+        }
+        if let Err(e) = background::remove(&dir, name) {
             self.status(&e, false);
             return;
         }
@@ -3041,6 +3215,7 @@ impl App {
             step: 0,
             waits: 0,
             checks: Vec::new(),
+            hold_until: None,
             report,
         });
         let weak = Rc::downgrade(self);
@@ -3050,6 +3225,13 @@ impl App {
                     app.smoke_tick();
                 }
             });
+    }
+
+    /// Melompati langkah uji sampai `last`, misalnya uji video tanpa video uji.
+    fn skip_smoke_steps(&self, last: u32) {
+        if let Some(smoke) = self.smoke.borrow_mut().as_mut() {
+            smoke.step = last + 1;
+        }
     }
 
     fn check(&self, name: &str, ok: bool) {
@@ -3519,6 +3701,110 @@ impl App {
                         && library.background_image.is_none()
                         && library.background_users(name) == 0
                         && self.pictures.borrow().is_empty(),
+                );
+            }
+            // Video latar, hanya bila LENTERA_SMOKE_VIDEO menunjuk ke video uji.
+            // Repositori tidak menyimpan video, dan tidak setiap Windows (misalnya
+            // Windows Server di CI) punya Media Foundation.
+            25 => {
+                let Some(source) = smoke_video() else {
+                    self.skip_smoke_steps(29);
+                    return;
+                };
+                if !self.state.borrow().output_visible {
+                    self.show_output();
+                }
+                self.bg_target.set(None);
+                self.add_background_files(vec![source]);
+            }
+            26 => {
+                if self.adding.borrow().is_some() && self.retry() {
+                    return;
+                }
+                let general = self.state.borrow().library.background_image.clone();
+                let name = general.clone().unwrap_or_default();
+                let dir = self.profile_dir();
+                self.show_backgrounds(None);
+                self.check(
+                    "video_added",
+                    background::is_video(&name)
+                        && background::list(&dir) == [name.clone()]
+                        && background::has_poster(&dir, &name)
+                        && self.ui.get_has_bg_picture()
+                        && self
+                            .background_tiles
+                            .row_data(0)
+                            .is_some_and(|t| t.video && t.on),
+                );
+                self.video_frames.store(0, Ordering::SeqCst);
+            }
+            27 => {
+                // Proyektor terbuka: video berputar dan frame-nya tampil.
+                let frames = self.video_frames.load(Ordering::SeqCst);
+                if frames < 15 && self.retry() {
+                    return;
+                }
+                self.snapshot("ui-smoke-video-galeri.png", self.ui.window());
+                self.ui.invoke_close_backgrounds();
+                self.check(
+                    "video_playing",
+                    self.video.borrow().is_some()
+                        && frames >= 15
+                        && self.output.get_has_picture()
+                        && self.ui.get_live_caption().contains("latar video"),
+                );
+                // Slide berganti tanpa memulai video dari awal.
+                let serial = self.video_serial.load(Ordering::SeqCst);
+                self.navigate(true);
+                self.check(
+                    "video_keeps_playing",
+                    self.video_serial.load(Ordering::SeqCst) == serial
+                        && self.video.borrow().is_some(),
+                );
+            }
+            28 => {
+                // LENTERA_SMOKE_HOLD=<detik>: video diputar lebih lama di sini,
+                // untuk mengukur RAM dan CPU dari luar.
+                if let Some(hold) = std::env::var("LENTERA_SMOKE_HOLD")
+                    .ok()
+                    .and_then(|s| s.parse::<u64>().ok())
+                {
+                    let mut smoke = self.smoke.borrow_mut();
+                    if let Some(smoke) = smoke.as_mut() {
+                        let until = *smoke
+                            .hold_until
+                            .get_or_insert_with(|| Instant::now() + Duration::from_secs(hold));
+                        if Instant::now() < until {
+                            smoke.step -= 1;
+                            return;
+                        }
+                    }
+                }
+                self.snapshot("ui-smoke-video-proyektor.png", self.output.window());
+                // Gelapkan menghentikan video; memulihkan memutarnya lagi.
+                self.toggle_blackout();
+                let stopped = self.video.borrow().is_none();
+                self.toggle_blackout();
+                self.check("video_blackout", stopped && self.video.borrow().is_some());
+            }
+            29 => {
+                // Video yang sedang diputar bisa dihapus: pemutarnya dihentikan
+                // dulu supaya Windows melepas berkasnya.
+                let name = self
+                    .state
+                    .borrow()
+                    .library
+                    .background_image
+                    .clone()
+                    .unwrap_or_default();
+                let dir = self.profile_dir();
+                self.remove_background_now(&name);
+                self.check(
+                    "video_removed",
+                    background::list(&dir).is_empty()
+                        && !background::folder(&dir).join(&name).exists()
+                        && self.video.borrow().is_none()
+                        && !self.output.get_has_picture(),
                 );
             }
             _ => {

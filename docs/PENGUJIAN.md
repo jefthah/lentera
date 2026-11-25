@@ -780,3 +780,48 @@ Belum diuji:
 - Langkah **Alamat server terisi**, yang baru berjalan saat tag di-push.
 - Pembaruan otomatis 0.6.0 → 0.7.0 lewat GitHub Releases di instalasi asli. Ini baru bisa diuji setelah rilis diterbitkan.
 - macOS (menunggu CI) dan PC sasaran dengan RAM 2–4 GB.
+
+## Latar video — 25 November 2026
+
+Video MP4, M4V, MOV, dan WMV sebagai latar umum atau latar per materi, diputar dengan Media Foundation (`crates/lentera-app/src/video.rs`). Diuji di komputer pengembangan: Intel Core i5-13500 (20 inti logis), NVIDIA GeForce RTX 4060 Ti, RAM 32 GB, Windows 11.
+
+- `cargo fmt --all --check` bersih. `cargo clippy --all-targets -- -D warnings` bersih untuk `lentera-core` (dengan dan tanpa `http`) dan `lentera-app`.
+- `cargo test --locked`: 105 tes `lentera-core` lulus, termasuk 5 tes baru untuk video di `background.rs`: video disalin apa adanya bersama gambar diamnya; video yang sama tidak disimpan dua kali dan namanya tidak bentrok dengan gambar; format lain (AVI) dan video tanpa gambar diam ditolak tanpa meninggalkan berkas; gambar diam yang hilang dilaporkan dan bisa dibuat lagi; menyalin dan menghapus video. Tes `lentera-app` untuk ukuran frame yang diperkecil lulus.
+- `clippy` inti untuk `aarch64-apple-darwin` tidak bisa dijalankan di komputer ini (`libsqlite3-sys` butuh compiler C macOS). Jalur macOS hanya dicek CI.
+- `THIRD-PARTY-NOTICES.txt` disusun ulang: tetap 305 crate dan tidak berubah, karena crate `windows` 0.62.2 sudah ikut lewat dependensi lain.
+- Build rilis `lentera.exe` tanpa `LENTERA_SERVER`: 14.262.784 byte (0.7.0 dengan alamat server: 14.223.360 byte).
+
+**Video sungguhan** (`LENTERA_TEST_VIDEO=<berkas>;<berkas> cargo test -p lentera-app real_video -- --ignored --nocapture`):
+
+- Video uji 1080p H.264, 4K H.264, 720p MOV, WMV, dan 1080p HEVC: gambar diam dan frame terbaca. Video 4K keluar sebagai 1920×1080. Build rilis membuat gambar diam dalam 200–570 ms dan memutar 1080p sekitar 29 fps.
+- Berkas MP4 rusak (12 byte) ditolak dengan pesan "video tidak bisa dibuka, mungkin rusak atau formatnya belum didukung Windows". Batas 500 MB belum diuji dengan berkas sungguhan.
+
+**Uji alur UI** dengan `LENTERA_SMOKE_VIDEO=<berkas video>` (langkah video dilewati bila kosong):
+
+- 40/40 lulus dengan video uji 1080p, video 4K, dan video Natal 1080p asli. Tanpa video 35/35, sama seperti sebelumnya.
+- Lima pemeriksaan baru: video masuk galeri dan dipakai sebagai latar umum; proyektor menerima minimal 15 frame; pindah slide tidak memulai ulang video; blackout menghentikannya; video yang sedang diputar bisa dihapus (pemutar dilepas dulu, karena Windows tidak bisa menghapus berkas yang terbuka).
+- Dengan fitur `snapshot`, uji alur menyimpan `ui-smoke-video-galeri.png` dan `ui-smoke-video-proyektor.png`. Dilihat langsung: galeri menampilkan tanda **Video**, dan proyektor menampilkan video Natal bergerak dengan lirik bergaris tepi di atasnya, warna benar.
+- `LENTERA_SMOKE_HOLD=<detik>` menahan uji alur selama video diputar, untuk mengukur RAM dan CPU.
+
+**RAM dan CPU** saat video diputar, diukur tiap detik selama 14 detik dengan `LENTERA_SMOKE_HOLD=20` pada build rilis. CPU dalam persen satu inti.
+
+| Video | Decode | CPU median / maks | Working set median | Private maks |
+| --- | --- | --- | --- | --- |
+| Tanpa video (uji alur biasa) | — | 5% / 17% | 37 MiB (puncak 40) | 18 MiB |
+| Uji 1080p H.264 | GPU | 26% / 37% | 192 MiB | 264 MiB |
+| Natal 1080p H.264 | GPU | 31% / 42% | 201 MiB | 275 MiB |
+| Uji 4K H.264 | GPU | 23% / 42% | 326 MiB | 536 MiB |
+| Uji 1080p H.264 | CPU | 91% / 129% | 311 MiB | 332 MiB |
+| Uji 4K H.264 | CPU | 262% / 384% | 846 MiB | 831 MiB |
+
+- Angka decode GPU sejalan dengan prototipe (`prototypes/slint-spike/HASIL.md`: 164 MiB dengan video 1080p). Tambahan sekitar 150 MiB untuk 1080p berasal dari Media Foundation, Direct3D 11, dan permukaan decoder.
+- Baris CPU diukur dengan sakelar sementara yang melewati GPU; sakelar itu tidak ada di kode. Jalur ini hanya dipakai bila GPU tidak bisa decode.
+- Membatasi decoder CPU menjadi 4 thread (`CODECAPI_AVDecNumWorkerThreads`) dicoba dan tidak menurunkan memori (1080p 305 MiB, 4K 841 MiB), jadi tidak dipakai.
+- Karena itu panduan menyarankan video 1080p. Video 4K tetap diputar, tetapi butuh lebih banyak memori, apalagi tanpa decode GPU.
+
+Belum diuji:
+
+- PC sasaran yang lemah, dengan GPU terintegrasi lama dan RAM 2–4 GB.
+- Proyektor sungguhan dan dua monitor dengan video.
+- Pemutaran berjam-jam (kebocoran memori jangka panjang).
+- macOS, yang hanya menampilkan gambar diam (menunggu CI).

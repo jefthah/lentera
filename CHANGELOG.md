@@ -1,6 +1,6 @@
 # Riwayat rilis
 
-## Belum dirilis
+## 0.8.0 — 25 November 2026 — beta
 
 **Latar video.** Video bisa dipakai sebagai latar umum atau latar per materi, sama seperti gambar. Untuk sekarang hanya di Windows.
 
@@ -16,7 +16,7 @@
 
 **Kebutuhan:** dengan video 1080p, Lentera memakai sekitar 200 MiB RAM (tanpa video sekitar 40 MiB) dan sekitar sepertiga inti CPU. Video 4K butuh sekitar 330 MiB. Di komputer yang tidak bisa decode di GPU, video 1080p butuh sekitar 310 MiB dan hampir satu inti, sedangkan 4K sekitar 850 MiB dan lebih dari dua inti. Pakai video 1080p.
 
-**Membuka profil dengan versi lama:** format profil tidak berubah. Lentera 0.7.0 atau sebelumnya tidak menampilkan video di galeri, dan materi atau latar umum yang memakai video kembali ke latar umum atau warna. Berkas videonya tetap ada di profil. Program kini sekitar 14,3 MB (0.7.0: 14,2 MB), tanpa komponen pihak ketiga baru.
+**Memperbarui:** pengguna 0.1.1 sampai 0.7.0 menerima versi ini lewat pembaruan otomatis; pengguna 0.1.0 memasang installer sekali. Akun yang sudah masuk tetap masuk. Bila memperbarui dari 0.6.0 atau sebelumnya, Lentera meminta masuk saat pertama kali dibuka, seperti di 0.7.0. Versi ini tidak mengubah format profil. Bila profil yang memakai video dibuka lagi oleh 0.7.0 atau sebelumnya, video tidak tampil di galeri, dan materi atau latar umum yang memakainya kembali ke latar umum atau warna; berkas videonya tetap ada di profil. Program kini sekitar 14,3 MB (0.7.0: 14,2 MB), tanpa komponen pihak ketiga baru.
 
 ## 0.7.0 — 25 November 2026 — beta
 

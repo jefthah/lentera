@@ -56,12 +56,14 @@ export struct ProfileCard {
     current: bool,
 }
 
-// Satu gambar di daftar latar.
+// Satu gambar atau video di daftar latar. Untuk video, `picture` adalah
+// gambar kecil dari gambar diamnya.
 export struct BackgroundTile {
     name: string,
     label: string,
     picture: image,
     on: bool,
+    video: bool,
 }
 
 export global Theme {
@@ -1563,7 +1565,7 @@ component BackgroundThumb inherits Rectangle {
         border-width: root.tile.on ? 2px : 1px;
         border-color: root.tile.on ? Theme.accent : touch.has-hover ? #4A5263 : #2A303C;
         accessible-role: button;
-        accessible-label: "Latar " + root.tile.label;
+        accessible-label: (root.tile.video ? "Latar video " : "Latar ") + root.tile.label;
         accessible-checked: root.tile.on;
         accessible-action-default => {
             root.clicked();
@@ -1582,6 +1584,38 @@ component BackgroundThumb inherits Rectangle {
                 source: root.tile.picture;
                 image-fit: cover;
             }
+            // Penanda video di pojok kiri bawah.
+            if root.tile.video: Rectangle {
+                x: 6px;
+                y: parent.height - self.height - 6px;
+                height: 20px;
+                width: video-row.preferred-width + 12px;
+                border-radius: 5px;
+                background: #000000B3;
+                video-row := HorizontalLayout {
+                    padding-left: 6px;
+                    padding-right: 6px;
+                    spacing: 4px;
+                    alignment: center;
+                    VerticalLayout {
+                        alignment: center;
+                        Icon {
+                            svg: Icons.play;
+                            color: #FFFFFF;
+                            filled: true;
+                            width: 10px;
+                            height: 10px;
+                        }
+                    }
+                    Text {
+                        text: "Video";
+                        color: #FFFFFF;
+                        font-size: 11px;
+                        font-weight: 600;
+                        vertical-alignment: center;
+                    }
+                }
+            }
         }
         touch := TouchArea {
             mouse-cursor: pointer;
@@ -1594,7 +1628,7 @@ component BackgroundThumb inherits Rectangle {
             y: 6px;
             size: 28px;
             icon: Icons.trash;
-            label: "Hapus latar " + root.tile.label;
+            label: (root.tile.video ? "Hapus latar video " : "Hapus latar ") + root.tile.label;
             clicked => {
                 root.remove();
             }
@@ -2110,6 +2144,8 @@ export component MainWindow inherits Window {
     in property <int> bg-index;
     in property <image> bg-picture;
     in property <bool> has-bg-picture;
+    // Video latar bisa ditambahkan di sistem ini (belum di macOS).
+    in property <bool> video-supported;
     // Gambar latar materi terpilih (slide, pratinjau, editor) dan materi yang
     // tayang: gambar sendiri materi itu, atau latar umum.
     in property <image> view-picture;
@@ -2852,7 +2888,7 @@ export component MainWindow inherits Window {
                                         font-weight: 700;
                                     }
                                     Text {
-                                        text: root.bg-for-item ? root.bg-item-title : root.backgrounds.length == 0 ? "Belum ada gambar di profil ini" : root.backgrounds.length + " gambar di profil ini";
+                                        text: root.bg-for-item ? root.bg-item-title : root.backgrounds.length == 0 ? "Belum ada latar di profil ini" : root.backgrounds.length + " latar di profil ini";
                                         color: Theme.text-3;
                                         font-size: 12px;
                                         overflow: elide;
@@ -2874,7 +2910,7 @@ export component MainWindow inherits Window {
                                     alignment: center;
                                     horizontal-stretch: 0;
                                     Btn {
-                                        text: "Tambah gambar";
+                                        text: root.video-supported ? "Tambah gambar atau video" : "Tambah gambar";
                                         icon: Icons.plus;
                                         font-size: 13px;
                                         full-text: true;
@@ -2897,9 +2933,12 @@ export component MainWindow inherits Window {
                                 }
                             }
                             Text {
-                                text: root.bg-for-item
-                                    ? "Klik gambar untuk memakainya hanya di materi ini; materi lain tetap memakai latar umum. Gambar JPG atau PNG disalin ke profil ini; berkas aslinya tidak diubah."
-                                    : "Klik gambar untuk memakainya sebagai latar umum, yaitu latar materi yang tidak punya latar sendiri. Gambar JPG atau PNG disalin ke profil ini; berkas aslinya tidak diubah.";
+                                text: (root.bg-for-item
+                                    ? "Klik latar untuk memakainya hanya di materi ini; materi lain tetap memakai latar umum. "
+                                    : "Klik latar untuk memakainya sebagai latar umum, yaitu latar materi yang tidak punya latar sendiri. ")
+                                    + (root.video-supported
+                                    ? "Gambar JPG atau PNG dan video MP4, MOV, atau WMV disalin ke profil ini; berkas aslinya tidak diubah. Video diputar berulang tanpa suara di proyektor."
+                                    : "Gambar JPG atau PNG disalin ke profil ini; berkas aslinya tidak diubah.");
                                 color: Theme.text-2;
                                 font-size: 13px;
                                 wrap: word-wrap;
@@ -2912,7 +2951,9 @@ export component MainWindow inherits Window {
                                 Text {
                                     x: 24px;
                                     width: parent.width - 48px;
-                                    text: "Klik Tambah gambar untuk memilih satu atau beberapa gambar sekaligus, misalnya dari folder gambar EasyWorship.";
+                                    text: root.video-supported
+                                        ? "Klik Tambah gambar atau video untuk memilih satu atau beberapa berkas sekaligus, misalnya dari folder gambar atau video EasyWorship."
+                                        : "Klik Tambah gambar untuk memilih satu atau beberapa gambar sekaligus, misalnya dari folder gambar EasyWorship.";
                                     color: Theme.text-3;
                                     font-size: 13px;
                                     wrap: word-wrap;

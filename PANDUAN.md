@@ -64,17 +64,17 @@ Dengan satu monitor, jendela proyektor terbuka sebagai jendela biasa. Dengan dua
 
 ## Latar
 
-Slide, pratinjau, layar tayang, dan proyektor memakai **latar umum**, kecuali materi yang diberi gambar latar sendiri.
+Slide, pratinjau, layar tayang, dan proyektor memakai **latar umum**, kecuali materi yang diberi gambar atau video latar sendiri.
 
-**Latar umum** ada di bawah kolom kanan dan di menu proyektor: tiga warna atau satu gambar. Di jendela sempit, latar umum hanya ada di menu proyektor.
+**Latar umum** ada di bawah kolom kanan dan di menu proyektor: tiga warna, satu gambar, atau satu video. Di jendela sempit, latar umum hanya ada di menu proyektor.
 
-- Klik kotak **Gambar** untuk membuka galeri latar, lalu tekan **Tambah gambar**. Pilih satu atau beberapa gambar JPG, JPEG, JFIF, atau PNG (Ctrl+klik atau Shift+klik di pemilih berkas). Bila EasyWorship terpasang dengan gambar latar, pemilih berkas terbuka di folder gambar EasyWorship.
+- Klik kotak **Gambar** untuk membuka galeri latar, lalu tekan **Tambah gambar atau video** (di macOS: **Tambah gambar**). Pilih satu atau beberapa gambar JPG, JPEG, JFIF, atau PNG, atau video MP4, M4V, MOV, atau WMV (Ctrl+klik atau Shift+klik di pemilih berkas). Bila EasyWorship terpasang, pemilih berkas terbuka di folder gambar EasyWorship, atau di folder videonya bila tidak ada folder gambar.
 - Klik gambar di galeri untuk memakainya sebagai latar umum. Bila hanya satu gambar ditambahkan, gambar itu langsung dipakai. Klik salah satu warna untuk kembali ke latar warna; gambarnya tetap ada di galeri.
 
-**Latar per materi:** sebuah lagu atau ayat bisa memakai gambarnya sendiri.
+**Latar per materi:** sebuah lagu atau ayat bisa memakai gambar atau videonya sendiri.
 
-- Pilih materinya, lalu klik tombol latar di samping keterangan di atas judul. Tombol itu bertuliskan **Latar umum**, atau **Latar: nama gambar** bila materi sudah punya gambar sendiri. Galeri **Latar materi** terbuka untuk materi itu saja.
-- Klik gambar untuk memakainya di materi itu. **Pakai latar umum** mengembalikan materi ke latar umum. Gambar yang ditambahkan dari galeri ini masuk ke galeri yang sama dengan latar umum.
+- Pilih materinya, lalu klik tombol latar di samping keterangan di atas judul. Tombol itu bertuliskan **Latar umum**, atau **Latar: nama gambar** bila materi sudah punya latar sendiri. Galeri **Latar materi** terbuka untuk materi itu saja.
+- Klik gambar atau video untuk memakainya di materi itu. **Pakai latar umum** mengembalikan materi ke latar umum. Latar yang ditambahkan dari galeri ini masuk ke galeri yang sama dengan latar umum.
 - Ayat dari tab Alkitab yang belum ada di pustaka disimpan dulu ke pustaka, seperti saat diedit.
 - Slide di tengah, pratinjau, dan hasil editor memakai latar materi yang dipilih. **Layar jemaat** di kolom kanan dan proyektor memakai latar materi yang sedang tayang, jadi latarnya ikut berganti saat tayangan pindah ke materi berikutnya dalam susunan.
 - Mengganti latar umum tidak mengubah materi yang punya gambar sendiri.
@@ -85,6 +85,17 @@ Untuk semua gambar latar:
 - Gambar mengisi seluruh layar. Bila bentuknya tidak sama dengan layar, bagian yang tidak muat dipotong rata tengah; untuk proyektor biasa, gambar 16:9 (misalnya 1920×1080) paling pas.
 - Lentera menyimpan salinan gambar di folder profil (`backgrounds`), diperkecil seperlunya untuk layar 1920×1080. Gambar yang lebih kecil tidak diperbesar dan bisa terlihat kurang tajam di proyektor. Berkas asli tidak diubah.
 - Tombol tempat sampah di gambar menghapusnya dari profil setelah konfirmasi. Berkas aslinya di komputer tidak ikut terhapus. Materi yang memakai gambar itu kembali ke latar umum, dan bila gambar itu latar umum, latar umum kembali ke warna.
+
+**Video latar** (Windows):
+
+- Video diputar berulang tanpa suara, hanya di proyektor. Teks tampil di atasnya seperti di atas gambar.
+- Saat slide berganti, video terus berjalan selama latarnya sama. Video berhenti saat proyektor ditutup atau digelapkan, lalu mulai lagi dari awal.
+- **Layar jemaat** di kolom kanan ikut bergerak, tetapi dengan lebih sedikit frame supaya ringan. Slide, pratinjau, dan galeri memakai gambar diam dari detik pertama video; galeri memberi tanda **Video**.
+- Pakai video 1080p (1920×1080). Video yang lebih besar, misalnya 4K, tetap diperkecil ke 1920×1080 saat diputar, tetapi butuh jauh lebih banyak memori dan CPU. Video MP4 dengan codec H.264 paling aman; codec lain harus didukung Windows di komputer itu.
+- Paling besar 500 MB per video. Video disalin apa adanya ke folder profil, tanpa diperkecil, jadi galeri dengan banyak video memakan ruang disk.
+- Bila video tidak bisa diputar, misalnya rusak atau codecnya tidak dikenal, Lentera memberi pesan dan proyektor memakai gambar diamnya.
+- Uji video di komputer dan proyektor gereja sebelum ibadah. Dengan video, Lentera memakai sekitar 200 MiB RAM.
+- macOS belum bisa memutar video. Video yang sudah ada di profil tampil sebagai gambar diamnya.
 
 Setiap profil punya galeri sendiri.
 
@@ -175,7 +186,7 @@ Nama profil yang sedang dibuka juga tampil di judul jendela. Pada jendela yang l
 
 ## Akun dan sinkron
 
-Dengan akun Lentera, profil yang sama bisa dipakai di beberapa komputer, misalnya laptop di rumah dan komputer gereja. Yang disinkron: lirik, ayat, susunan ibadah, nama profil, dan warna latar umum. Pilihan monitor, gambar latar, latar per materi, dan Alkitab yang diimpor tetap milik masing-masing komputer.
+Dengan akun Lentera, profil yang sama bisa dipakai di beberapa komputer, misalnya laptop di rumah dan komputer gereja. Yang disinkron: lirik, ayat, susunan ibadah, nama profil, dan warna latar umum. Pilihan monitor, gambar dan video latar, latar per materi, dan Alkitab yang diimpor tetap milik masing-masing komputer.
 
 Masuk pertama kali di setiap komputer butuh internet dan akses ke email. Salinan materi, susunan ibadah, dan nama profil disimpan di server Lentera.
 
@@ -222,7 +233,7 @@ Perubahan terbaru ditentukan dari jam komputer yang mengubahnya. Bila jam komput
 
 ## Data dan cadangan
 
-Folder data ada di `%LOCALAPPDATA%\Lentera` (macOS: `~/Library/Application Support/Lentera`). Data disimpan per profil di `profiles\<id profil>\library.db`, sebuah basis data SQLite, termasuk susunan ibadah, pilihan monitor, dan latar. Gambar latar profil ada di `profiles\<id profil>\backgrounds`. Saat Lentera 0.5.0 atau yang lebih baru pertama kali membuka profil dari versi 0.4.0 atau sebelumnya, `library.db` diperbarui otomatis untuk latar per materi; setelah itu profil tidak bisa dibuka lagi oleh versi lama. Profil yang dihapus dipindahkan ke `profiles-deleted\<id profil>`.
+Folder data ada di `%LOCALAPPDATA%\Lentera` (macOS: `~/Library/Application Support/Lentera`). Data disimpan per profil di `profiles\<id profil>\library.db`, sebuah basis data SQLite, termasuk susunan ibadah, pilihan monitor, dan latar. Gambar dan video latar profil ada di `profiles\<id profil>\backgrounds`, gambar diam video di `posters`, dan gambar kecil galeri di `thumbs`. Bila hilang, keduanya dibuat ulang (gambar diam video hanya di Windows). Saat Lentera 0.5.0 atau yang lebih baru pertama kali membuka profil dari versi 0.4.0 atau sebelumnya, `library.db` diperbarui otomatis untuk latar per materi; setelah itu profil tidak bisa dibuka lagi oleh versi lama. Profil yang dihapus dipindahkan ke `profiles-deleted\<id profil>`.
 
 Terjemahan Alkitab yang diimpor disimpan di `alkitab.db` di folder data, satu untuk semua profil di komputer ini, dan tidak ikut terhapus bersama profil. Berkas ini tidak punya cadangan `.bak`; simpan berkas aslinya supaya bisa diimpor ulang.
 
@@ -234,16 +245,16 @@ Untuk menyimpan di lokasi lain, jalankan `lentera.exe --data-dir "D:\Data Ibadah
 
 ## Ruang lingkup versi ini
 
-- Lirik, ayat teks, tab Alkitab dengan referensi dan terjemahan yang diimpor, pencarian, editor, susunan ibadah, pratinjau, keluaran terpisah, layar penuh, blackout, dan latar berupa warna atau gambar, untuk semua materi atau per materi.
+- Lirik, ayat teks, tab Alkitab dengan referensi dan terjemahan yang diimpor, pencarian, editor, susunan ibadah, pratinjau, keluaran terpisah, layar penuh, blackout, dan latar berupa warna, gambar, atau video (video hanya di Windows), untuk semua materi atau per materi.
 - Akun dengan masuk lewat kode email, dan sinkron profil antarkomputer lewat server Lentera.
 - Windows 10/11 **64-bit** dengan installer dan pembaruan otomatis. macOS dari kode sumber. Antarmuka ditujukan untuk layar minimal sekitar 1024×640.
-- Impor lagu dan Alkitab EasyWorship 2009–8. Jadwal, tema, dan media EasyWorship belum ikut; gambar latar EasyWorship bisa ditambahkan satu per satu atau beberapa sekaligus lewat galeri latar.
-- Belum mencakup video, PowerPoint, NDI, streaming, atau pencarian kata di seluruh Alkitab.
+- Impor lagu dan Alkitab EasyWorship 2009–8. Jadwal, tema, dan media EasyWorship belum ikut; gambar dan video latar EasyWorship bisa ditambahkan satu per satu atau beberapa sekaligus lewat galeri latar.
+- Belum mencakup video sebagai materi tayang (dengan suara), PowerPoint, NDI, streaming, atau pencarian kata di seluruh Alkitab.
 - Belum ada sertifikat penandatanganan aplikasi. Jangan gunakan untuk layanan langsung sebelum latihan dan pengujian di komputer / proyektor tujuan.
 
 ## Untuk pengembang
 
-Logika data, susunan ibadah, impor, dan penyimpanan ada di `crates/lentera-core` beserta pengujiannya. Penyimpanan SQLite per profil dan pemindahan `library.json` ada di `src/store.rs`; skemanya diberi versi lewat `PRAGMA user_version`. Alkitab ada di `src/bible/`: daftar 66 kitab, pembaca referensi, impor OpenSong / Zefania / TSV, pembagian slide ayat, dan `alkitab.db`. Impor EasyWorship ada di `src/easyworship/`: lagu SQLite + RTF (6–8), tabel Paradox (2009), dan Alkitab `.ewb`; semuanya hanya membaca. Aplikasi ada di `crates/lentera-app`: logika di `src/main.rs`, tata letak dan tema di `ui/app.slint`, pembaruan otomatis (Velopack) di `src/update.rs`. Tampilan digambar dengan renderer software Slint, tanpa browser tertanam atau server lokal. Tampilan Win32 lama ada di `crates/lentera-win32` dan tidak dirilis lagi. Rilis Windows dibuat oleh workflow `.github/workflows/rilis.yml` saat tag versi di-push. CI (`inti.yml`) berjalan untuk setiap PR dan push ke `main`; build ujinya memakai profil `ci` (release tanpa LTO) dan cache Rust yang diisi dari `main`. Rilis selalu dibangun bersih dengan profil `release`. Server login dan sinkron (Go + PostgreSQL) ada di `server/` dan sudah di-deploy dengan berkas di `server/deploy/`. Protokolnya ada di `docs/SINKRON.md`, logika sinkron di `crates/lentera-core/src/sync/`, dan layar masuk serta tombol akun di `crates/lentera-app/src/akun.rs`. Alamat server diambil saat build dari variabel `LENTERA_SERVER`. Bila kosong, layar masuk tidak aktif; workflow rilis berhenti bila variabel repositorinya kosong. Untuk uji, jalankan `lentera.exe --server http://127.0.0.1:8310`.
+Logika data, susunan ibadah, impor, dan penyimpanan ada di `crates/lentera-core` beserta pengujiannya. Penyimpanan SQLite per profil dan pemindahan `library.json` ada di `src/store.rs`; skemanya diberi versi lewat `PRAGMA user_version`. Alkitab ada di `src/bible/`: daftar 66 kitab, pembaca referensi, impor OpenSong / Zefania / TSV, pembagian slide ayat, dan `alkitab.db`. Impor EasyWorship ada di `src/easyworship/`: lagu SQLite + RTF (6–8), tabel Paradox (2009), dan Alkitab `.ewb`; semuanya hanya membaca. Aplikasi ada di `crates/lentera-app`: logika di `src/main.rs`, tata letak dan tema di `ui/app.slint`, pembaruan otomatis (Velopack) di `src/update.rs`, dan pemutar video latar (Media Foundation) di `src/video.rs`. Tampilan digambar dengan renderer software Slint, tanpa browser tertanam atau server lokal. Tampilan Win32 lama ada di `crates/lentera-win32` dan tidak dirilis lagi. Rilis Windows dibuat oleh workflow `.github/workflows/rilis.yml` saat tag versi di-push. CI (`inti.yml`) berjalan untuk setiap PR dan push ke `main`; build ujinya memakai profil `ci` (release tanpa LTO) dan cache Rust yang diisi dari `main`. Rilis selalu dibangun bersih dengan profil `release`. Server login dan sinkron (Go + PostgreSQL) ada di `server/` dan sudah di-deploy dengan berkas di `server/deploy/`. Protokolnya ada di `docs/SINKRON.md`, logika sinkron di `crates/lentera-core/src/sync/`, dan layar masuk serta tombol akun di `crates/lentera-app/src/akun.rs`. Alamat server diambil saat build dari variabel `LENTERA_SERVER`. Bila kosong, layar masuk tidak aktif; workflow rilis berhenti bila variabel repositorinya kosong. Untuk uji, jalankan `lentera.exe --server http://127.0.0.1:8310`.
 
 Di Windows, pasang Rust stable dengan target `x86_64-pc-windows-msvc` serta Microsoft C++ Build Tools / Windows SDK. Di macOS, pasang Rust stable dan Xcode Command Line Tools. Dari folder proyek:
 

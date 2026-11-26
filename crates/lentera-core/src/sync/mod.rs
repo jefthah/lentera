@@ -41,6 +41,10 @@ pub const MAX_TITLE_CHARS: usize = 1000;
 pub const MAX_CONTENT_BYTES: usize = 1 << 20;
 /// Materi per permintaan sinkron.
 pub const MAX_ITEMS_PER_REQUEST: usize = 1000;
+/// Susunan tersimpan per permintaan sinkron.
+pub const MAX_SERVICES_PER_REQUEST: usize = 100;
+/// Materi per susunan ibadah.
+pub const MAX_SERVICE_ITEMS: usize = 1000;
 /// Ukuran kiriman per permintaan; server menerima sampai 16 MB.
 pub const MAX_REQUEST_BYTES: usize = 8 << 20;
 /// Pengaman supaya satu profil tidak berputar terus bila ada yang tidak
@@ -68,6 +72,20 @@ pub struct RemoteService {
     pub updated_at: i64,
 }
 
+/// Susunan tersimpan seperti dikirim dan diterima server. Susunan yang
+/// dihapus tidak punya nama dan isi.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RemoteSavedService {
+    /// `uid` susunan (UUID v7).
+    pub id: String,
+    pub name: String,
+    /// `uid` materi, berurutan; boleh berulang.
+    pub items: Vec<String>,
+    pub created_at: i64,
+    pub updated_at: i64,
+    pub deleted_at: Option<i64>,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RemoteSettings {
     pub background: i64,
@@ -80,6 +98,10 @@ pub struct SyncRequest {
     pub items: Vec<RemoteItem>,
     pub service: Option<RemoteService>,
     pub settings: Option<RemoteSettings>,
+    /// Susunan tersimpan. Tidak ditulis bila kosong, jadi permintaan tanpa
+    /// susunan tersimpan sama seperti Lentera 0.8.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub services: Vec<RemoteSavedService>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -91,6 +113,10 @@ pub struct SyncResponse {
     pub items: Vec<RemoteItem>,
     pub service: Option<RemoteService>,
     pub settings: Option<RemoteSettings>,
+    /// Susunan tersimpan. Server sebelum Lentera 0.9 tidak mengirimnya
+    /// (`None`), dan juga tidak menyimpan susunan tersimpan yang dikirim.
+    #[serde(default)]
+    pub services: Option<Vec<RemoteSavedService>>,
     #[serde(default)]
     pub accepted: i64,
     #[serde(default)]
@@ -284,10 +310,13 @@ enum Step {
     Push,
 }
 
+#[derive(Default)]
 struct Sent {
     items: Vec<RemoteItem>,
     service: Option<i64>,
     settings: Option<i64>,
+    /// `uid` dan `updated_at` susunan tersimpan yang dikirim.
+    services: Vec<(String, i64)>,
     name_at: i64,
 }
 
@@ -303,6 +332,12 @@ struct Run {
     limit: usize,
     service: Option<RemoteService>,
     settings: Option<RemoteSettings>,
+    /// Susunan tersimpan dari halaman jawaban yang sudah diterima; diterapkan
+    /// setelah halaman terakhir, karena bisa memuat materi di halaman berikutnya.
+    services: Vec<RemoteSavedService>,
+    /// Server belum menyimpan susunan tersimpan; jangan kirim lagi di putaran
+    /// ini. Susunannya tetap belum tersinkron dan dikirim di sinkron berikutnya.
+    old_server: bool,
     sent: Option<Sent>,
     rounds: u32,
 }
@@ -554,6 +589,8 @@ impl Engine {
             limit: MAX_ITEMS_PER_REQUEST,
             service: None,
             settings: None,
+            services: Vec::new(),
+            old_server: false,
             sent: None,
             rounds: 0,
         })
@@ -570,10 +607,8 @@ impl Run {
             Step::Link => {
                 let info = self.db.info()?;
                 self.sent = Some(Sent {
-                    items: Vec::new(),
-                    service: None,
-                    settings: None,
                     name_at: info.name_at,
+                    ..Sent::default()
                 });
                 Ok(Some(Call::PutProfile {
                     id: self.id.clone(),
@@ -586,7 +621,7 @@ impl Run {
             }
             Step::Pull => {
                 self.sent = None;
-                Ok(Some(self.sync_call(Vec::new(), None, None)?))
+                Ok(Some(self.sync_call(Vec::new(), None, None, Vec::new())?))
             }
             Step::Push => {
                 if self.read_only {
@@ -615,21 +650,47 @@ impl Run {
                         report.problems.push(message);
                     }
                 };
-                let (service, settings) = if chunk.more {
-                    (None, None)
+                // Susunan dikirim bersama bagian materi terakhir, karena server
+                // hanya menerima susunan berisi materi yang sudah ada di sana.
+                let (service, settings, services) = if chunk.more {
+                    (None, None, Vec::new())
+                } else if self.old_server {
+                    (
+                        self.db.dirty_service(&self.skip)?,
+                        self.db.dirty_settings()?,
+                        Vec::new(),
+                    )
                 } else {
-                    (self.db.dirty_service()?, self.db.dirty_settings()?)
+                    (
+                        self.db.dirty_service(&self.skip)?,
+                        self.db.dirty_settings()?,
+                        self.db
+                            .dirty_services(MAX_SERVICES_PER_REQUEST, &self.skip)?,
+                    )
                 };
-                if chunk.items.is_empty() && service.is_none() && settings.is_none() {
+                if chunk.items.is_empty()
+                    && service.is_none()
+                    && settings.is_none()
+                    && services.is_empty()
+                {
                     return Ok(None);
                 }
                 self.sent = Some(Sent {
                     items: chunk.items.clone(),
                     service: service.as_ref().map(|s| s.updated_at),
                     settings: settings.as_ref().map(|s| s.updated_at),
+                    services: services
+                        .iter()
+                        .map(|s| (s.id.clone(), s.updated_at))
+                        .collect(),
                     name_at: 0,
                 });
-                Ok(Some(self.sync_call(chunk.items, service, settings)?))
+                Ok(Some(self.sync_call(
+                    chunk.items,
+                    service,
+                    settings,
+                    services,
+                )?))
             }
         }
     }
@@ -639,6 +700,7 @@ impl Run {
         items: Vec<RemoteItem>,
         service: Option<RemoteService>,
         settings: Option<RemoteSettings>,
+        services: Vec<RemoteSavedService>,
     ) -> Result<Call, String> {
         Ok(Call::Sync {
             id: self.id.clone(),
@@ -647,6 +709,7 @@ impl Run {
                 items,
                 service,
                 settings,
+                services,
             },
         })
     }
@@ -689,25 +752,41 @@ impl Run {
                 if response.settings.is_some() {
                     self.settings = response.settings;
                 }
+                let old_server = response.services.is_none();
+                for service in response.services.unwrap_or_default() {
+                    self.services.retain(|s| s.id != service.id);
+                    self.services.push(service);
+                }
                 let last = !response.more;
-                let (service, settings) = if last {
-                    (self.service.take(), self.settings.take())
+                let (service, settings, services) = if last {
+                    (
+                        self.service.take(),
+                        self.settings.take(),
+                        std::mem::take(&mut self.services),
+                    )
                 } else {
-                    (None, None)
+                    (None, None, Vec::new())
                 };
-                let sent = sent.unwrap_or(Sent {
-                    items: Vec::new(),
-                    service: None,
-                    settings: None,
-                    name_at: 0,
-                });
+                let mut sent = sent.unwrap_or_default();
+                if old_server && !sent.services.is_empty() {
+                    sent.services.clear();
+                    self.old_server = true;
+                    let message = "Server Lentera belum mendukung susunan tersimpan. \
+                                   Susunan selain Susunan utama dikirim setelah server diperbarui."
+                        .to_string();
+                    if !report.problems.contains(&message) {
+                        report.problems.push(message);
+                    }
+                }
                 let changed = self.db.apply(&Page {
                     sent: &sent.items,
                     sent_service: sent.service,
                     sent_settings: sent.settings,
+                    sent_services: &sent.services,
                     items: &response.items,
                     service: service.as_ref(),
                     settings: settings.as_ref(),
+                    services: &services,
                     cursor: response.cursor,
                 })?;
                 if changed {

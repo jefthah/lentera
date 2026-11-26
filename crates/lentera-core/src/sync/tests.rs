@@ -46,6 +46,7 @@ struct FakeProfile {
     items: HashMap<String, (RemoteItem, i64)>,
     service: Option<(RemoteService, i64)>,
     settings: Option<(RemoteSettings, i64)>,
+    services: HashMap<String, (RemoteSavedService, i64)>,
 }
 
 #[derive(Default)]
@@ -56,6 +57,8 @@ struct FakeServer {
     /// Galat untuk permintaan berikutnya.
     fail: RefCell<Option<ApiError>>,
     calls: Cell<usize>,
+    /// Berlaku seperti server sebelum 0.9: tanpa susunan tersimpan.
+    old: Cell<bool>,
 }
 
 fn api_error(status: u16, code: &str) -> ApiError {
@@ -241,6 +244,26 @@ impl Api for FakeServer {
         {
             settings_back = Some(settings.clone());
         }
+        let mut own_services = Vec::new();
+        let mut services_back = Vec::new();
+        let old = self.old.get();
+        for service in request.services.iter().filter(|_| !old) {
+            let unknown = service.items.iter().any(|uid| !p.items.contains_key(uid));
+            if service.deleted_at.is_none() && unknown {
+                return Err(api_error(422, "service_unknown_item"));
+            }
+            match p.services.get(&service.id) {
+                Some((old, _)) if old.updated_at >= service.updated_at => {
+                    services_back.push(old.clone());
+                }
+                _ => {
+                    p.revision += 1;
+                    p.services
+                        .insert(service.id.clone(), (service.clone(), p.revision));
+                    own_services.push(service.id.clone());
+                }
+            }
+        }
         let mut changed: Vec<(RemoteItem, i64)> = p
             .items
             .values()
@@ -257,6 +280,15 @@ impl Api for FakeServer {
         };
         let mut items: Vec<RemoteItem> = changed.into_iter().map(|(item, _)| item).collect();
         items.extend(losers);
+        let mut services: Vec<RemoteSavedService> = p
+            .services
+            .values()
+            .filter(|(service, rev)| {
+                *rev > request.cursor && *rev <= cursor && !own_services.contains(&service.id)
+            })
+            .map(|(service, _)| service.clone())
+            .collect();
+        services.extend(services_back);
         Ok(SyncResponse {
             cursor,
             more,
@@ -264,6 +296,7 @@ impl Api for FakeServer {
             items,
             service: service_back,
             settings: settings_back,
+            services: (!old).then_some(services),
             server_time: crate::store::now_ms(),
         })
     }
@@ -509,6 +542,205 @@ fn paged_download_applies_service_after_the_last_page() {
     assert!(server.calls.get() - calls >= 6, "pages were not used");
     let (_, copy) = open(&b.0, &id);
     assert_eq!(titles(&copy), titles(&library));
+}
+
+/// Nama dan judul isi setiap susunan tersimpan, urut nama.
+fn saved(library: &Library) -> Vec<(String, Vec<String>)> {
+    let mut list: Vec<_> = library
+        .services
+        .iter()
+        .map(|s| {
+            let items = s
+                .items
+                .iter()
+                .map(|id| library.item(*id).unwrap().title.clone())
+                .collect();
+            (s.name.clone(), items)
+        })
+        .collect();
+    list.sort();
+    list
+}
+
+fn names(list: &[(&str, &[&str])]) -> Vec<(String, Vec<String>)> {
+    list.iter()
+        .map(|(name, items)| {
+            (
+                name.to_string(),
+                items.iter().map(|t| t.to_string()).collect(),
+            )
+        })
+        .collect()
+}
+
+#[test]
+fn saved_services_travel_but_the_active_one_stays_on_each_computer() {
+    let a = TempDir::new("saved-a");
+    let b = TempDir::new("saved-b");
+    let server = FakeServer::new();
+    let opened = Store::open(&a.0).unwrap();
+    let id = opened.store.id().to_owned();
+    let mut lib_a = opened.library;
+    let song = lib_a.add(Kind::Song, "Malam Kudus".into(), "Malam kudus".into());
+    let natal = lib_a.create_service("Natal", vec![song, 1, song]).unwrap();
+    lib_a.create_service("Kosong", Vec::new()).unwrap();
+    lib_a.select_service(Some(natal));
+    opened.store.save(&lib_a).unwrap();
+    drop(opened.store);
+    let report = sync(&a.0, &server, None);
+    assert_eq!(report.problems, Vec::<String>::new());
+    assert_eq!(report.stop, None, "{report:?}");
+
+    let report = sync(&b.0, &server, None);
+    assert_eq!(report.stop, None, "{report:?}");
+    let (store_b, mut lib_b) = open(&b.0, &id);
+    assert_eq!(saved(&lib_b), saved(&lib_a));
+    // Susunan yang dipakai berlaku per komputer.
+    assert_eq!(lib_b.active, None);
+    assert_eq!(titles(&lib_b), titles(&lib_a));
+
+    // B mengganti nama, menghapus satu materi, dan menghapus susunan kosong.
+    pause();
+    let natal_b = lib_b
+        .services
+        .iter()
+        .find(|s| s.name == "Natal")
+        .unwrap()
+        .id;
+    let kosong_b = lib_b
+        .services
+        .iter()
+        .find(|s| s.name == "Kosong")
+        .unwrap()
+        .id;
+    lib_b.rename_service(natal_b, "Ibadah Natal").unwrap();
+    let first = lib_b
+        .items
+        .iter()
+        .find(|i| i.title == "Selamat datang di Lentera")
+        .unwrap()
+        .id;
+    lib_b.remove(first);
+    lib_b.remove_service(kosong_b);
+    lib_b.select_service(Some(natal_b));
+    store_b.save(&lib_b).unwrap();
+    drop(store_b);
+    let report = sync(&b.0, &server, None);
+    assert_eq!(report.stop, None, "{report:?}");
+    assert_eq!(report.problems, Vec::<String>::new());
+
+    sync(&a.0, &server, None);
+    let (store_a, mut lib_a) = open(&a.0, &id);
+    assert_eq!(
+        saved(&lib_a),
+        names(&[("Ibadah Natal", &["Malam Kudus", "Malam Kudus"])])
+    );
+    assert_eq!(lib_a.active, Some(natal));
+    assert_eq!(lib_a.active_name(), "Ibadah Natal");
+
+    // A menghapus susunan yang sedang dipakai B; B kembali ke Susunan utama.
+    pause();
+    lib_a.remove_service(natal);
+    store_a.save(&lib_a).unwrap();
+    drop(store_a);
+    sync(&a.0, &server, None);
+    sync(&b.0, &server, None);
+    let (store_b, lib_b) = open(&b.0, &id);
+    assert!(lib_b.services.is_empty());
+    assert_eq!(lib_b.active, None);
+    drop(store_b);
+
+    // Tidak ada yang tertinggal: sinkron berikutnya hanya meminta daftar profil.
+    let calls = server.calls.get();
+    sync(&a.0, &server, None);
+    sync(&b.0, &server, None);
+    assert_eq!(server.calls.get() - calls, 2);
+}
+
+#[test]
+fn newest_saved_service_wins_and_pages_are_applied_together() {
+    let a = TempDir::new("saved-conflict-a");
+    let b = TempDir::new("saved-conflict-b");
+    let server = FakeServer::new();
+    let opened = Store::open(&a.0).unwrap();
+    let id = opened.store.id().to_owned();
+    let mut library = opened.library;
+    let mut songs = Vec::new();
+    for n in 0..7 {
+        songs.push(library.add(Kind::Song, format!("Lagu {n}"), "isi".into()));
+    }
+    library.create_service("Minggu", songs.clone()).unwrap();
+    opened.store.save(&library).unwrap();
+    drop(opened.store);
+    sync(&a.0, &server, None);
+
+    // Unduhan berhalaman: susunan memuat materi dari halaman terakhir.
+    server.page.set(2);
+    let report = sync(&b.0, &server, None);
+    assert_eq!(report.stop, None, "{report:?}");
+    let (_, lib_b) = open(&b.0, &id);
+    assert_eq!(saved(&lib_b), saved(&library));
+    server.page.set(1000);
+
+    let edit = |dir: &Path, keep: usize| {
+        let (store, mut library) = open(dir, &id);
+        let minggu = library.services[0].id;
+        library.select_service(Some(minggu));
+        library.order_mut().truncate(keep);
+        store.save(&library).unwrap();
+    };
+    pause();
+    edit(&a.0, 3);
+    pause();
+    edit(&b.0, 1);
+    // B mengirim lebih dulu, lalu versi A yang lebih lama kalah.
+    sync(&b.0, &server, None);
+    sync(&a.0, &server, None);
+    for dir in [&a.0, &b.0] {
+        let (_, library) = open(dir, &id);
+        assert_eq!(saved(&library), names(&[("Minggu", &["Lagu 0"])]));
+    }
+}
+
+#[test]
+fn saved_services_wait_for_a_server_that_keeps_them() {
+    let a = TempDir::new("saved-old-a");
+    let b = TempDir::new("saved-old-b");
+    let server = FakeServer::new();
+    server.old.set(true);
+    let opened = Store::open(&a.0).unwrap();
+    let id = opened.store.id().to_owned();
+    let mut library = opened.library;
+    let song = library.add(Kind::Song, "Malam Kudus".into(), "Malam kudus".into());
+    library.create_service("Natal", vec![song]).unwrap();
+    library.service.push(song);
+    opened.store.save(&library).unwrap();
+    drop(opened.store);
+
+    // Materi dan Susunan utama tetap terkirim; susunan tersimpan menunggu,
+    // tanpa dikirim berulang dalam satu putaran.
+    let calls = server.calls.get();
+    let report = sync(&a.0, &server, None);
+    assert_eq!(report.stop, None, "{report:?}");
+    assert_eq!(report.problems.len(), 1, "{report:?}");
+    assert!(report.problems[0].contains("belum mendukung"), "{report:?}");
+    assert!(
+        server.calls.get() - calls <= 4,
+        "{}",
+        server.calls.get() - calls
+    );
+    sync(&b.0, &server, None);
+    let (_, lib_b) = open(&b.0, &id);
+    assert_eq!(titles(&lib_b), titles(&library));
+    assert!(lib_b.services.is_empty());
+
+    // Setelah server diperbarui, susunan tersimpan ikut.
+    server.old.set(false);
+    let report = sync(&a.0, &server, None);
+    assert_eq!(report.problems, Vec::<String>::new());
+    sync(&b.0, &server, None);
+    let (_, lib_b) = open(&b.0, &id);
+    assert_eq!(saved(&lib_b), names(&[("Natal", &["Malam Kudus"])]));
 }
 
 #[test]

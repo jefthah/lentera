@@ -429,3 +429,156 @@ func TestInvalidPushesAreRejectedWhole(t *testing.T) {
 		t.Fatalf("invalid pushes changed the profile: %+v", pull)
 	}
 }
+
+func saved(n int, name string, updated int64, items ...string) library.SavedService {
+	if items == nil {
+		items = []string{}
+	}
+	return library.SavedService{ID: uid(n), Name: name, Items: items, CreatedAt: ms(-5000), UpdatedAt: updated}
+}
+
+func serviceNames(services []library.SavedService) []string {
+	out := make([]string, len(services))
+	for i, service := range services {
+		out[i] = service.Name
+	}
+	return out
+}
+
+func TestSavedServicesTravelLikeItems(t *testing.T) {
+	ctx := context.Background()
+	store, pool := setup(t)
+	budi := account(t, pool, "budi@gereja.org")
+	createProfile(t, store, budi, uid(100), "Ibadah Umum")
+
+	// An empty list, never null: apps read a missing list as an older server.
+	if empty := sync(t, store, budi, uid(100), library.SyncRequest{}); empty.Services == nil {
+		t.Fatalf("services = nil, want []")
+	}
+
+	// Device A uploads two songs and two saved services in one request.
+	a := sync(t, store, budi, uid(100), library.SyncRequest{
+		Items:    []library.Item{song(1, "Satu", ms(-50)), song(2, "Dua", ms(-50))},
+		Services: []library.SavedService{saved(50, "  Ibadah   Natal ", ms(-40), uid(2), uid(1), uid(2)), saved(51, "Paskah", ms(-40))},
+	})
+	if a.Accepted != 4 || a.Cursor != 4 || len(a.Services) != 0 {
+		t.Fatalf("first push = %+v", a)
+	}
+
+	// Device B receives them, with the name tidied and the order kept.
+	b := sync(t, store, budi, uid(100), library.SyncRequest{})
+	if b.Cursor != 4 || !slices.Equal(serviceNames(b.Services), []string{"Ibadah Natal", "Paskah"}) {
+		t.Fatalf("pull = %+v", b)
+	}
+	if !slices.Equal(b.Services[0].Items, []string{uid(2), uid(1), uid(2)}) || len(b.Services[1].Items) != 0 || b.Services[0].DeletedAt != nil {
+		t.Fatalf("pulled services = %+v", b.Services)
+	}
+
+	// B renames one and deletes the other; A learns both, and B does not get its own back.
+	deleted := ms(-5)
+	gone := saved(51, "Paskah", deleted, uid(1))
+	gone.DeletedAt = &deleted
+	b = sync(t, store, budi, uid(100), library.SyncRequest{
+		Cursor:   b.Cursor,
+		Services: []library.SavedService{saved(50, "Natal", ms(-10), uid(1)), gone},
+	})
+	if b.Accepted != 2 || b.Cursor != 6 || len(b.Services) != 0 {
+		t.Fatalf("B push = %+v", b)
+	}
+	a = sync(t, store, budi, uid(100), library.SyncRequest{Cursor: a.Cursor})
+	if a.Cursor != 6 || len(a.Services) != 2 {
+		t.Fatalf("A pull = %+v", a)
+	}
+	if a.Services[0].Name != "Natal" || !slices.Equal(a.Services[0].Items, []string{uid(1)}) {
+		t.Fatalf("renamed = %+v", a.Services[0])
+	}
+	if a.Services[1].DeletedAt == nil || a.Services[1].Name != "" || len(a.Services[1].Items) != 0 {
+		t.Fatalf("tombstone = %+v", a.Services[1])
+	}
+
+	// An older edit loses and the device learns the server's version; equal times change nothing.
+	old := sync(t, store, budi, uid(100), library.SyncRequest{Cursor: 6, Services: []library.SavedService{saved(50, "Lama", ms(-20))}})
+	if old.Accepted != 0 || old.Cursor != 6 || len(old.Services) != 1 || old.Services[0].Name != "Natal" {
+		t.Fatalf("older push = %+v", old)
+	}
+	same := sync(t, store, budi, uid(100), library.SyncRequest{Cursor: 6, Services: []library.SavedService{saved(50, "Natal", ms(-10), uid(1))}})
+	if same.Accepted != 0 || len(same.Services) != 0 {
+		t.Fatalf("repeat push = %+v", same)
+	}
+
+	// The first creation time stays, and times too far ahead use the server clock.
+	future := ms(int64(24 * time.Hour / time.Millisecond))
+	later := saved(50, "Natal", future)
+	later.CreatedAt = ms(-1)
+	fixed := sync(t, store, budi, uid(100), library.SyncRequest{Cursor: 6, Services: []library.SavedService{later}})
+	if fixed.Accepted != 1 || len(fixed.Services) != 1 || fixed.Services[0].UpdatedAt != now.UnixMilli() || fixed.Services[0].CreatedAt != ms(-5000) {
+		t.Fatalf("corrected push = %+v", fixed)
+	}
+
+	// A service naming an unknown item is rejected, and so is everything else in the request.
+	_, err := store.Sync(ctx, budi, uid(100), library.SyncRequest{
+		Cursor:   fixed.Cursor,
+		Items:    []library.Item{song(3, "Tiga", ms(-1))},
+		Services: []library.SavedService{saved(52, "Baru", ms(-1), uid(3), uid(9))},
+	})
+	failure(t, err, "service_unknown_item")
+	if pull := sync(t, store, budi, uid(100), library.SyncRequest{Cursor: fixed.Cursor}); len(pull.Items) != 0 || pull.Cursor != fixed.Cursor {
+		t.Fatalf("after failed push = %+v", pull)
+	}
+}
+
+func TestSavedServicesArriveWithTheirPage(t *testing.T) {
+	store, pool := setup(t)
+	budi := account(t, pool, "budi@gereja.org")
+	createProfile(t, store, budi, uid(100), "Ibadah Umum")
+	sync(t, store, budi, uid(100), library.SyncRequest{Items: []library.Item{song(1, "Satu", ms(-50)), song(2, "Dua", ms(-50))}})
+	sync(t, store, budi, uid(100), library.SyncRequest{Cursor: 2, Services: []library.SavedService{saved(50, "Natal", ms(-40), uid(1))}})
+	sync(t, store, budi, uid(100), library.SyncRequest{Cursor: 3, Items: []library.Item{song(3, "Tiga", ms(-30))}})
+
+	store.PageItems = 2
+	first := sync(t, store, budi, uid(100), library.SyncRequest{})
+	if !first.More || first.Cursor != 2 || len(first.Services) != 0 {
+		t.Fatalf("first page = %+v", first)
+	}
+	second := sync(t, store, budi, uid(100), library.SyncRequest{Cursor: first.Cursor})
+	if second.More || second.Cursor != 4 || !slices.Equal(serviceNames(second.Services), []string{"Natal"}) {
+		t.Fatalf("second page = %+v", second)
+	}
+}
+
+func TestInvalidSavedServicesAreRejected(t *testing.T) {
+	ctx := context.Background()
+	store, pool := setup(t)
+	budi := account(t, pool, "budi@gereja.org")
+	createProfile(t, store, budi, uid(100), "Ibadah Umum")
+
+	tooMany := make([]library.SavedService, library.ServicePushMax+1)
+	for i := range tooMany {
+		tooMany[i] = saved(i+1, fmt.Sprint(i), ms(-1))
+	}
+	longOrder := make([]string, library.ServiceMax+1)
+	for i := range longOrder {
+		longOrder[i] = uid(1)
+	}
+	cases := map[string][]library.SavedService{
+		"bad id":        {{ID: "x", Name: "a", CreatedAt: 1, UpdatedAt: 1}},
+		"no name":       {saved(1, "  ", ms(-1))},
+		"long name":     {saved(1, strings.Repeat("é", library.NameMax+1), ms(-1))},
+		"control":       {saved(1, "a\x07b", ms(-1))},
+		"no time":       {{ID: uid(1), Name: "a", CreatedAt: 1}},
+		"bad item":      {saved(1, "a", ms(-1), "x")},
+		"long order":    {saved(1, "a", ms(-1), longOrder...)},
+		"same id twice": {saved(1, "a", ms(-2)), saved(1, "b", ms(-1))},
+		"too many":      tooMany,
+	}
+	for name, services := range cases {
+		_, err := store.Sync(ctx, budi, uid(100), library.SyncRequest{Services: services})
+		var e *library.Error
+		if !errors.As(err, &e) || e.Code != "validation_failed" || !strings.HasPrefix(e.Field, "services") {
+			t.Fatalf("%s: err = %+v", name, err)
+		}
+	}
+	if pull := sync(t, store, budi, uid(100), library.SyncRequest{}); pull.Cursor != 0 {
+		t.Fatalf("invalid pushes changed the profile: %+v", pull)
+	}
+}

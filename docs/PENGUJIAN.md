@@ -844,3 +844,39 @@ Belum diuji:
 - Profil yang memakai video dibuka lagi oleh 0.7.0. Perilakunya (video tidak tampil, materi kembali ke latar umum atau warna) dibaca dari kode 0.7.0, tidak dijalankan.
 - Pembaruan otomatis 0.7.0 → 0.8.0 lewat GitHub Releases, setelah rilis diterbitkan.
 - PC gereja dan proyektor sungguhan dengan video.
+
+## Video latar MPG dan AVI — 26 November 2026
+
+Belum dirilis. Latar video kini menerima `.mpg`, `.mpeg`, dan `.avi` selain MP4, M4V, MOV, dan WMV. Diuji di komputer pengembangan yang sama dengan video latar asli EasyWorship 2009 dari `Lentera-Export\backgrounds\originals\videos` (hanya dibaca).
+
+- `cargo fmt --all --check` bersih. `cargo clippy --all-targets --locked -- -D warnings` bersih untuk `lentera-core` (dengan dan tanpa `http`) dan `lentera-app`. `cargo test --locked`: 105 tes `lentera-core` lulus. Tes penolakan kini memakai `.mkv` dan memeriksa bahwa `Lama.MPG` dan `b.avi` dikenali sebagai video, sedangkan nama latar `x.AVI` (huruf besar) tetap tidak sah.
+- Membuka dengan Media Foundation (`LENTERA_TEST_VIDEO`, tes `real_video` yang diabaikan):
+
+  | Format | Bisa dibuka | Ukuran frame |
+  |---|---:|---|
+  | MPG | 33 dari 52 | 320×240 |
+  | AVI | 7 dari 8 | 384×288 – 512×336 |
+  | WMV (contoh) | 1 dari 1 | 640×480 |
+
+  Video yang gagal mendapat pesan "video tidak bisa dibuka, mungkin rusak atau formatnya belum didukung Windows" dan tidak ditambahkan.
+- Uji alur UI build rilis dengan `snapshot`: 40/40 dengan `002_JumpBack.mpg`, 40/40 dengan `10.avi`. Tangkapan proyektor menampilkan video MPG bergerak dengan lirik di atasnya.
+
+Belum diuji: CPU dan RAM untuk MPG/AVI (resolusinya jauh di bawah 1080p), dan apakah 19 MPG yang gagal bisa dibuka setelah memasang codec tambahan.
+
+## Susunan tersimpan — 26 November 2026
+
+Belum dirilis. Selain Susunan utama, profil bisa menyimpan susunan ibadah bernama. Susunan yang dipakai dipilih per komputer, dan susunan tersimpan ikut disinkron lewat field `services` dan migrasi server `00002_services`. Diuji di komputer pengembangan yang sama.
+
+- `cargo fmt --all --check` bersih. `cargo clippy --all-targets --locked -- -D warnings` bersih untuk `lentera-core` (dengan dan tanpa `http`) dan `lentera-app`. `cargo test --locked -p lentera-core --features http`: 112 tes lulus. Tes baru:
+  - `library.rs`: tiap susunan punya urutan sendiri; nama dirapikan, paling banyak 40 karakter, dan tidak boleh kembar tanpa membedakan huruf besar/kecil, termasuk dengan "Susunan utama"; menghapus materi melepasnya dari semua susunan; validasi menolak ID susunan ganda dan susunan aktif yang tidak ada.
+  - `store.rs`: susunan tersimpan dan susunan yang dipakai tersimpan dan terbaca lagi; memilih susunan hanya mengubah waktu pakai, sedangkan mengubah isi atau nama mengubah waktu ubah; susunan yang dihapus menjadi tanda hapus; profil tanpa tabel `services` / `service_items` mendapat tabel itu tanpa menaikkan versi skema (tetap 2).
+  - Sinkron dengan server palsu: susunan tersimpan pindah antarkomputer sementara susunan yang dipakai tetap per komputer; ganti nama, hapus, dan materi yang dihapus ikut; versi terbaru menang; pada unduhan berhalaman susunan diterapkan setelah halaman terakhir. Dengan server lama yang tidak mengirim `services`, materi dan Susunan utama tetap tersinkron, susunan tersimpan menunggu tanpa dikirim berulang, lalu ikut setelah server diperbarui.
+- Server: `gofmt` dan `go vet` bersih; semua tes `go test ./...` lulus di klaster PostgreSQL 18 sementara di port terpisah. Tes baru: susunan tersimpan pindah seperti materi (nama dirapikan, tanda hapus, kiriman lama kalah dan mendapat versi server, waktu masa depan dikoreksi, `services` selalu daftar dan tidak pernah `null`); susunan tiba bersama halamannya; kiriman tidak sah ditolak (ID, nama kosong atau lebih dari 40 karakter, karakter kontrol, materi tak dikenal, lebih dari 1.000 materi, ID ganda, lebih dari 100 per permintaan) tanpa mengubah profil. Permintaan yang ditolak kini dibatalkan seluruhnya. Migrasi `00002_services` diuji naik, turun, lalu naik lagi.
+- Uji ujung-ke-ujung `crates/lentera-core/tests/server.rs` dengan server lokal (`APP_ENV=local`) dan basis data sementara: dua perangkat berbagi materi, Susunan utama, dan susunan tersimpan lewat server sungguhan; lulus.
+- Uji alur UI build rilis dengan `snapshot`: 41/41 tanpa video. Enam pemeriksaan baru: duplikat Susunan utama tanpa mengubah layar jemaat; salinannya tersimpan dan bisa diubah tanpa mengubah Susunan utama; nama kembar ditolak; susunan baru kosong; kembali ke Susunan utama; ganti nama lalu hapus. Tangkapan `ui-smoke-susunan-menu.png` dan `ui-smoke-susunan-nama.png` dilihat langsung: menu susunan di jendela sempit dan kotak nama dengan pesan nama kembar. Di jendela lebar, judul susunan tampil sebagai "Susunan utama ▾".
+
+Belum diuji:
+
+- Klik mouse sungguhan pada baris menu susunan. Uji alur memanggil fungsinya langsung, dan baris menu memakai `ListView` di dalam `PopupWindow`.
+- Sinkron dengan server produksi, yang butuh deploy migrasi `00002_services` lebih dulu.
+- macOS (menunggu CI).

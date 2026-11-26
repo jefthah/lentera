@@ -19,6 +19,14 @@ export struct ServiceRow {
     song: bool,
 }
 
+// Satu pilihan di menu susunan. id 0 = Susunan utama.
+export struct ServiceChoice {
+    id: int,
+    name: string,
+    detail: string,
+    on: bool,
+}
+
 export struct SlideTile {
     text: string,
     first: string,
@@ -1645,6 +1653,204 @@ component BackgroundThumb inherits Rectangle {
     }
 }
 
+// Judul kolom susunan: nama susunan yang dipakai dan jumlah materinya. Klik
+// membuka menu susunan (`service-menu` di MainWindow).
+component ServicePicker inherits Rectangle {
+    in property <string> name;
+    in property <string> detail;
+    callback clicked();
+    height: 36px;
+    border-radius: 8px;
+    background: touch.pressed ? Theme.active : touch.has-hover ? Theme.hover : transparent;
+    accessible-role: button;
+    accessible-label: "Susunan " + root.name + ", " + root.detail + ". Ganti susunan";
+    accessible-action-default => {
+        root.clicked();
+    }
+    HorizontalLayout {
+        padding-left: 6px;
+        padding-right: 6px;
+        spacing: 6px;
+        Text {
+            text: root.name;
+            color: Theme.text;
+            font-size: 15px;
+            font-weight: 600;
+            vertical-alignment: center;
+            overflow: elide;
+            horizontal-stretch: 0;
+        }
+        VerticalLayout {
+            alignment: center;
+            Icon {
+                svg: Icons.chevron;
+                color: Theme.text-3;
+                width: 14px;
+                height: 14px;
+            }
+        }
+        Text {
+            text: root.detail;
+            color: Theme.text-3;
+            font-size: 12px;
+            horizontal-alignment: right;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+            min-width: 56px;
+        }
+    }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+// Satu susunan di menu susunan: nama, jumlah materi, dan tanda yang dipakai.
+component ServiceChoiceRow inherits Rectangle {
+    in property <ServiceChoice> choice;
+    callback clicked();
+    height: 40px;
+    border-radius: 8px;
+    background: touch.has-hover ? Theme.hover : transparent;
+    accessible-role: button;
+    accessible-label: root.choice.name + ", " + root.choice.detail;
+    accessible-checked: root.choice.on;
+    accessible-action-default => {
+        root.clicked();
+    }
+    HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        spacing: 8px;
+        Text {
+            text: root.choice.name;
+            color: root.choice.on ? Theme.text : Theme.text-2;
+            font-size: 13px;
+            font-weight: root.choice.on ? 600 : 400;
+            vertical-alignment: center;
+            overflow: elide;
+            horizontal-stretch: 1;
+        }
+        Text {
+            text: root.choice.detail;
+            color: Theme.text-3;
+            font-size: 12px;
+            vertical-alignment: center;
+        }
+        VerticalLayout {
+            alignment: center;
+            width: 16px;
+            Icon {
+                svg: Icons.check;
+                color: Theme.ok;
+                width: 16px;
+                height: 16px;
+                visible: root.choice.on;
+            }
+        }
+    }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+// Kotak nama susunan: Susunan baru (1), Duplikat (2), atau Ganti nama (3).
+component ServiceForm inherits Rectangle {
+    in-out property <int> form;
+    in-out property <string> name;
+    in property <string> error;
+    in property <string> source;
+    callback submit();
+    callback cancel();
+    background: #000000a0;
+
+    // Menahan klik supaya tidak sampai ke layar operator di belakangnya.
+    TouchArea {
+        clicked => {
+            root.cancel();
+        }
+    }
+
+    Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: Math.max(24px, (parent.height - self.height) / 3);
+        width: Math.min(440px, parent.width - 32px);
+        height: card.preferred-height;
+        background: Theme.raised;
+        border-radius: 16px;
+        border-width: 1px;
+        border-color: Theme.border;
+        // Klik di dalam kotak tidak menutupnya.
+        TouchArea { }
+        card := VerticalLayout {
+            padding: 22px;
+            spacing: 10px;
+            Text {
+                text: root.form == 1 ? "Susunan baru" : root.form == 2 ? "Duplikat susunan" : "Ganti nama susunan";
+                color: Theme.text;
+                font-size: 20px;
+                font-weight: 700;
+            }
+            Text {
+                text: root.form == 1
+                    ? "Susunan baru dimulai kosong. Susunan yang sekarang tetap tersimpan."
+                    : root.form == 2 ? "Salinan berisi materi yang sama dengan \"" + root.source + "\"."
+                    : "Nama ini juga berubah di komputer lain yang memakai profil ini.";
+                color: Theme.text-2;
+                font-size: 13px;
+                wrap: word-wrap;
+            }
+            Text {
+                text: "Nama susunan";
+                color: Theme.text-2;
+                font-size: 13px;
+            }
+            LineEdit {
+                placeholder-text: "Misalnya: Ibadah Natal, Kebaktian Pemuda";
+                text <=> root.name;
+                init => {
+                    self.focus();
+                    self.select-all();
+                }
+                accepted => {
+                    root.submit();
+                }
+            }
+            if root.error != "": Text {
+                text: root.error;
+                color: Theme.danger;
+                font-size: 13px;
+                wrap: word-wrap;
+            }
+            HorizontalLayout {
+                alignment: end;
+                spacing: 8px;
+                padding-top: 6px;
+                Btn {
+                    text: "Batal";
+                    kind: "ghost";
+                    clicked => {
+                        root.cancel();
+                    }
+                }
+                Btn {
+                    text: root.form == 3 ? "Simpan nama" : "Buat dan pakai";
+                    icon: Icons.check;
+                    kind: "primary";
+                    clicked => {
+                        root.submit();
+                    }
+                }
+            }
+        }
+    }
+}
+
 component SectionTitle inherits HorizontalLayout {
     in property <string> text;
     in property <string> detail;
@@ -2111,6 +2317,14 @@ export component MainWindow inherits Window {
 
     in property <[LibraryRow]> library;
     in property <[ServiceRow]> service;
+    // Susunan yang dipakai di komputer ini dan pilihan di menu susunan.
+    in property <string> service-name: "Susunan utama";
+    in property <bool> service-main: true;
+    in property <[ServiceChoice]> service-choices;
+    // 0: tertutup, 1: susunan baru, 2: duplikat, 3: ganti nama.
+    in-out property <int> service-form;
+    in-out property <string> service-form-name;
+    in-out property <string> service-form-error;
     in property <[SlideTile]> slides;
     in property <int> selected-id: -1;
     in property <int> selected-service: -1;
@@ -2249,6 +2463,18 @@ export component MainWindow inherits Window {
     callback activate-library(int);
     callback add-to-service(int);
     callback select-service(int);
+    // Susunan tersimpan: id dari ServiceChoice (0 = Susunan utama).
+    callback use-service(int);
+    callback service-form-open(int);
+    callback service-form-submit();
+    callback service-delete();
+    // Untuk uji tampilan: membuka menu susunan.
+    public function show-service-menu() {
+        service-menu.show();
+    }
+    public function close-service-menu() {
+        service-menu.close();
+    }
     callback activate-service(int);
     callback move-service(int, int);
     callback remove-service(int);
@@ -2937,7 +3163,7 @@ export component MainWindow inherits Window {
                                     ? "Klik latar untuk memakainya hanya di materi ini; materi lain tetap memakai latar umum. "
                                     : "Klik latar untuk memakainya sebagai latar umum, yaitu latar materi yang tidak punya latar sendiri. ")
                                     + (root.video-supported
-                                    ? "Gambar JPG atau PNG dan video MP4, MOV, atau WMV disalin ke profil ini; berkas aslinya tidak diubah. Video diputar berulang tanpa suara di proyektor."
+                                    ? "Gambar JPG atau PNG dan video MP4, MOV, WMV, MPG, atau AVI disalin ke profil ini; berkas aslinya tidak diubah. Video diputar berulang tanpa suara di proyektor."
                                     : "Gambar JPG atau PNG disalin ke profil ini; berkas aslinya tidak diubah.");
                                 color: Theme.text-2;
                                 font-size: 13px;
@@ -2993,13 +3219,99 @@ export component MainWindow inherits Window {
                 Rectangle {
                     width: root.compact-bar ? 248px : 304px;
                     background: Theme.panel;
+                    // Menu susunan: daftar susunan tersimpan dan tindakannya. Baris
+                    // menu tidak dibuat dengan `if` (lihat account-menu).
+                    service-menu := PopupWindow {
+                        x: 8px;
+                        y: root.compact-bar ? 102px : 56px;
+                        width: Math.max(260px, parent.width - 16px);
+                        close-policy: close-on-click-outside;
+                        Rectangle {
+                            background: Theme.raised;
+                            border-radius: 12px;
+                            border-width: 1px;
+                            border-color: Theme.border;
+                            VerticalLayout {
+                                padding: 6px;
+                                spacing: 2px;
+                                HorizontalLayout {
+                                    padding-left: 10px;
+                                    height: 26px;
+                                    Text {
+                                        text: "Susunan ibadah";
+                                        color: Theme.text-3;
+                                        font-size: 12px;
+                                        vertical-alignment: center;
+                                    }
+                                }
+                                ListView {
+                                    height: Math.min(root.service-choices.length * 42px, 294px);
+                                    for choice in root.service-choices: ServiceChoiceRow {
+                                        choice: choice;
+                                        clicked => {
+                                            service-menu.close();
+                                            root.use-service(choice.id);
+                                            keys.focus();
+                                        }
+                                    }
+                                }
+                                Rectangle {
+                                    height: 9px;
+                                    Rectangle {
+                                        y: 4px;
+                                        height: 1px;
+                                        background: Theme.line;
+                                    }
+                                }
+                                MenuRow {
+                                    text: "Susunan baru";
+                                    hint: "Mulai dari susunan kosong";
+                                    clicked => {
+                                        service-menu.close();
+                                        root.service-form-open(1);
+                                    }
+                                }
+                                MenuRow {
+                                    text: "Duplikat susunan ini";
+                                    hint: "Salinan dengan nama lain";
+                                    clicked => {
+                                        service-menu.close();
+                                        root.service-form-open(2);
+                                    }
+                                }
+                                MenuRow {
+                                    visible: !root.service-main;
+                                    height: self.visible ? 48px : 0px;
+                                    text: "Ganti nama";
+                                    hint: root.service-name;
+                                    clicked => {
+                                        service-menu.close();
+                                        root.service-form-open(3);
+                                    }
+                                }
+                                MenuRow {
+                                    visible: !root.service-main;
+                                    height: self.visible ? 48px : 0px;
+                                    text: "Hapus susunan ini";
+                                    hint: "Materinya tetap ada di pustaka";
+                                    clicked => {
+                                        service-menu.close();
+                                        root.service-delete();
+                                    }
+                                }
+                            }
+                        }
+                    }
                     VerticalLayout {
                         padding: 12px;
                         padding-top: 16px;
                         spacing: 8px;
-                        if !root.compact-bar: SectionTitle {
-                            text: "Susunan ibadah";
+                        if !root.compact-bar: ServicePicker {
+                            name: root.service-name;
                             detail: root.service.length + " materi";
+                            clicked => {
+                                service-menu.show();
+                            }
                         }
                         if root.compact-bar: Rectangle {
                             height: 38px;
@@ -3034,6 +3346,13 @@ export component MainWindow inherits Window {
                                         root.left-tab-changed(1);
                                     }
                                 }
+                            }
+                        }
+                        if root.compact-bar && root.left-tab == 2: ServicePicker {
+                            name: root.service-name;
+                            detail: root.service.length + " materi";
+                            clicked => {
+                                service-menu.show();
                             }
                         }
                         if (!root.compact-bar || root.left-tab == 2) && root.service.length == 0: Text {
@@ -4494,6 +4813,22 @@ export component MainWindow inherits Window {
                         }
                     }
                 }
+            }
+        }
+
+        if root.service-form != 0: ServiceForm {
+            width: parent.width;
+            height: parent.height;
+            form <=> root.service-form;
+            name <=> root.service-form-name;
+            error: root.service-form-error;
+            source: root.service-name;
+            submit => {
+                root.service-form-submit();
+            }
+            cancel => {
+                root.service-form = 0;
+                keys.focus();
             }
         }
 

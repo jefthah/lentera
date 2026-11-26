@@ -29,10 +29,11 @@ use std::{
 use lentera_core::background::{self, Added, Picture};
 use lentera_core::bible::{self, Bible, ImportedBible, Lookup, Packing, Translation};
 use lentera_core::easyworship;
+use lentera_core::sync::MAX_SERVICE_ITEMS;
 use lentera_core::{
     Cursor, DEFAULT_PROFILE_NAME, DELETED_PROFILES_DIR, DataLock, Item, Kind, LOCK_FILE, Library,
-    Opened, Slide, SongImport, Step, Store, default_data_dir, profiles, remove_profile,
-    rename_profile, split_slides,
+    MAIN_SERVICE_NAME, Opened, Slide, SongImport, Step, Store, default_data_dir, profiles,
+    remove_profile, rename_profile, split_slides,
 };
 use rfd::{MessageButtons, MessageDialog, MessageDialogResult, MessageLevel};
 use slint::winit_030::{WinitWindowAccessor, winit};
@@ -352,6 +353,7 @@ struct App {
     state: RefCell<State>,
     library_rows: Rc<VecModel<LibraryRow>>,
     service_rows: Rc<VecModel<ServiceRow>>,
+    service_choices: Rc<VecModel<ServiceChoice>>,
     slide_tiles: Rc<VecModel<SlideTile>>,
     editor_tiles: Rc<VecModel<SlideTile>>,
     profile_cards: Rc<VecModel<ProfileCard>>,
@@ -437,6 +439,7 @@ impl App {
             }),
             library_rows: Rc::new(VecModel::default()),
             service_rows: Rc::new(VecModel::default()),
+            service_choices: Rc::new(VecModel::default()),
             slide_tiles: Rc::new(VecModel::default()),
             editor_tiles: Rc::new(VecModel::default()),
             profile_cards: Rc::new(VecModel::default()),
@@ -470,6 +473,7 @@ impl App {
         ui.set_video_supported(video::SUPPORTED);
         ui.set_library(ModelRc::from(app.library_rows.clone()));
         ui.set_service(ModelRc::from(app.service_rows.clone()));
+        ui.set_service_choices(ModelRc::from(app.service_choices.clone()));
         ui.set_slides(ModelRc::from(app.slide_tiles.clone()));
         ui.set_editor_slides(ModelRc::from(app.editor_tiles.clone()));
         ui.set_profiles(ModelRc::from(app.profile_cards.clone()));
@@ -500,6 +504,11 @@ impl App {
         connect!(app.ui.on_move_service, |a, index, delta| a
             .move_service(index, delta));
         connect!(app.ui.on_remove_service, |a, index| a.remove_service(index));
+        connect!(app.ui.on_use_service, |a, id| a.use_service(id));
+        connect!(app.ui.on_service_form_open, |a, kind| a
+            .service_form_open(kind));
+        connect!(app.ui.on_service_form_submit, |a| a.service_form_submit());
+        connect!(app.ui.on_service_delete, |a| a.service_delete());
         connect!(app.ui.on_select_slide, |a, page| a.select_slide(page));
         connect!(app.ui.on_activate_slide, |a, page| {
             a.select_slide(page);
@@ -624,7 +633,7 @@ impl App {
                 title: item.title.as_str().into(),
                 meta: item_meta(item).into(),
                 song: item.kind == Kind::Song,
-                in_service: st.library.service.contains(&item.id),
+                in_service: st.library.order().contains(&item.id),
             })
             .collect();
         st.filtered = rows.iter().map(|r| r.id as u64).collect();
@@ -665,7 +674,7 @@ impl App {
         let st = self.state.borrow();
         let rows: Vec<ServiceRow> = st
             .library
-            .service
+            .order()
             .iter()
             .filter_map(|id| st.library.item(*id))
             .map(|item| ServiceRow {
@@ -677,12 +686,166 @@ impl App {
             .collect();
         let selected = ui_index(st.selected_service);
         let live = ui_index(st.live_service);
+        let library = &st.library;
+        let materials = |n: usize| format!("{} materi", count(n));
+        let mut choices = vec![ServiceChoice {
+            id: 0,
+            name: MAIN_SERVICE_NAME.into(),
+            detail: materials(library.service.len()).into(),
+            on: library.active.is_none(),
+        }];
+        choices.extend(
+            library
+                .services_by_use()
+                .into_iter()
+                .map(|s| ServiceChoice {
+                    id: ui_id(s.id),
+                    name: s.name.as_str().into(),
+                    detail: materials(s.items.len()).into(),
+                    on: library.active == Some(s.id),
+                }),
+        );
+        let name = library.active_name().to_owned();
+        let main = library.active.is_none();
         drop(st);
         self.service_rows.set_vec(rows);
+        self.service_choices.set_vec(choices);
+        self.ui.set_service_name(name.into());
+        self.ui.set_service_main(main);
         self.ui.set_selected_service(selected);
         self.ui.set_live_service(live);
         self.mark_library_in_service();
         self.refresh_bible_detail();
+    }
+
+    /// Memakai susunan lain di komputer ini (`id` 0 = Susunan utama). Slide
+    /// yang tayang tidak berubah; tombol berikutnya melanjutkan di susunan
+    /// baru bila materinya ada di sana.
+    fn use_service(&self, id: i32) {
+        if !self.commit_editor() {
+            return;
+        }
+        let target = u64::try_from(id).ok().filter(|id| *id > 0);
+        let name = {
+            let mut st = self.state.borrow_mut();
+            if st.library.active == target || !st.library.select_service(target) {
+                return;
+            }
+            Self::place_in_order(&mut st);
+            st.library.active_name().to_owned()
+        };
+        self.refresh_service();
+        if self.persist() {
+            self.status(&format!("Memakai susunan “{name}”."), true);
+        }
+    }
+
+    /// Mencari ulang letak materi terpilih dan yang tayang setelah susunan
+    /// yang dipakai berganti.
+    fn place_in_order(st: &mut State) {
+        let selected = st.selected;
+        st.selected_service = selected.and_then(|item| st.library.service_position(item, None));
+        let live = st.live.as_ref().map(|s| s.item);
+        st.live_service = live.and_then(|item| st.library.service_position(item, None));
+    }
+
+    /// Membuka kotak nama susunan: 1 susunan baru, 2 duplikat, 3 ganti nama.
+    fn service_form_open(&self, kind: i32) {
+        let name = {
+            let st = self.state.borrow();
+            match kind {
+                1 => String::new(),
+                2 => st.library.copy_name(st.library.active_name()),
+                3 if st.library.active.is_some() => st.library.active_name().to_owned(),
+                _ => return,
+            }
+        };
+        self.ui.set_service_form_name(name.into());
+        self.ui.set_service_form_error(SharedString::new());
+        self.ui.set_service_form(kind);
+    }
+
+    fn service_form_submit(&self) {
+        let kind = self.ui.get_service_form();
+        let name = self.ui.get_service_form_name();
+        if !self.commit_editor() {
+            return;
+        }
+        let result = {
+            let mut st = self.state.borrow_mut();
+            let library = &mut st.library;
+            let result = match kind {
+                1 => library.create_service(&name, Vec::new()).map(|_| ()),
+                2 => {
+                    let items = library.order().to_vec();
+                    library.create_service(&name, items).map(|_| ())
+                }
+                3 => match library.active {
+                    Some(id) => library.rename_service(id, &name),
+                    None => Err("Susunan utama tidak bisa diganti namanya.".into()),
+                },
+                _ => Ok(()),
+            };
+            if result.is_ok() {
+                Self::place_in_order(&mut st);
+            }
+            result.map(|()| st.library.active_name().to_owned())
+        };
+        match result {
+            Ok(name) => {
+                self.ui.set_service_form(0);
+                self.refresh_service();
+                if self.persist() {
+                    let done = match kind {
+                        3 => format!("Nama susunan diganti menjadi “{name}”."),
+                        _ => format!("Susunan “{name}” dibuat dan dipakai."),
+                    };
+                    self.status(&done, true);
+                }
+            }
+            Err(e) => self.ui.set_service_form_error(e.into()),
+        }
+    }
+
+    /// Menghapus susunan tersimpan yang sedang dipakai, setelah konfirmasi.
+    fn service_delete(&self) {
+        let current = {
+            let st = self.state.borrow();
+            st.library
+                .active
+                .map(|id| (id, st.library.active_name().to_owned()))
+        };
+        let Some((id, name)) = current else {
+            return;
+        };
+        let answer = dialog(
+            Some(self.ui.window()),
+            MessageLevel::Warning,
+            "Hapus susunan",
+            &format!(
+                "Hapus susunan “{name}”? Materinya tetap ada di pustaka. Susunan ini juga \
+                 hilang di komputer lain yang memakai profil ini."
+            ),
+            MessageButtons::YesNo,
+        );
+        if answer == MessageDialogResult::Yes {
+            self.remove_saved_service(id, &name);
+        }
+    }
+
+    fn remove_saved_service(&self, id: u64, name: &str) {
+        {
+            let mut st = self.state.borrow_mut();
+            st.library.remove_service(id);
+            Self::place_in_order(&mut st);
+        }
+        self.refresh_service();
+        if self.persist() {
+            self.status(
+                &format!("Susunan “{name}” dihapus. {MAIN_SERVICE_NAME} dipakai lagi."),
+                true,
+            );
+        }
     }
 
     /// Memperbarui tanda "Di susunan" di daftar pustaka tanpa menyusun ulang
@@ -693,7 +856,7 @@ impl App {
             let Some(mut row) = self.library_rows.row_data(i) else {
                 continue;
             };
-            let in_service = st.library.service.contains(&(row.id as u64));
+            let in_service = st.library.order().contains(&(row.id as u64));
             if row.in_service != in_service {
                 row.in_service = in_service;
                 self.library_rows.set_row_data(i, row);
@@ -902,7 +1065,7 @@ impl App {
         }
         let id = usize::try_from(index)
             .ok()
-            .and_then(|i| self.state.borrow().library.service.get(i).copied());
+            .and_then(|i| self.state.borrow().library.order().get(i).copied());
         if let Some(id) = id {
             self.select(id, Some(index as usize));
         }
@@ -922,17 +1085,36 @@ impl App {
         let Some(id) = self.materialize(id as u64) else {
             return;
         };
-        let title = {
+        let added = {
             let mut st = self.state.borrow_mut();
             let Some(title) = st.library.item(id).map(|i| i.title.clone()) else {
                 return;
             };
-            st.library.service.push(id);
-            title
+            if st.library.order().len() >= MAX_SERVICE_ITEMS {
+                Err(format!(
+                    "Susunan ibadah paling banyak {} materi.",
+                    count(MAX_SERVICE_ITEMS)
+                ))
+            } else {
+                st.library.order_mut().push(id);
+                Ok((title, st.library.active_name().to_owned()))
+            }
+        };
+        let (title, service) = match added {
+            Ok(added) => added,
+            Err(e) => {
+                self.status(&e, false);
+                return;
+            }
         };
         self.refresh_service();
         if self.persist() {
-            self.status(&format!("“{title}” ditambahkan ke susunan ibadah."), true);
+            let target = if service == MAIN_SERVICE_NAME {
+                "susunan ibadah".to_owned()
+            } else {
+                format!("susunan “{service}”")
+            };
+            self.status(&format!("“{title}” ditambahkan ke {target}."), true);
         }
     }
 
@@ -949,7 +1131,7 @@ impl App {
         };
         {
             let mut st = self.state.borrow_mut();
-            let len = st.library.service.len();
+            let len = st.library.order().len();
             if index >= len {
                 return;
             }
@@ -961,7 +1143,7 @@ impl App {
             if target == index {
                 return;
             }
-            st.library.service.swap(index, target);
+            st.library.order_mut().swap(index, target);
             let fix = |p: Option<usize>| {
                 p.map(|p| match p {
                     p if p == index => target,
@@ -982,10 +1164,10 @@ impl App {
         };
         {
             let mut st = self.state.borrow_mut();
-            if index >= st.library.service.len() {
+            if index >= st.library.order().len() {
                 return;
             }
-            st.library.service.remove(index);
+            st.library.order_mut().remove(index);
             let fix = |p: Option<usize>| {
                 p.and_then(|p| match p {
                     p if p == index => None,
@@ -1110,7 +1292,7 @@ impl App {
             Some(self.ui.window()),
             MessageLevel::Warning,
             "Hapus materi",
-            &format!("Hapus “{title}” dari pustaka dan susunan ibadah?"),
+            &format!("Hapus “{title}” dari pustaka dan semua susunan ibadah?"),
             MessageButtons::YesNo,
         );
         if answer != MessageDialogResult::Yes {
@@ -1755,7 +1937,7 @@ impl App {
                 })
                 .map(|i| i.id);
             let place = match saved {
-                Some(id) if st.library.service.contains(&id) => "ada di susunan",
+                Some(id) if st.library.order().contains(&id) => "ada di susunan",
                 Some(_) => "ada di pustaka",
                 None => "belum di pustaka",
             };
@@ -2692,7 +2874,7 @@ impl App {
                 .add_filter("Gambar atau video", &all)
                 .add_filter("Gambar JPG atau PNG", &background::EXTENSIONS)
                 .add_filter(
-                    "Video MP4, M4V, MOV, atau WMV",
+                    "Video MP4, M4V, MOV, WMV, MPG, atau AVI",
                     &background::VIDEO_EXTENSIONS,
                 );
         } else {
@@ -2904,7 +3086,7 @@ impl App {
         let first = {
             let st = self.state.borrow();
             st.library
-                .service
+                .order()
                 .first()
                 .map(|id| (*id, Some(0)))
                 .or_else(|| st.library.items.first().map(|i| (i.id, None)))
@@ -3461,10 +3643,10 @@ impl App {
                             .row_data(0)
                             .is_some_and(|row| row.label == "Yohanes 3:16-20"),
                 );
-                let before = self.state.borrow().library.service.len();
+                let before = self.state.borrow().library.order().len();
                 self.bible_add_to_service();
                 let saved = self.state.borrow().store.load().ok().is_some_and(|l| {
-                    l.service.len() == before + 1
+                    l.order().len() == before + 1
                         && l.items.iter().any(|i| i.title == "Yohanes 3:16-20 (UJI)")
                 });
                 let st = self.state.borrow();
@@ -3805,6 +3987,106 @@ impl App {
                         && !background::folder(&dir).join(&name).exists()
                         && self.video.borrow().is_none()
                         && !self.output.get_has_picture(),
+                );
+            }
+            30 => {
+                // Susunan tersimpan: duplikat Susunan utama, lalu ubah salinannya.
+                // Slide yang tayang tidak berubah.
+                let (main_before, live_before) = {
+                    let st = self.state.borrow();
+                    (st.library.service.clone(), st.live.clone())
+                };
+                self.service_form_open(2);
+                let suggested = self.ui.get_service_form() == 2
+                    && self.ui.get_service_form_name() == "Susunan utama (2)";
+                self.ui.set_service_form_name("  Ibadah Natal ✓ ".into());
+                self.service_form_submit();
+                let copied = {
+                    let st = self.state.borrow();
+                    st.library.active_name() == "Ibadah Natal ✓"
+                        && st.library.order() == main_before.as_slice()
+                        && st.live == live_before
+                };
+                self.check(
+                    "service_duplicated",
+                    suggested
+                        && copied
+                        && self.ui.get_service_form() == 0
+                        && self.ui.get_service_name() == "Ibadah Natal ✓"
+                        && self.service_choices.row_count() == 2,
+                );
+                self.remove_service(0);
+                let saved = self.state.borrow().store.load().ok().is_some_and(|l| {
+                    l.services.len() == 1
+                        && l.active.is_some()
+                        && l.service == main_before
+                        && l.order().len() + 1 == main_before.len()
+                });
+                self.check(
+                    "service_copy_saved",
+                    saved && self.service_rows.row_count() + 1 == main_before.len(),
+                );
+                self.ui.invoke_show_service_menu();
+            }
+            31 => {
+                self.snapshot("ui-smoke-susunan-menu.png", self.ui.window());
+                self.ui.invoke_close_service_menu();
+                // Nama kembar ditolak, tanpa membedakan huruf besar/kecil.
+                self.service_form_open(1);
+                self.ui.set_service_form_name("IBADAH NATAL ✓".into());
+                self.service_form_submit();
+                self.check(
+                    "service_name_taken",
+                    self.ui.get_service_form() == 1 && !self.ui.get_service_form_error().is_empty(),
+                );
+            }
+            32 => {
+                self.snapshot("ui-smoke-susunan-nama.png", self.ui.window());
+                self.ui.set_service_form_name("Kosong".into());
+                self.service_form_submit();
+                self.check(
+                    "service_created",
+                    self.ui.get_service_form() == 0
+                        && self.service_rows.row_count() == 0
+                        && self.ui.get_service_name() == "Kosong"
+                        && self.service_choices.row_count() == 3,
+                );
+                self.use_service(0);
+                let main_len = self.state.borrow().library.service.len();
+                self.check(
+                    "service_main_again",
+                    self.ui.get_service_main()
+                        && self.ui.get_service_name() == MAIN_SERVICE_NAME
+                        && self.service_rows.row_count() == main_len,
+                );
+                // Ganti nama, lalu hapus.
+                let natal = self
+                    .state
+                    .borrow()
+                    .library
+                    .services
+                    .iter()
+                    .find(|s| s.name == "Ibadah Natal ✓")
+                    .map(|s| s.id)
+                    .unwrap_or(0);
+                self.use_service(ui_id(natal));
+                self.service_form_open(3);
+                self.ui.set_service_form_name("Natal".into());
+                self.service_form_submit();
+                let renamed = self.ui.get_service_name() == "Natal";
+                self.remove_saved_service(natal, "Natal");
+                let saved = self
+                    .state
+                    .borrow()
+                    .store
+                    .load()
+                    .is_ok_and(|l| l.services.len() == 1 && l.active.is_none());
+                self.check(
+                    "service_removed",
+                    renamed
+                        && saved
+                        && self.ui.get_service_main()
+                        && self.service_choices.row_count() == 2,
                 );
             }
             _ => {

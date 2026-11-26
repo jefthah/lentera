@@ -17,12 +17,17 @@
 //! Materi yang dihapus disimpan sebagai tanda hapus tanpa judul dan isi,
 //! supaya penghapusan ikut tersinkron dan id lokalnya tidak dipakai ulang.
 //!
-//! Waktu perubahan nama profil, susunan ibadah, dan latar dicatat di tabel
+//! Waktu perubahan nama profil, Susunan utama, dan latar dicatat di tabel
 //! `meta` ([`NAME_AT`], [`SERVICE_AT`], [`BACKGROUND_AT`]). Catatan sinkron
 //! lain ada di tabel `synced` yang dibuat `crate::sync`. Keduanya tidak
 //! mengubah versi skema, jadi profil tetap bisa dibuka Lentera 0.5 dan 0.6.
+//!
+//! Susunan tersimpan selain Susunan utama ada di tabel [`SERVICES`], yang
+//! juga tidak mengubah versi skema: Lentera 0.8 dan sebelumnya tetap membuka
+//! profil dan hanya melihat Susunan utama. Seperti materi, setiap susunan
+//! punya `uid` dan waktu, dan yang dihapus disimpan sebagai tanda hapus.
 
-use crate::{Kind, LIBRARY_FILE, Library};
+use crate::{Kind, LIBRARY_FILE, Library, SavedService};
 use rusqlite::{Connection, OpenFlags, OptionalExtension, params};
 use std::{
     cell::RefCell,
@@ -57,6 +62,9 @@ pub(crate) const NAME_AT: &str = "name_at";
 pub(crate) const SERVICE_AT: &str = "service_at";
 /// Kunci `meta`: waktu warna latar umum terakhir diganti.
 pub(crate) const BACKGROUND_AT: &str = "background_at";
+/// Kunci `meta`: id lokal susunan yang sedang dipakai di komputer ini;
+/// kosong = Susunan utama. Tidak disinkron.
+const ACTIVE_SERVICE: &str = "active_service";
 
 pub(crate) const SCHEMA: &str = "
 CREATE TABLE meta (
@@ -78,6 +86,26 @@ CREATE TABLE service (
     position INTEGER PRIMARY KEY,
     item_id  INTEGER NOT NULL REFERENCES items(id)
 );
+";
+
+/// Susunan tersimpan (Lentera 0.9). Dibuat bila belum ada setiap kali profil
+/// dibuka, tanpa mengubah versi skema.
+pub(crate) const SERVICES: &str = "
+CREATE TABLE IF NOT EXISTS services (
+    id         INTEGER PRIMARY KEY,           -- id lokal (SavedService::id)
+    uid        TEXT NOT NULL UNIQUE,          -- UUID v7, sama di semua perangkat
+    name       TEXT NOT NULL,
+    created_at INTEGER NOT NULL,              -- milidetik sejak 1970 (UTC)
+    updated_at INTEGER NOT NULL,
+    deleted_at INTEGER,                       -- terisi = tanda hapus
+    used_at    INTEGER NOT NULL DEFAULT 0     -- terakhir dipilih di komputer ini
+);
+CREATE TABLE IF NOT EXISTS service_items (
+    service_id INTEGER NOT NULL REFERENCES services(id),
+    position   INTEGER NOT NULL,
+    item_id    INTEGER NOT NULL REFERENCES items(id),
+    PRIMARY KEY (service_id, position)
+) WITHOUT ROWID;
 ";
 
 /// Ringkasan satu profil di perangkat ini, untuk daftar pilihan profil.
@@ -121,6 +149,9 @@ struct Snapshot {
     /// id lokal → sidik isi materi.
     items: HashMap<u64, u64>,
     service: Vec<u64>,
+    /// id lokal → (sidik nama dan isi, `used_at`) susunan tersimpan.
+    services: HashMap<u64, (u64, i64)>,
+    active: Option<u64>,
     background: usize,
     background_image: Option<String>,
     monitor: usize,
@@ -142,6 +173,12 @@ impl Snapshot {
         Self {
             items,
             service: library.service.clone(),
+            services: library
+                .services
+                .iter()
+                .map(|s| (s.id, (service_print(s), s.used_at)))
+                .collect(),
+            active: library.active,
             background: library.background,
             background_image: library.background_image.clone(),
             monitor: library.monitor,
@@ -316,6 +353,7 @@ impl Store {
         let created_at = now_ms();
         let tx = conn.transaction().map_err(|e| db_error(&path, e))?;
         tx.execute_batch(SCHEMA)
+            .and_then(|()| tx.execute_batch(SERVICES))
             .and_then(|()| tx.pragma_update(None, "user_version", SCHEMA_VERSION))
             .and_then(|()| set_meta(&tx, "name", name))
             .and_then(|()| set_meta(&tx, NAME_AT, &created_at.to_string()))
@@ -429,6 +467,13 @@ impl Store {
             .map_err(err)?
             .map(|id| id.map_err(err).and_then(to_id))
             .collect::<Result<Vec<_>, _>>()?;
+        let (services, max_service) = self.load_services()?;
+        // Susunan yang sudah dihapus (misalnya dari komputer lain) berarti
+        // kembali ke Susunan utama.
+        let active = get_meta(&self.conn, ACTIVE_SERVICE)
+            .map_err(err)?
+            .and_then(|value| value.parse().ok())
+            .filter(|id| services.iter().any(|s: &SavedService| s.id == *id));
         let number = |key| -> Result<usize, String> {
             Ok(get_meta(&self.conn, key)
                 .map_err(err)?
@@ -440,6 +485,9 @@ impl Store {
             next_id: to_id(max_id)? + 1,
             items,
             service,
+            services,
+            active,
+            next_service_id: max_service + 1,
             background: number("background")?,
             // Nama yang tidak sah diabaikan, seperti latar yang belum dipilih.
             background_image: get_meta(&self.conn, "background_image")
@@ -450,6 +498,66 @@ impl Store {
         };
         library.validate()?;
         Ok(library)
+    }
+
+    /// Susunan tersimpan yang belum dihapus, beserta id susunan terbesar
+    /// (termasuk tanda hapus). Materi yang sudah dihapus dilewati: Lentera
+    /// 0.8 menghapus materi tanpa mengenal susunan tersimpan.
+    fn load_services(&self) -> Result<(Vec<SavedService>, u64), String> {
+        let err = |e| db_error(&self.path, e);
+        let mut stmt = self
+            .conn
+            .prepare(
+                "SELECT id, name, MAX(used_at, updated_at) FROM services
+                 WHERE deleted_at IS NULL ORDER BY id",
+            )
+            .map_err(err)?;
+        let rows = stmt
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, i64>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, i64>(2)?,
+                ))
+            })
+            .map_err(err)?;
+        let mut services = Vec::new();
+        let mut index = HashMap::new();
+        for row in rows {
+            let (id, name, used_at) = row.map_err(err)?;
+            let id = to_id(id)?;
+            index.insert(id, services.len());
+            services.push(SavedService {
+                id,
+                name,
+                items: Vec::new(),
+                used_at,
+            });
+        }
+        let mut stmt = self
+            .conn
+            .prepare(
+                "SELECT s.service_id, s.item_id FROM service_items s
+                 JOIN items i ON i.id = s.item_id
+                 WHERE i.deleted_at IS NULL ORDER BY s.service_id, s.position",
+            )
+            .map_err(err)?;
+        let rows = stmt
+            .query_map([], |row| Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?)))
+            .map_err(err)?;
+        for row in rows {
+            let (service, item) = row.map_err(err)?;
+            if let Some(&at) = index.get(&to_id(service)?) {
+                services[at].items.push(to_id(item)?);
+            }
+        }
+        let max: i64 = self
+            .conn
+            .query_row("SELECT COALESCE(MAX(id), 0) FROM services", [], |row| {
+                row.get(0)
+            })
+            .map_err(err)?;
+        Ok((services, to_id(max)?))
     }
 
     /// Menyimpan pustaka dalam satu transaksi. Hanya materi yang berubah sejak
@@ -524,6 +632,11 @@ impl Store {
                 }
                 set_meta(&tx, SERVICE_AT, &now.to_string()).map_err(err)?;
             }
+            save_services(&tx, library, &saved, now).map_err(err)?;
+            if library.active != saved.active || !saved.ready {
+                let id = library.active.map(|id| id.to_string()).unwrap_or_default();
+                set_meta(&tx, ACTIVE_SERVICE, &id).map_err(err)?;
+            }
             if library.background != saved.background || !saved.ready {
                 set_meta(&tx, "background", &library.background.to_string()).map_err(err)?;
                 set_meta(&tx, BACKGROUND_AT, &now.to_string()).map_err(err)?;
@@ -546,6 +659,75 @@ impl Store {
         };
         Ok(())
     }
+}
+
+/// Menulis susunan tersimpan yang berubah sejak `saved`. Hanya susunan yang
+/// nama atau isinya berubah yang waktu ubahnya diperbarui; susunan yang
+/// hilang dari pustaka menjadi tanda hapus.
+fn save_services(
+    tx: &Connection,
+    library: &Library,
+    saved: &Snapshot,
+    now: i64,
+) -> rusqlite::Result<()> {
+    let mut insert = tx.prepare(
+        "INSERT INTO services (id, uid, name, created_at, updated_at, used_at)
+         VALUES (?1, ?2, ?3, ?4, ?4, ?5)",
+    )?;
+    let mut update = tx.prepare("UPDATE services SET name = ?2, updated_at = ?3 WHERE id = ?1")?;
+    let mut touch = tx.prepare("UPDATE services SET used_at = ?2 WHERE id = ?1")?;
+    let mut remove = tx.prepare(
+        "UPDATE services SET name = '', updated_at = ?2, deleted_at = ?2
+         WHERE id = ?1 AND deleted_at IS NULL",
+    )?;
+    let mut clear = tx.prepare("DELETE FROM service_items WHERE service_id = ?1")?;
+    let mut add = tx
+        .prepare("INSERT INTO service_items (service_id, position, item_id) VALUES (?1, ?2, ?3)")?;
+    let sql_id = |id: u64| i64::try_from(id).unwrap_or(i64::MAX);
+    for service in &library.services {
+        let id = sql_id(service.id);
+        let old = saved.services.get(&service.id);
+        let changed = match old {
+            None => {
+                insert.execute(params![
+                    id,
+                    Uuid::now_v7().to_string(),
+                    service.name,
+                    now,
+                    service.used_at
+                ])?;
+                true
+            }
+            Some((print, _)) if *print != service_print(service) => {
+                update.execute(params![id, service.name, now])?;
+                clear.execute([id])?;
+                true
+            }
+            Some(_) => false,
+        };
+        if changed {
+            for (position, item) in service.items.iter().enumerate() {
+                add.execute(params![id, position as i64, sql_id(*item)])?;
+            }
+        }
+        if old.is_some_and(|(_, used)| *used != service.used_at) {
+            touch.execute(params![id, service.used_at])?;
+        }
+    }
+    for id in saved.services.keys() {
+        if !library.services.iter().any(|s| s.id == *id) {
+            remove.execute(params![sql_id(*id), now])?;
+            clear.execute([sql_id(*id)])?;
+        }
+    }
+    Ok(())
+}
+
+fn service_print(service: &SavedService) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    service.name.hash(&mut hasher);
+    service.items.hash(&mut hasher);
+    hasher.finish()
 }
 
 /// Menyalin basis data ke `library.db.bak` lewat berkas sementara, supaya
@@ -580,8 +762,10 @@ pub(crate) fn configure(conn: &Connection) -> rusqlite::Result<()> {
 /// Memperbarui skema profil lama ke [`SCHEMA_VERSION`] dalam satu transaksi.
 /// Profil yang sudah diperbarui tidak bisa dibuka Lentera versi lama, yang
 /// menolaknya dengan pesan "dibuat oleh Lentera versi yang lebih baru".
+/// Tabel [`SERVICES`] dibuat bila belum ada, tanpa mengubah versi.
 pub(crate) fn upgrade(conn: &Connection, path: &Path) -> Result<(), String> {
     let err = |e| db_error(path, e);
+    conn.execute_batch(SERVICES).map_err(err)?;
     let version: i32 = conn
         .pragma_query_value(None, "user_version", |row| row.get(0))
         .map_err(err)?;
@@ -915,6 +1099,128 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM items", [], |r| r.get(0))
             .unwrap();
         assert_eq!(count, 3);
+    }
+
+    fn service_row(store: &Store, id: u64) -> (String, String, i64, i64, Option<i64>, i64) {
+        store
+            .conn
+            .query_row(
+                "SELECT uid, name, created_at, updated_at, deleted_at, used_at
+                 FROM services WHERE id = ?1",
+                [id as i64],
+                |r| {
+                    Ok((
+                        r.get(0)?,
+                        r.get(1)?,
+                        r.get(2)?,
+                        r.get(3)?,
+                        r.get(4)?,
+                        r.get(5)?,
+                    ))
+                },
+            )
+            .unwrap()
+    }
+
+    #[test]
+    fn saved_services_are_saved_and_the_active_one_stays_on_this_computer() {
+        let dir = TempDir::new("services");
+        let Opened {
+            store, mut library, ..
+        } = Store::open(&dir.0).unwrap();
+        let natal = library.create_service("Natal", vec![2, 1, 2]).unwrap();
+        let paskah = library.create_service("Paskah", vec![1]).unwrap();
+        library.select_service(Some(natal));
+        store.save(&library).unwrap();
+        let (uid, name, created, updated, deleted, _) = service_row(&store, natal);
+        assert!(Uuid::parse_str(&uid).is_ok());
+        assert_eq!((name.as_str(), created, deleted), ("Natal", updated, None));
+        // Susunan utama tidak ikut berubah.
+        let service_at = get_meta(&store.conn, SERVICE_AT).unwrap();
+        drop(store);
+
+        let Opened {
+            store,
+            library: mut reopened,
+            ..
+        } = Store::open(&dir.0).unwrap();
+        assert_eq!(reopened.services.len(), 2);
+        assert_eq!(reopened.active, Some(natal));
+        assert_eq!(reopened.order(), [2, 1, 2]);
+        assert_eq!(reopened.service, [1, 2]);
+        assert_eq!(get_meta(&store.conn, SERVICE_AT).unwrap(), service_at);
+
+        // Memilih susunan hanya mencatat waktu pakai; mengubah isi atau nama
+        // memperbarui waktu ubah.
+        pause();
+        reopened.select_service(Some(paskah));
+        store.save(&reopened).unwrap();
+        let after_select = service_row(&store, paskah);
+        assert!(after_select.5 > after_select.3);
+        assert_eq!(service_row(&store, natal).3, updated);
+        pause();
+        reopened.order_mut().push(2);
+        reopened.rename_service(natal, "Ibadah Natal").unwrap();
+        store.save(&reopened).unwrap();
+        assert!(service_row(&store, paskah).3 > after_select.3);
+        let (uid_natal, name, _, renamed, _, _) = service_row(&store, natal);
+        assert_eq!(name, "Ibadah Natal");
+        assert!(renamed > updated && uid_natal == uid);
+
+        // Menghapus susunan meninggalkan tanda hapus, dan id-nya tidak dipakai ulang.
+        pause();
+        reopened.remove_service(paskah);
+        store.save(&reopened).unwrap();
+        let (_, name, _, _, deleted, _) = service_row(&store, paskah);
+        assert!(name.is_empty() && deleted.is_some());
+        let items: i64 = store
+            .conn
+            .query_row(
+                "SELECT COUNT(*) FROM service_items WHERE service_id = ?1",
+                [paskah as i64],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(items, 0);
+        assert_eq!(reopened.active, None);
+        let baru = reopened.create_service("Baru", Vec::new()).unwrap();
+        assert!(baru > paskah);
+        store.save(&reopened).unwrap();
+
+        // Lentera 0.8 menghapus materi tanpa mengenal susunan tersimpan.
+        reopened.select_service(Some(natal));
+        store.save(&reopened).unwrap();
+        let old = connect(store.path()).unwrap();
+        drop(store);
+        old.execute_batch(
+            "UPDATE items SET title = '', content = '', deleted_at = 1 WHERE id = 2;
+             DELETE FROM service WHERE item_id = 2;",
+        )
+        .unwrap();
+        drop(old);
+        let again = Store::open(&dir.0).unwrap().library;
+        assert_eq!(again.active, Some(natal));
+        assert_eq!(again.order(), [1]);
+        assert!(again.next_service_id > baru);
+    }
+
+    #[test]
+    fn profiles_from_older_versions_get_the_services_tables() {
+        let dir = TempDir::new("services-old");
+        let id = Store::open(&dir.0).unwrap().store.id().to_owned();
+        let path = profile_db(&dir.0, &id).unwrap();
+        let conn = connect(&path).unwrap();
+        conn.execute_batch("DROP TABLE service_items; DROP TABLE services;")
+            .unwrap();
+        set_meta(&conn, ACTIVE_SERVICE, "7").unwrap();
+        drop(conn);
+        let Opened { store, library, .. } = Store::open_profile(&dir.0, &id).unwrap();
+        assert!(library.services.is_empty() && library.active.is_none());
+        let version: i32 = store
+            .conn
+            .pragma_query_value(None, "user_version", |r| r.get(0))
+            .unwrap();
+        assert_eq!(version, SCHEMA_VERSION);
     }
 
     #[test]

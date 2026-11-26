@@ -3,10 +3,11 @@
 //! Selain kunci `meta` yang ditulis [`Store`](crate::Store) saat nama,
 //! susunan, atau latar berubah, sinkron memakai:
 //!
-//! - tabel `synced`: per materi, `updated_at` terakhir yang sudah sama dengan
-//!   server. Materi yang `updated_at`-nya berbeda (atau belum tercatat) belum
-//!   terkirim. Perubahan yang dibuat Lentera versi lama juga terdeteksi,
-//!   karena versi itu tetap memperbarui `updated_at`;
+//! - tabel `synced`: per materi dan per susunan tersimpan (menurut `uid`),
+//!   `updated_at` terakhir yang sudah sama dengan server. Yang `updated_at`-nya
+//!   berbeda (atau belum tercatat) belum terkirim. Perubahan materi yang
+//!   dibuat Lentera versi lama juga terdeteksi, karena versi itu tetap
+//!   memperbarui `updated_at`;
 //! - kunci `meta`: akun pemilik sambungan, cursor server, dan waktu nama /
 //!   susunan / latar terakhir yang sudah sama dengan server.
 //!
@@ -20,9 +21,12 @@ use std::{
 
 use rusqlite::{Connection, OptionalExtension, params};
 
-use super::{RemoteItem, RemoteProfile, RemoteService, RemoteSettings};
+use super::{
+    MAX_SERVICE_ITEMS, RemoteItem, RemoteProfile, RemoteSavedService, RemoteService, RemoteSettings,
+};
 use crate::store::{
     self, BACKGROUND_AT, NAME_AT, PROFILE_DB, PROFILES_DIR, SCHEMA, SCHEMA_VERSION, SERVICE_AT,
+    SERVICES,
 };
 
 /// Akun yang menyambungkan profil ini ke server; kosong bila belum.
@@ -77,9 +81,12 @@ pub(crate) struct Page<'a> {
     /// `updated_at` susunan / latar yang dikirim, bila ikut dikirim.
     pub sent_service: Option<i64>,
     pub sent_settings: Option<i64>,
+    /// `uid` dan `updated_at` susunan tersimpan yang dikirim.
+    pub sent_services: &'a [(String, i64)],
     pub items: &'a [RemoteItem],
     pub service: Option<&'a RemoteService>,
     pub settings: Option<&'a RemoteSettings>,
+    pub services: &'a [RemoteSavedService],
     pub cursor: i64,
 }
 
@@ -202,10 +209,20 @@ impl SyncDb {
                 |row| row.get(0),
             )
             .map_err(|e| self.err(e))?;
+        let services: i64 = self
+            .conn
+            .query_row(
+                "SELECT COUNT(*) FROM services v LEFT JOIN synced s ON s.uid = v.uid
+                 WHERE s.updated_at IS NULL OR s.updated_at <> v.updated_at",
+                [],
+                |row| row.get(0),
+            )
+            .map_err(|e| self.err(e))?;
         let info = self.info()?;
         Ok(items > 0
+            || services > 0
             || info.name_at != info.name_synced
-            || self.dirty_service()?.is_some()
+            || self.dirty_service(&HashSet::new())?.is_some()
             || self.dirty_settings()?.is_some())
     }
 
@@ -265,29 +282,92 @@ impl SyncDb {
         Ok(chunk)
     }
 
-    /// Susunan ibadah bila belum terkirim. Materi yang sudah dihapus tidak
-    /// ikut, karena server hanya menerima susunan berisi materi yang ada.
-    pub fn dirty_service(&self) -> Result<Option<RemoteService>, String> {
+    /// Susunan utama bila belum terkirim. Materi yang sudah dihapus atau
+    /// tidak dikirim (`skip`) tidak ikut, karena server hanya menerima
+    /// susunan berisi materi yang ada di sana.
+    pub fn dirty_service(&self, skip: &HashSet<String>) -> Result<Option<RemoteService>, String> {
         let at = self.number(SERVICE_AT)?;
         if at == 0 || at == self.number(SERVICE_SYNCED)? {
             return Ok(None);
         }
-        let mut stmt = self
-            .conn
-            .prepare(
-                "SELECT i.uid FROM service s JOIN items i ON i.id = s.item_id
-                 WHERE i.deleted_at IS NULL ORDER BY s.position",
-            )
-            .map_err(|e| self.err(e))?;
-        let items = stmt
-            .query_map([], |row| row.get(0))
-            .map_err(|e| self.err(e))?
-            .collect::<Result<Vec<String>, _>>()
-            .map_err(|e| self.err(e))?;
+        let items = self.service_uids(
+            "SELECT i.uid FROM service s JOIN items i ON i.id = s.item_id
+             WHERE i.deleted_at IS NULL ORDER BY s.position",
+            [],
+            skip,
+        )?;
         Ok(Some(RemoteService {
             items,
             updated_at: at,
         }))
+    }
+
+    /// `uid` materi sebuah susunan, tanpa yang ada di `skip`, paling banyak
+    /// sebanyak batas server.
+    fn service_uids(
+        &self,
+        sql: &str,
+        params: impl rusqlite::Params,
+        skip: &HashSet<String>,
+    ) -> Result<Vec<String>, String> {
+        let mut stmt = self.conn.prepare(sql).map_err(|e| self.err(e))?;
+        let mut items = stmt
+            .query_map(params, |row| row.get(0))
+            .map_err(|e| self.err(e))?
+            .collect::<Result<Vec<String>, _>>()
+            .map_err(|e| self.err(e))?;
+        items.retain(|uid| !skip.contains(uid));
+        items.truncate(MAX_SERVICE_ITEMS);
+        Ok(items)
+    }
+
+    /// Susunan tersimpan yang belum terkirim, paling banyak `limit`.
+    pub fn dirty_services(
+        &self,
+        limit: usize,
+        skip: &HashSet<String>,
+    ) -> Result<Vec<RemoteSavedService>, String> {
+        let mut stmt = self
+            .conn
+            .prepare(
+                "SELECT v.id, v.uid, v.name, v.created_at, v.updated_at, v.deleted_at
+                 FROM services v LEFT JOIN synced s ON s.uid = v.uid
+                 WHERE s.updated_at IS NULL OR s.updated_at <> v.updated_at
+                 ORDER BY v.id LIMIT ?1",
+            )
+            .map_err(|e| self.err(e))?;
+        let rows = stmt
+            .query_map([limit as i64], |row| {
+                Ok((
+                    row.get::<_, i64>(0)?,
+                    RemoteSavedService {
+                        id: row.get(1)?,
+                        name: row.get(2)?,
+                        items: Vec::new(),
+                        created_at: row.get(3)?,
+                        updated_at: row.get(4)?,
+                        deleted_at: row.get(5)?,
+                    },
+                ))
+            })
+            .map_err(|e| self.err(e))?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| self.err(e))?;
+        let mut services = Vec::with_capacity(rows.len());
+        for (id, mut service) in rows {
+            if service.deleted_at.is_none() {
+                service.items = self.service_uids(
+                    "SELECT i.uid FROM service_items v JOIN items i ON i.id = v.item_id
+                     WHERE v.service_id = ?1 AND i.deleted_at IS NULL ORDER BY v.position",
+                    [id],
+                    skip,
+                )?;
+            } else {
+                service.name.clear();
+            }
+            services.push(service);
+        }
+        Ok(services)
     }
 
     /// Warna latar umum bila belum terkirim. Gambar latar tidak ikut: gambar
@@ -345,8 +425,14 @@ impl SyncDb {
                      VALUES ((SELECT COALESCE(MAX(id), 0) + 1 FROM items), ?1, ?2, ?3, ?4, ?5, ?6, ?7)",
                 )
                 .map_err(err)?;
+            // Materi yang dihapus di perangkat lain dilepas dari semua susunan
+            // di sini tanpa mengubah waktu ubah susunannya: perangkat itu
+            // sudah mengirim susunannya sendiri.
             let mut unlist = tx
                 .prepare("DELETE FROM service WHERE item_id = ?1")
+                .map_err(err)?;
+            let mut unlist_saved = tx
+                .prepare("DELETE FROM service_items WHERE item_id = ?1")
                 .map_err(err)?;
             let mut synced = tx
                 .prepare(
@@ -388,6 +474,7 @@ impl SyncDb {
                             .map_err(err)?;
                         if item.deleted_at.is_some() {
                             unlist.execute([id]).map_err(err)?;
+                            unlist_saved.execute([id]).map_err(err)?;
                         }
                     }
                     None => {
@@ -411,6 +498,7 @@ impl SyncDb {
             }
         }
         changed |= self.apply_service(&tx, page)?;
+        changed |= self.apply_services(&tx, page)?;
         changed |= self.apply_settings(&tx, page)?;
         store::set_meta(&tx, CURSOR, &page.cursor.to_string()).map_err(err)?;
         tx.commit().map_err(err)?;
@@ -452,6 +540,123 @@ impl SyncDb {
         store::set_meta(tx, SERVICE_AT, &at).map_err(err)?;
         store::set_meta(tx, SERVICE_SYNCED, &at).map_err(err)?;
         Ok(true)
+    }
+
+    /// Susunan tersimpan: yang dikirim dan belum diubah lagi ditandai
+    /// terkirim, lalu versi dari server dipakai kecuali susunan itu diubah
+    /// lagi di sini setelah versi server dibuat. Materi yang belum ada di
+    /// perangkat ini dilewati.
+    fn apply_services(&self, tx: &Connection, page: &Page) -> Result<bool, String> {
+        let err = |e| self.err(e);
+        let mut mark = tx
+            .prepare(
+                "INSERT INTO synced (uid, updated_at)
+                 SELECT uid, updated_at FROM services WHERE uid = ?1 AND updated_at = ?2
+                 ON CONFLICT (uid) DO UPDATE SET updated_at = excluded.updated_at",
+            )
+            .map_err(err)?;
+        for (uid, at) in page.sent_services {
+            mark.execute(params![uid, at]).map_err(err)?;
+        }
+        if page.services.is_empty() {
+            return Ok(false);
+        }
+        let mut find = tx
+            .prepare(
+                "SELECT v.id, v.updated_at, s.updated_at
+                 FROM services v LEFT JOIN synced s ON s.uid = v.uid WHERE v.uid = ?1",
+            )
+            .map_err(err)?;
+        let mut update = tx
+            .prepare(
+                "UPDATE services SET name = ?2, created_at = ?3, updated_at = ?4, deleted_at = ?5
+                 WHERE id = ?1",
+            )
+            .map_err(err)?;
+        let mut insert = tx
+            .prepare(
+                "INSERT INTO services (id, uid, name, created_at, updated_at, deleted_at)
+                 VALUES ((SELECT COALESCE(MAX(id), 0) + 1 FROM services), ?1, ?2, ?3, ?4, ?5)",
+            )
+            .map_err(err)?;
+        let mut clear = tx
+            .prepare("DELETE FROM service_items WHERE service_id = ?1")
+            .map_err(err)?;
+        let mut item = tx
+            .prepare("SELECT id FROM items WHERE uid = ?1 AND deleted_at IS NULL")
+            .map_err(err)?;
+        let mut add = tx
+            .prepare(
+                "INSERT INTO service_items (service_id, position, item_id) VALUES (?1, ?2, ?3)",
+            )
+            .map_err(err)?;
+        let mut synced = tx
+            .prepare(
+                "INSERT INTO synced (uid, updated_at) VALUES (?1, ?2)
+                 ON CONFLICT (uid) DO UPDATE SET updated_at = excluded.updated_at",
+            )
+            .map_err(err)?;
+        let mut changed = false;
+        for remote in page.services {
+            let name = match remote.deleted_at {
+                Some(_) => "",
+                None => remote.name.as_str(),
+            };
+            let local: Option<(i64, i64, Option<i64>)> = find
+                .query_row([&remote.id], |row| {
+                    Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+                })
+                .optional()
+                .map_err(err)?;
+            let id = match local {
+                Some((_, at, synced_at)) if synced_at != Some(at) && at > remote.updated_at => {
+                    continue;
+                }
+                Some((id, ..)) => {
+                    update
+                        .execute(params![
+                            id,
+                            name,
+                            remote.created_at,
+                            remote.updated_at,
+                            remote.deleted_at
+                        ])
+                        .map_err(err)?;
+                    clear.execute([id]).map_err(err)?;
+                    id
+                }
+                None => {
+                    insert
+                        .execute(params![
+                            remote.id,
+                            name,
+                            remote.created_at,
+                            remote.updated_at,
+                            remote.deleted_at
+                        ])
+                        .map_err(err)?;
+                    tx.last_insert_rowid()
+                }
+            };
+            if remote.deleted_at.is_none() {
+                let mut position = 0_i64;
+                for uid in &remote.items {
+                    let found: Option<i64> = item
+                        .query_row([uid], |row| row.get(0))
+                        .optional()
+                        .map_err(err)?;
+                    if let Some(found) = found {
+                        add.execute([id, position, found]).map_err(err)?;
+                        position += 1;
+                    }
+                }
+            }
+            synced
+                .execute(params![remote.id, remote.updated_at])
+                .map_err(err)?;
+            changed = true;
+        }
+        Ok(changed)
     }
 
     fn apply_settings(&self, tx: &Connection, page: &Page) -> Result<bool, String> {
@@ -519,6 +724,7 @@ pub(crate) fn create_remote_profile(
         let mut conn = Connection::open(&path)?;
         let tx = conn.transaction()?;
         tx.execute_batch(SCHEMA)?;
+        tx.execute_batch(SERVICES)?;
         tx.execute_batch(TABLES)?;
         tx.pragma_update(None, "user_version", SCHEMA_VERSION)?;
         let name_at = remote.name_updated_at.to_string();

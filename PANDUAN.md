@@ -22,7 +22,7 @@ Versi macOS belum punya installer; bangun dari kode sumber (lihat **Untuk pengem
   - Tombol proyektor bertuliskan **Buka proyektor** saat proyektor tertutup, dan berwarna hijau dengan tulisan **Proyektor menyala** dan nama monitornya saat terbuka.
   - Panahnya membuka menu proyektor: monitor proyektor, latar umum, dan **Buka / Tutup proyektor**.
 - **Kiri:**
-  - **Susunan ibadah** di atas, lalu tab **Pustaka** dan **Alkitab**. Di Pustaka, filter **Semua / Lagu / Ayat** menyaring materi. Tab Alkitab dijelaskan di bagian **Alkitab**.
+  - **Susunan ibadah** di atas, dengan nama susunan yang sedang dipakai (lihat **Susunan tersimpan**), lalu tab **Pustaka** dan **Alkitab**. Di Pustaka, filter **Semua / Lagu / Ayat** menyaring materi. Tab Alkitab dijelaskan di bagian **Alkitab**.
   - Di susunan, materi yang sedang tayang bertanda **Tayang** dengan nomor slidenya, dan materi sebelumnya bertanda centang.
   - Di pustaka, materi yang sudah ada di susunan bertanda **Di susunan**.
 - **Tengah:** semua slide materi terpilih. Slide berbingkai kuning sedang dipratinjau, slide berbingkai merah sedang tayang. Di atas judul ada label **Lirik** atau **Ayat**, jumlah slide, dan tombol latar materi itu (lihat **Latar**). Saat tab **Alkitab** dibuka, kolom tengah menampilkan Alkitab (lihat **Alkitab**).
@@ -44,6 +44,20 @@ Di jendela yang lebih sempit dari 1200 px, misalnya laptop 1024×640, susunan ib
 Editor terbuka di kolom tengah. Kolom kanan tetap menampilkan layar jemaat dan tombol tayang, jadi lirik bisa dibetulkan saat ibadah berjalan, dan **Berikutnya** / PageDown tetap bisa dipakai. Teks yang diubah baru terlihat di layar jemaat setelah slide itu ditayangkan lagi atau tayangan pindah slide. Di atas editor ada tanda **Tersimpan**, atau **Menyimpan…** selama perubahan belum tersimpan, dan tombol **Hapus**.
 
 Dengan satu monitor, jendela proyektor terbuka sebagai jendela biasa. Dengan dua monitor, sambungkan proyektor **sebelum membuka aplikasi**, aktifkan mode **Extend / Perluas** di Windows, lalu pilih monitor proyektor di menu proyektor (panah di tombol proyektor); jendela proyektor terbuka layar penuh di monitor itu. Konfigurasi dua monitor perlu diuji pada perangkat ibadah yang sebenarnya sebelum digunakan.
+
+## Susunan tersimpan
+
+Selain **Susunan utama**, setiap profil bisa menyimpan susunan ibadah lain, misalnya satu untuk ibadah Minggu dan satu untuk Natal, lalu berganti di antaranya tanpa menyusun ulang.
+
+- Nama susunan yang sedang dipakai tampil di atas daftar susunan dengan tanda ▾. Klik untuk membuka menu susunan. Di jendela sempit, nama ini ada di tab **Susunan**.
+- Menu berisi Susunan utama, lalu susunan tersimpan mulai dari yang terakhir dipakai, masing-masing dengan jumlah materinya. Klik salah satu untuk memakainya.
+- **Susunan baru** membuat susunan kosong. **Duplikat susunan ini** menyalin isi susunan yang sedang dipakai. Keduanya meminta nama, lalu langsung memakai susunan baru itu.
+- **Ganti nama** dan **Hapus susunan ini** hanya ada untuk susunan tersimpan; Susunan utama tidak bisa diganti nama atau dihapus. Menghapus susunan tidak menghapus materinya dari pustaka, dan Lentera kembali memakai Susunan utama.
+- Nama paling banyak 40 karakter dan tidak boleh sama dengan susunan lain, termasuk "Susunan utama"; huruf besar dan kecil dianggap sama. Satu profil bisa menyimpan sampai 100 susunan, masing-masing sampai 1.000 materi.
+- **+ Susunan**, **Tambah ke susunan**, **Ke susunan**, tanda **Di susunan**, dan perpindahan ke materi berikutnya setelah slide terakhir memakai susunan yang sedang dipakai. Berganti susunan tidak mengubah layar jemaat.
+- Menghapus materi dari pustaka melepasnya dari semua susunan.
+- Susunan yang sedang dipakai dipilih di masing-masing komputer. Dengan akun, susunan tersimpan ikut disinkron (lihat **Akun dan sinkron**).
+- Bila profil yang sama dibuka lagi oleh Lentera 0.8 atau sebelumnya, versi itu hanya melihat Susunan utama. Susunan tersimpan tetap ada untuk versi baru.
 
 ## Tombol cepat
 
@@ -68,7 +82,7 @@ Slide, pratinjau, layar tayang, dan proyektor memakai **latar umum**, kecuali ma
 
 **Latar umum** ada di bawah kolom kanan dan di menu proyektor: tiga warna, satu gambar, atau satu video. Di jendela sempit, latar umum hanya ada di menu proyektor.
 
-- Klik kotak **Gambar** untuk membuka galeri latar, lalu tekan **Tambah gambar atau video** (di macOS: **Tambah gambar**). Pilih satu atau beberapa gambar JPG, JPEG, JFIF, atau PNG, atau video MP4, M4V, MOV, atau WMV (Ctrl+klik atau Shift+klik di pemilih berkas). Bila EasyWorship terpasang, pemilih berkas terbuka di folder gambar EasyWorship, atau di folder videonya bila tidak ada folder gambar.
+- Klik kotak **Gambar** untuk membuka galeri latar, lalu tekan **Tambah gambar atau video** (di macOS: **Tambah gambar**). Pilih satu atau beberapa gambar JPG, JPEG, JFIF, atau PNG, atau video MP4, M4V, MOV, WMV, MPG, atau AVI (Ctrl+klik atau Shift+klik di pemilih berkas). Bila EasyWorship terpasang, pemilih berkas terbuka di folder gambar EasyWorship, atau di folder videonya bila tidak ada folder gambar.
 - Klik gambar di galeri untuk memakainya sebagai latar umum. Bila hanya satu gambar ditambahkan, gambar itu langsung dipakai. Klik salah satu warna untuk kembali ke latar warna; gambarnya tetap ada di galeri.
 
 **Latar per materi:** sebuah lagu atau ayat bisa memakai gambar atau videonya sendiri.
@@ -92,6 +106,7 @@ Untuk semua gambar latar:
 - Saat slide berganti, video terus berjalan selama latarnya sama. Video berhenti saat proyektor ditutup atau digelapkan, lalu mulai lagi dari awal.
 - **Layar jemaat** di kolom kanan ikut bergerak, tetapi dengan lebih sedikit frame supaya ringan. Slide, pratinjau, dan galeri memakai gambar diam dari detik pertama video; galeri memberi tanda **Video**.
 - Pakai video 1080p (1920×1080). Video yang lebih besar, misalnya 4K, tetap diperkecil ke 1920×1080 saat diputar, tetapi butuh jauh lebih banyak memori dan CPU. Video MP4 dengan codec H.264 paling aman; codec lain harus didukung Windows di komputer itu.
+- Video MPG dan AVI dari EasyWorship lama bisa dipakai bila Windows bisa membukanya. Video yang tidak bisa dibuka ditolak dengan pesan saat ditambahkan. Video lama ini biasanya kecil (misalnya 320×240), jadi terlihat buram di proyektor.
 - Paling besar 500 MB per video. Video disalin apa adanya ke folder profil, tanpa diperkecil, jadi galeri dengan banyak video memakan ruang disk.
 - Bila video tidak bisa diputar, misalnya rusak atau codecnya tidak dikenal, Lentera memberi pesan dan proyektor memakai gambar diamnya.
 - Uji video di komputer dan proyektor gereja sebelum ibadah. Dengan video, Lentera memakai sekitar 200 MiB RAM.
@@ -186,7 +201,7 @@ Nama profil yang sedang dibuka juga tampil di judul jendela. Pada jendela yang l
 
 ## Akun dan sinkron
 
-Dengan akun Lentera, profil yang sama bisa dipakai di beberapa komputer, misalnya laptop di rumah dan komputer gereja. Yang disinkron: lirik, ayat, susunan ibadah, nama profil, dan warna latar umum. Pilihan monitor, gambar dan video latar, latar per materi, dan Alkitab yang diimpor tetap milik masing-masing komputer.
+Dengan akun Lentera, profil yang sama bisa dipakai di beberapa komputer, misalnya laptop di rumah dan komputer gereja. Yang disinkron: lirik, ayat, susunan ibadah (Susunan utama dan susunan tersimpan), nama profil, dan warna latar umum. Pilihan monitor, susunan yang sedang dipakai, gambar dan video latar, latar per materi, dan Alkitab yang diimpor tetap milik masing-masing komputer. Bila dua komputer mengubah susunan tersimpan yang sama sebelum sinkron, yang terakhir diubah yang dipakai. Bila server Lentera belum diperbarui untuk susunan tersimpan, Lentera memberi tahu dan mengirim susunan tersimpan setelah server siap; materi dan Susunan utama tetap tersinkron.
 
 Masuk pertama kali di setiap komputer butuh internet dan akses ke email. Salinan materi, susunan ibadah, dan nama profil disimpan di server Lentera.
 
@@ -245,7 +260,7 @@ Untuk menyimpan di lokasi lain, jalankan `lentera.exe --data-dir "D:\Data Ibadah
 
 ## Ruang lingkup versi ini
 
-- Lirik, ayat teks, tab Alkitab dengan referensi dan terjemahan yang diimpor, pencarian, editor, susunan ibadah, pratinjau, keluaran terpisah, layar penuh, blackout, dan latar berupa warna, gambar, atau video (video hanya di Windows), untuk semua materi atau per materi.
+- Lirik, ayat teks, tab Alkitab dengan referensi dan terjemahan yang diimpor, pencarian, editor, susunan ibadah dengan susunan tersimpan, pratinjau, keluaran terpisah, layar penuh, blackout, dan latar berupa warna, gambar, atau video (video hanya di Windows), untuk semua materi atau per materi.
 - Akun dengan masuk lewat kode email, dan sinkron profil antarkomputer lewat server Lentera.
 - Windows 10/11 **64-bit** dengan installer dan pembaruan otomatis. macOS dari kode sumber. Antarmuka ditujukan untuk layar minimal sekitar 1024×640.
 - Impor lagu dan Alkitab EasyWorship 2009–8. Jadwal, tema, dan media EasyWorship belum ikut; gambar dan video latar EasyWorship bisa ditambahkan satu per satu atau beberapa sekaligus lewat galeri latar.

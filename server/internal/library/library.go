@@ -32,6 +32,11 @@ const (
 	PushMax = 1000
 	// ServiceMax is the longest service order.
 	ServiceMax = 1000
+	// ServicePushMax is the largest number of saved services one sync request may send.
+	ServicePushMax = 100
+	// SavedServicesMax is how many saved services (not deleted) one profile may have. The app
+	// allows 100; the rest is room for devices that create services at the same time.
+	SavedServicesMax = 1000
 	// BackgroundMax is the highest background index.
 	BackgroundMax = 15
 	// OwnedProfilesMax is how many profiles one account may own.
@@ -112,6 +117,17 @@ type Service struct {
 	UpdatedAt int64    `json:"updated_at"`
 }
 
+// SavedService is a named service order besides the main one (Lentera 0.9). A deleted one keeps
+// its id and times but no name or items. Which service a device is using is not synchronised.
+type SavedService struct {
+	ID        string   `json:"id"`
+	Name      string   `json:"name"`
+	Items     []string `json:"items"`
+	CreatedAt int64    `json:"created_at"`
+	UpdatedAt int64    `json:"updated_at"`
+	DeletedAt *int64   `json:"deleted_at"`
+}
+
 // Settings are the profile settings that follow the profile across devices.
 type Settings struct {
 	Background int   `json:"background"`
@@ -120,23 +136,25 @@ type Settings struct {
 
 // SyncRequest sends local changes and asks for everything after Cursor.
 type SyncRequest struct {
-	Cursor   int64     `json:"cursor"`
-	Items    []Item    `json:"items"`
-	Service  *Service  `json:"service"`
-	Settings *Settings `json:"settings"`
+	Cursor   int64          `json:"cursor"`
+	Items    []Item         `json:"items"`
+	Service  *Service       `json:"service"`
+	Settings *Settings      `json:"settings"`
+	Services []SavedService `json:"services"`
 }
 
 // SyncResponse carries changes from other devices, and the server's version of anything the
 // device sent that lost a conflict or had its time corrected. When More is true the device must
-// sync again with the new Cursor; Service and Settings may refer to items on later pages.
+// sync again with the new Cursor; Service, Settings, and Services may refer to items on later pages.
 type SyncResponse struct {
-	Cursor     int64     `json:"cursor"`
-	More       bool      `json:"more"`
-	Items      []Item    `json:"items"`
-	Service    *Service  `json:"service"`
-	Settings   *Settings `json:"settings"`
-	Accepted   int       `json:"accepted"`
-	ServerTime int64     `json:"server_time"`
+	Cursor     int64          `json:"cursor"`
+	More       bool           `json:"more"`
+	Items      []Item         `json:"items"`
+	Service    *Service       `json:"service"`
+	Settings   *Settings      `json:"settings"`
+	Services   []SavedService `json:"services"`
+	Accepted   int            `json:"accepted"`
+	ServerTime int64          `json:"server_time"`
 }
 
 // Store keeps profiles and runs synchronisation. It is safe for concurrent use.
@@ -380,20 +398,28 @@ func (s *Store) Sync(ctx context.Context, accountID int64, rawID string, request
 		}
 
 		response, failure, err = s.apply(ctx, tx, id, request.Cursor, state, push)
+		if err == nil && failure != nil {
+			// Roll back whatever the request already changed, so it is rejected whole.
+			return errRejected
+		}
 		return err
 	})
-	if err != nil {
-		return SyncResponse{}, fmt.Errorf("sinkron profil: %w", err)
-	}
 	if failure != nil {
 		return SyncResponse{}, failure
+	}
+	if err != nil {
+		return SyncResponse{}, fmt.Errorf("sinkron profil: %w", err)
 	}
 	response.ServerTime = nowMs
 
 	return response, nil
 }
 
-// pushed is a validated sync request. adjusted marks values whose time the server replaced.
+// errRejected rolls back a sync transaction that ended in a failure for the device.
+var errRejected = errors.New("sinkron ditolak")
+
+// pushed is a validated sync request. adjusted marks items and saved services whose time the
+// server replaced.
 type pushed struct {
 	items            []Item
 	adjusted         map[string]bool
@@ -401,12 +427,16 @@ type pushed struct {
 	serviceAdjusted  bool
 	settings         *Settings
 	settingsAdjusted bool
+	services         []SavedService
 }
 
-func (p pushed) any() bool { return len(p.items) > 0 || p.service != nil || p.settings != nil }
+func (p pushed) any() bool {
+	return len(p.items) > 0 || p.service != nil || p.settings != nil || len(p.services) > 0
+}
 
 func (s *Store) apply(ctx context.Context, tx pgx.Tx, id string, cursor int64, state profileState, push pushed) (SyncResponse, *Error, error) {
-	response := SyncResponse{Items: []Item{}}
+	// Services is never null: apps read a missing list as a server that does not keep saved services.
+	response := SyncResponse{Items: []Item{}, Services: []SavedService{}}
 	extra := []Item{}
 	next := state.revision
 
@@ -447,7 +477,7 @@ func (s *Store) apply(ctx context.Context, tx pgx.Tx, id string, cursor int64, s
 
 	if push.service != nil {
 		if push.service.UpdatedAt > state.service.UpdatedAt {
-			if failure, err := checkServiceItems(ctx, tx, id, push.service.Items); failure != nil || err != nil {
+			if failure, err := checkServiceItems(ctx, tx, id, push.service.Items, "service.items"); failure != nil || err != nil {
 				return response, failure, err
 			}
 			next++
@@ -488,6 +518,50 @@ func (s *Store) apply(ctx context.Context, tx pgx.Tx, id string, cursor int64, s
 		response.Settings = &state.settings
 	}
 
+	// Saved services: like items, the newer updated_at wins and equal times keep the server's.
+	extraServices := []SavedService{}
+	if len(push.services) > 0 {
+		stored, err := s.storedServices(ctx, tx, id, push.services)
+		if err != nil {
+			return response, nil, err
+		}
+		for index, service := range push.services {
+			current, exists := stored[service.ID]
+			if exists && service.UpdatedAt <= current.UpdatedAt {
+				if !sameService(service, current) {
+					extraServices = append(extraServices, current)
+				}
+				continue
+			}
+			field := fmt.Sprintf("services[%d].items", index)
+			if failure, err := checkServiceItems(ctx, tx, id, service.Items, field); failure != nil || err != nil {
+				return response, failure, err
+			}
+			corrected := push.adjusted[service.ID]
+			if exists && service.CreatedAt != current.CreatedAt {
+				service.CreatedAt = current.CreatedAt
+				corrected = true
+			}
+			next++
+			if err := upsertService(ctx, tx, id, service, next); err != nil {
+				return response, nil, err
+			}
+			response.Accepted++
+			if corrected {
+				extraServices = append(extraServices, service)
+			}
+		}
+		var count int
+		err = tx.QueryRow(ctx, `SELECT count(*) FROM services WHERE profile_id = $1::uuid AND deleted_at IS NULL`, id).Scan(&count)
+		if err != nil {
+			return response, nil, err
+		}
+		if count > SavedServicesMax {
+			return response, &Error{Kind: KindInvalid, Code: "services_full", Field: "services",
+				Message: fmt.Sprintf("Profil ini sudah punya lebih dari %d susunan tersimpan. Hapus susunan yang tidak dipakai lagi.", SavedServicesMax)}, nil
+		}
+	}
+
 	if next > state.revision {
 		if _, err := tx.Exec(ctx, `UPDATE profiles SET revision = $2 WHERE id = $1::uuid`, id, next); err != nil {
 			return response, nil, err
@@ -517,7 +591,87 @@ func (s *Store) apply(ctx context.Context, tx pgx.Tx, id string, cursor int64, s
 		}
 	}
 
+	// Saved services changed in the same revisions as the items on this page.
+	upto = state.revision
+	if more {
+		upto = response.Cursor
+	}
+	response.Services, err = s.changedServices(ctx, tx, id, cursor, upto)
+	if err != nil {
+		return response, nil, err
+	}
+	inServices := make(map[string]bool, len(response.Services))
+	for _, service := range response.Services {
+		inServices[service.ID] = true
+	}
+	for _, service := range extraServices {
+		if !inServices[service.ID] {
+			response.Services = append(response.Services, service)
+		}
+	}
+
 	return response, nil, nil
+}
+
+// changedServices returns saved services with revision in (cursor, upto].
+func (s *Store) changedServices(ctx context.Context, tx pgx.Tx, id string, cursor, upto int64) ([]SavedService, error) {
+	if cursor >= upto {
+		return []SavedService{}, nil
+	}
+	rows, err := tx.Query(ctx, `
+		SELECT id::text, name, items::text[], created_at, updated_at, deleted_at
+		FROM services WHERE profile_id = $1::uuid AND revision > $2 AND revision <= $3
+		ORDER BY revision`, id, cursor, upto)
+	if err != nil {
+		return nil, err
+	}
+	return pgx.CollectRows(rows, scanService)
+}
+
+func (s *Store) storedServices(ctx context.Context, tx pgx.Tx, id string, services []SavedService) (map[string]SavedService, error) {
+	ids := make([]string, len(services))
+	for i, service := range services {
+		ids[i] = service.ID
+	}
+	rows, err := tx.Query(ctx, `
+		SELECT id::text, name, items::text[], created_at, updated_at, deleted_at
+		FROM services WHERE profile_id = $1::uuid AND id = ANY($2::text[]::uuid[])`, id, ids)
+	if err != nil {
+		return nil, err
+	}
+	list, err := pgx.CollectRows(rows, scanService)
+	if err != nil {
+		return nil, err
+	}
+	stored := make(map[string]SavedService, len(list))
+	for _, service := range list {
+		stored[service.ID] = service
+	}
+
+	return stored, nil
+}
+
+func upsertService(ctx context.Context, tx pgx.Tx, id string, service SavedService, revision int64) error {
+	_, err := tx.Exec(ctx, `
+		INSERT INTO services (profile_id, id, name, items, created_at, updated_at, deleted_at, revision)
+		VALUES ($1::uuid, $2::uuid, $3, $4::text[]::uuid[], $5, $6, $7, $8)
+		ON CONFLICT (profile_id, id) DO UPDATE
+		SET name = excluded.name, items = excluded.items, updated_at = excluded.updated_at,
+		    deleted_at = excluded.deleted_at, revision = excluded.revision`,
+		id, service.ID, service.Name, service.Items, service.CreatedAt, service.UpdatedAt, service.DeletedAt, revision)
+
+	return err
+}
+
+func scanService(row pgx.CollectableRow) (SavedService, error) {
+	var service SavedService
+	err := row.Scan(&service.ID, &service.Name, &service.Items, &service.CreatedAt, &service.UpdatedAt, &service.DeletedAt)
+	return service, err
+}
+
+func sameService(a, b SavedService) bool {
+	sameDeleted := (a.DeletedAt == nil) == (b.DeletedAt == nil) && (a.DeletedAt == nil || *a.DeletedAt == *b.DeletedAt)
+	return a.ID == b.ID && a.Name == b.Name && slices.Equal(a.Items, b.Items) && a.UpdatedAt == b.UpdatedAt && sameDeleted
 }
 
 // page returns items with revision in (cursor, limit], bounded by PageItems and PageBytes. upto is
@@ -625,8 +779,8 @@ func upsertItems(ctx context.Context, tx pgx.Tx, id string, items []Item, revisi
 	return err
 }
 
-// checkServiceItems makes sure the service order only names items the profile has.
-func checkServiceItems(ctx context.Context, tx pgx.Tx, id string, order []string) (*Error, error) {
+// checkServiceItems makes sure a service order only names items the profile has.
+func checkServiceItems(ctx context.Context, tx pgx.Tx, id string, order []string, field string) (*Error, error) {
 	unique := slices.Clone(order)
 	slices.Sort(unique)
 	unique = slices.Compact(unique)
@@ -641,7 +795,7 @@ func checkServiceItems(ctx context.Context, tx pgx.Tx, id string, order []string
 		return nil, err
 	}
 	if found != len(unique) {
-		return &Error{Kind: KindInvalid, Code: "service_unknown_item", Field: "service.items",
+		return &Error{Kind: KindInvalid, Code: "service_unknown_item", Field: field,
 			Message: "Susunan ibadah memuat materi yang belum ada di server. Kirim materinya lebih dulu."}, nil
 	}
 
@@ -714,6 +868,30 @@ func prepare(request SyncRequest, latest, nowMs int64) (pushed, *Error) {
 		push.service = &service
 	}
 
+	if len(request.Services) > ServicePushMax {
+		return push, invalidField("services", fmt.Sprintf("Paling banyak %d susunan per permintaan.", ServicePushMax))
+	}
+	seenServices := make(map[string]bool, len(request.Services))
+	for index, raw := range request.Services {
+		field := fmt.Sprintf("services[%d]", index)
+		service, invalid := prepareService(raw, field)
+		if invalid != nil {
+			return push, invalid
+		}
+		if seenServices[service.ID] {
+			return push, invalidField(field+".id", "Susunan yang sama dikirim dua kali.")
+		}
+		seenServices[service.ID] = true
+		if service.UpdatedAt > latest {
+			service.UpdatedAt = nowMs
+			if service.DeletedAt != nil {
+				service.DeletedAt = &nowMs
+			}
+			push.adjusted[service.ID] = true
+		}
+		push.services = append(push.services, service)
+	}
+
 	if request.Settings != nil {
 		settings := *request.Settings
 		if settings.Background < 0 || settings.Background > BackgroundMax {
@@ -764,16 +942,55 @@ func prepareItem(item Item, field string) (Item, *Error) {
 	return item, nil
 }
 
+func prepareService(service SavedService, field string) (SavedService, *Error) {
+	id, invalid := normalizeID(service.ID, field+".id")
+	if invalid != nil {
+		return SavedService{}, invalid
+	}
+	service.ID = id
+	if service.CreatedAt <= 0 || service.UpdatedAt <= 0 || (service.DeletedAt != nil && *service.DeletedAt <= 0) {
+		return SavedService{}, invalidField(field+".updated_at", "Waktu susunan tidak valid.")
+	}
+	if service.DeletedAt != nil {
+		service.Name, service.Items = "", []string{}
+		return service, nil
+	}
+	name, invalid := normalizeName(service.Name, field+".name", "Nama susunan")
+	if invalid != nil {
+		return SavedService{}, invalid
+	}
+	service.Name = name
+	if len(service.Items) > ServiceMax {
+		return SavedService{}, invalidField(field+".items", fmt.Sprintf("Susunan ibadah paling banyak %d materi.", ServiceMax))
+	}
+	items := make([]string, 0, len(service.Items))
+	for index, raw := range service.Items {
+		itemID, invalid := normalizeID(raw, fmt.Sprintf("%s.items[%d]", field, index))
+		if invalid != nil {
+			return SavedService{}, invalid
+		}
+		items = append(items, itemID)
+	}
+	service.Items = items
+
+	return service, nil
+}
+
 // NormalizeName collapses whitespace like the app does and checks the length.
 func NormalizeName(raw string) (string, *Error) {
+	return normalizeName(raw, "name", "Nama profil")
+}
+
+// normalizeName checks a profile or service name; label starts the messages ("Nama profil").
+func normalizeName(raw, field, label string) (string, *Error) {
 	name := strings.Join(strings.Fields(raw), " ")
 	switch {
 	case name == "":
-		return "", invalidField("name", "Nama profil belum diisi.")
+		return "", invalidField(field, label+" belum diisi.")
 	case utf8.RuneCountInString(name) > NameMax:
-		return "", invalidField("name", fmt.Sprintf("Nama profil paling panjang %d karakter.", NameMax))
+		return "", invalidField(field, fmt.Sprintf("%s paling panjang %d karakter.", label, NameMax))
 	case strings.ContainsFunc(name, unicode.IsControl):
-		return "", invalidField("name", "Nama profil memuat karakter yang tidak didukung.")
+		return "", invalidField(field, label+" memuat karakter yang tidak didukung.")
 	}
 
 	return name, nil

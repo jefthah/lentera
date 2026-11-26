@@ -32,13 +32,42 @@ impl Item {
     }
 }
 
+/// Susunan ibadah tersimpan selain Susunan utama, misalnya "Ibadah Natal".
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SavedService {
+    /// Id lokal, hanya berlaku di perangkat ini (seperti [`Item::id`]).
+    pub id: u64,
+    pub name: String,
+    /// Id materi berurutan; materi yang sama boleh muncul lebih dari sekali.
+    pub items: Vec<u64>,
+    /// Terakhir dipilih atau diubah (milidetik, UTC), untuk urutan daftar.
+    /// Tidak disinkron.
+    pub used_at: i64,
+}
+
+/// Nama susunan bawaan ([`Library::service`]). Tidak bisa diganti atau dihapus.
+pub const MAIN_SERVICE_NAME: &str = "Susunan utama";
+/// Panjang maksimum nama susunan, dalam karakter (sama dengan nama profil).
+pub const SERVICE_NAME_MAX: usize = 40;
+/// Jumlah maksimum susunan tersimpan per profil, selain Susunan utama.
+pub const SERVICES_MAX: usize = 100;
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Library {
     pub version: u32,
     pub next_id: u64,
     pub items: Vec<Item>,
+    /// Susunan utama. Lentera 0.8 dan sebelumnya hanya mengenal susunan ini.
     pub service: Vec<u64>,
+    /// Susunan tersimpan lainnya, tanpa urutan tertentu (lihat
+    /// [`Library::services_by_use`]).
+    pub services: Vec<SavedService>,
+    /// Susunan yang sedang dipakai di komputer ini: `None` = Susunan utama.
+    pub active: Option<u64>,
+    /// Id untuk susunan tersimpan berikutnya. Id susunan yang dihapus tidak
+    /// dipakai ulang, seperti [`Library::next_id`].
+    pub next_service_id: u64,
     /// Warna latar bawaan (lihat `Theme.slide-bg` di tampilan).
     pub background: usize,
     /// Gambar latar dari folder latar profil (lihat [`crate::background`]).
@@ -67,7 +96,8 @@ impl Default for Library {
                     content: "Masukkan teks ayat dari terjemahan\nyang Anda berhak gunakan.\n\nAnda juga bisa mengimpor ayat\ndari berkas TSV UTF-8.".into(),
                     background: None },
             ],
-            service: vec![1, 2], background: 0, background_image: None, monitor: 0,
+            service: vec![1, 2], services: Vec::new(), active: None, next_service_id: 1,
+            background: 0, background_image: None, monitor: 0,
             scratch: Vec::new(),
         }
     }
@@ -244,10 +274,14 @@ impl Library {
         }
         changed
     }
+    /// Menghapus materi dari pustaka dan dari semua susunan.
     pub fn remove(&mut self, id: u64) {
         self.items.retain(|i| i.id != id);
         self.scratch.retain(|i| i.id != id);
         self.service.retain(|i| *i != id);
+        for service in &mut self.services {
+            service.items.retain(|i| *i != id);
+        }
     }
     /// Menyimpan isi editor ke materi. Judul kosong menjadi "Tanpa judul".
     pub fn update(&mut self, id: u64, title: &str, content: &str) -> bool {
@@ -286,8 +320,21 @@ impl Library {
                 return Err("ID di pustaka tidak valid; berkas asli dipertahankan.".into());
             }
         }
-        if self.service.iter().any(|id| !ids.contains(id)) {
-            return Err("Susunan mengacu ke materi yang hilang.".into());
+        let orders = std::iter::once(&self.service).chain(self.services.iter().map(|s| &s.items));
+        for order in orders {
+            if order.iter().any(|id| !ids.contains(id)) {
+                return Err("Susunan mengacu ke materi yang hilang.".into());
+            }
+        }
+        let mut services = std::collections::HashSet::new();
+        for service in &self.services {
+            if service.id == 0 || !services.insert(service.id) || service.id >= self.next_service_id
+            {
+                return Err("ID susunan tidak valid.".into());
+            }
+        }
+        if self.active.is_some_and(|id| !services.contains(&id)) {
+            return Err("Susunan yang dipakai tidak ada.".into());
         }
         Ok(())
     }
@@ -347,6 +394,151 @@ impl Library {
                         || item.content.to_lowercase().contains(&query))
             })
             .collect()
+    }
+}
+
+/// Susunan tersimpan. Susunan yang sedang dipakai ([`Library::active`])
+/// berlaku per komputer; isi semua susunan ikut disinkron.
+impl Library {
+    /// Materi di susunan yang sedang dipakai.
+    pub fn order(&self) -> &[u64] {
+        self.active_service().map_or(&self.service, |s| &s.items)
+    }
+
+    /// Materi di susunan yang sedang dipakai, untuk diubah.
+    pub fn order_mut(&mut self) -> &mut Vec<u64> {
+        let index = self
+            .active
+            .and_then(|id| self.services.iter().position(|s| s.id == id));
+        match index {
+            Some(index) => &mut self.services[index].items,
+            None => &mut self.service,
+        }
+    }
+
+    fn active_service(&self) -> Option<&SavedService> {
+        let id = self.active?;
+        self.services.iter().find(|s| s.id == id)
+    }
+
+    /// Nama susunan yang sedang dipakai.
+    pub fn active_name(&self) -> &str {
+        self.active_service()
+            .map_or(MAIN_SERVICE_NAME, |s| s.name.as_str())
+    }
+
+    /// Susunan tersimpan, yang terakhir dipakai atau diubah lebih dulu.
+    pub fn services_by_use(&self) -> Vec<&SavedService> {
+        let mut list: Vec<_> = self.services.iter().collect();
+        list.sort_by_key(|s| std::cmp::Reverse((s.used_at, s.id)));
+        list
+    }
+
+    /// Memakai susunan `id` (`None` = Susunan utama). `false` bila tidak ada.
+    pub fn select_service(&mut self, id: Option<u64>) -> bool {
+        let Some(id) = id else {
+            self.active = None;
+            return true;
+        };
+        let Some(service) = self.services.iter_mut().find(|s| s.id == id) else {
+            return false;
+        };
+        service.used_at = crate::store::now_ms();
+        self.active = Some(id);
+        true
+    }
+
+    /// Membuat susunan tersimpan berisi `items`, lalu langsung memakainya.
+    pub fn create_service(&mut self, name: &str, items: Vec<u64>) -> Result<u64, String> {
+        if self.services.len() >= SERVICES_MAX {
+            return Err(format!(
+                "Paling banyak {SERVICES_MAX} susunan tersimpan. Hapus susunan yang tidak dipakai lagi."
+            ));
+        }
+        let name = self.check_service_name(name, None)?;
+        let id = self.next_service_id.max(1);
+        self.next_service_id = id + 1;
+        self.services.push(SavedService {
+            id,
+            name,
+            items,
+            used_at: crate::store::now_ms(),
+        });
+        self.active = Some(id);
+        Ok(id)
+    }
+
+    /// Mengganti nama susunan tersimpan. Susunan utama tidak bisa diganti.
+    pub fn rename_service(&mut self, id: u64, name: &str) -> Result<(), String> {
+        let name = self.check_service_name(name, Some(id))?;
+        let service = self
+            .services
+            .iter_mut()
+            .find(|s| s.id == id)
+            .ok_or("Susunan ini sudah tidak ada.")?;
+        service.name = name;
+        Ok(())
+    }
+
+    /// Menghapus susunan tersimpan. Bila sedang dipakai, Susunan utama
+    /// dipakai lagi. Materinya tetap ada di pustaka.
+    pub fn remove_service(&mut self, id: u64) -> bool {
+        let before = self.services.len();
+        self.services.retain(|s| s.id != id);
+        if self.active == Some(id) {
+            self.active = None;
+        }
+        self.services.len() != before
+    }
+
+    /// Merapikan nama susunan (spasi berlebih dibuang) dan memeriksanya:
+    /// tidak kosong, tidak terlalu panjang, dan belum dipakai susunan lain
+    /// (huruf besar/kecil dianggap sama). `except` adalah susunan yang sedang
+    /// diganti namanya.
+    pub fn check_service_name(&self, name: &str, except: Option<u64>) -> Result<String, String> {
+        let name = name.split_whitespace().collect::<Vec<_>>().join(" ");
+        if name.is_empty() {
+            return Err("Nama susunan belum diisi.".into());
+        }
+        if name.chars().count() > SERVICE_NAME_MAX {
+            return Err(format!(
+                "Nama susunan paling panjang {SERVICE_NAME_MAX} karakter."
+            ));
+        }
+        if name.contains(char::is_control) {
+            return Err("Nama susunan memuat karakter yang tidak didukung.".into());
+        }
+        let lower = name.to_lowercase();
+        let taken = lower == MAIN_SERVICE_NAME.to_lowercase()
+            || self
+                .services
+                .iter()
+                .any(|s| Some(s.id) != except && s.name.to_lowercase() == lower);
+        if taken {
+            return Err(format!("Sudah ada susunan bernama \"{name}\"."));
+        }
+        Ok(name)
+    }
+
+    /// Nama yang belum dipakai untuk salinan susunan `name`: "Nama (2)",
+    /// "Nama (3)", dan seterusnya, dipotong supaya muat.
+    pub fn copy_name(&self, name: &str) -> String {
+        let base = name.split_whitespace().collect::<Vec<_>>().join(" ");
+        for n in 2.. {
+            let suffix = format!(" ({n})");
+            let room = SERVICE_NAME_MAX.saturating_sub(suffix.chars().count());
+            let candidate = base
+                .chars()
+                .take(room)
+                .collect::<String>()
+                .trim_end()
+                .to_owned()
+                + &suffix;
+            if self.check_service_name(&candidate, None).is_ok() {
+                return candidate;
+            }
+        }
+        unreachable!("selalu ada nomor yang belum dipakai")
     }
 }
 
@@ -442,6 +634,96 @@ mod tests {
         library.remove(1);
         assert!(library.service.iter().all(|id| *id != 1));
         library.validate().unwrap();
+    }
+    #[test]
+    fn saved_services_have_their_own_order_and_unique_names() {
+        let mut library = Library::default();
+        assert_eq!(library.active_name(), MAIN_SERVICE_NAME);
+        assert_eq!(library.order(), [1, 2]);
+
+        let natal = library
+            .create_service("  Ibadah   Natal ", vec![2])
+            .unwrap();
+        assert_eq!(library.active, Some(natal));
+        assert_eq!(library.active_name(), "Ibadah Natal");
+        assert_eq!(library.order(), [2]);
+        library.order_mut().push(1);
+        assert_eq!(library.services[0].items, [2, 1]);
+        assert_eq!(library.service, [1, 2], "Susunan utama tidak berubah");
+
+        // Nama: tidak kosong, tidak kembar (termasuk Susunan utama), tidak terlalu panjang.
+        for name in [
+            "",
+            "   ",
+            "ibadah natal",
+            "SUSUNAN UTAMA",
+            &"a".repeat(41),
+            "A\u{7}B",
+        ] {
+            assert!(
+                library.create_service(name, Vec::new()).is_err(),
+                "{name:?}"
+            );
+        }
+        assert_eq!(library.services.len(), 1);
+        library.rename_service(natal, "Ibadah natal").unwrap();
+        assert_eq!(library.active_name(), "Ibadah natal");
+        assert_eq!(library.copy_name("Ibadah natal"), "Ibadah natal (2)");
+        assert_eq!(
+            library.copy_name(&"x".repeat(40)),
+            format!("{} (2)", "x".repeat(36))
+        );
+
+        // Urutan daftar: yang terakhir dipakai lebih dulu.
+        let paskah = library.create_service("Paskah", Vec::new()).unwrap();
+        library.services[0].used_at = 10;
+        library.services[1].used_at = 5;
+        let names = |l: &Library| -> Vec<String> {
+            l.services_by_use().iter().map(|s| s.name.clone()).collect()
+        };
+        assert_eq!(names(&library), ["Ibadah natal", "Paskah"]);
+        assert!(library.select_service(Some(paskah)));
+        assert_eq!(names(&library), ["Paskah", "Ibadah natal"]);
+        assert!(!library.select_service(Some(99)));
+        assert_eq!(library.active, Some(paskah));
+        assert!(library.select_service(None));
+        assert_eq!(library.order(), [1, 2]);
+
+        // Materi yang dihapus hilang dari semua susunan.
+        library.remove(2);
+        assert_eq!(library.service, [1]);
+        assert_eq!(library.services[0].items, [1]);
+        library.validate().unwrap();
+
+        // Susunan yang dihapus tidak dipakai lagi, dan id-nya tidak dipakai ulang.
+        library.select_service(Some(natal));
+        assert!(library.remove_service(natal));
+        assert!(!library.remove_service(natal));
+        assert_eq!(library.active, None);
+        let baru = library.create_service("Baru", Vec::new()).unwrap();
+        assert!(baru > paskah);
+        library.validate().unwrap();
+    }
+    #[test]
+    fn saved_services_are_checked() {
+        let mut library = Library::default();
+        let id = library.create_service("A", vec![1]).unwrap();
+        library.services[0].items.push(99);
+        assert!(library.validate().is_err());
+        library.services[0].items.pop();
+        library.active = Some(id + 1);
+        assert!(library.validate().is_err());
+        library.active = None;
+        library.next_service_id = id;
+        assert!(library.validate().is_err());
+        library.next_service_id = id + 1;
+        library.validate().unwrap();
+        for n in 2..=SERVICES_MAX {
+            library
+                .create_service(&format!("S{n}"), Vec::new())
+                .unwrap();
+        }
+        assert!(library.create_service("Lagi", Vec::new()).is_err());
     }
     #[test]
     fn search_is_case_insensitive_and_includes_content() {

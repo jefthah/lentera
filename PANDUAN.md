@@ -68,7 +68,7 @@ Slide, pratinjau, layar tayang, dan proyektor memakai **latar umum**, kecuali ma
 
 **Latar umum** ada di bawah kolom kanan dan di menu proyektor: tiga warna, satu gambar, atau satu video. Di jendela sempit, latar umum hanya ada di menu proyektor.
 
-- Klik kotak **Gambar** untuk membuka galeri latar, lalu tekan **Tambah gambar atau video** (di macOS: **Tambah gambar**). Pilih satu atau beberapa gambar JPG, JPEG, JFIF, atau PNG, atau video MP4, M4V, MOV, atau WMV (Ctrl+klik atau Shift+klik di pemilih berkas). Bila EasyWorship terpasang, pemilih berkas terbuka di folder gambar EasyWorship, atau di folder videonya bila tidak ada folder gambar.
+- Klik kotak **Gambar** untuk membuka galeri latar, lalu tekan **Tambah gambar atau video** (di macOS: **Tambah gambar**). Pilih satu atau beberapa gambar JPG, JPEG, JFIF, atau PNG, atau video MP4, M4V, MOV, WMV, MPG, atau AVI (Ctrl+klik atau Shift+klik di pemilih berkas). Bila EasyWorship terpasang, pemilih berkas terbuka di folder gambar EasyWorship, atau di folder videonya bila tidak ada folder gambar.
 - Klik gambar di galeri untuk memakainya sebagai latar umum. Bila hanya satu gambar ditambahkan, gambar itu langsung dipakai. Klik salah satu warna untuk kembali ke latar warna; gambarnya tetap ada di galeri.
 
 **Latar per materi:** sebuah lagu atau ayat bisa memakai gambar atau videonya sendiri.
@@ -92,6 +92,7 @@ Untuk semua gambar latar:
 - Saat slide berganti, video terus berjalan selama latarnya sama. Video berhenti saat proyektor ditutup atau digelapkan, lalu mulai lagi dari awal.
 - **Layar jemaat** di kolom kanan ikut bergerak, tetapi dengan lebih sedikit frame supaya ringan. Slide, pratinjau, dan galeri memakai gambar diam dari detik pertama video; galeri memberi tanda **Video**.
 - Pakai video 1080p (1920×1080). Video yang lebih besar, misalnya 4K, tetap diperkecil ke 1920×1080 saat diputar, tetapi butuh jauh lebih banyak memori dan CPU. Video MP4 dengan codec H.264 paling aman; codec lain harus didukung Windows di komputer itu.
+- Video MPG dan AVI dari EasyWorship lama bisa dipakai bila Windows bisa membukanya. Video yang tidak bisa dibuka ditolak dengan pesan saat ditambahkan. Video lama ini biasanya kecil (misalnya 320×240), jadi terlihat buram di proyektor.
 - Paling besar 500 MB per video. Video disalin apa adanya ke folder profil, tanpa diperkecil, jadi galeri dengan banyak video memakan ruang disk.
 - Bila video tidak bisa diputar, misalnya rusak atau codecnya tidak dikenal, Lentera memberi pesan dan proyektor memakai gambar diamnya.
 - Uji video di komputer dan proyektor gereja sebelum ibadah. Dengan video, Lentera memakai sekitar 200 MiB RAM.

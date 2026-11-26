@@ -3,7 +3,7 @@
 //! ```text
 //! profiles/<id profil>/backgrounds/<nama>.jpg              gambar latar
 //! profiles/<id profil>/backgrounds/thumbs/<nama>.jpg       gambar kecil 192×108 untuk daftar
-//! profiles/<id profil>/backgrounds/<nama>.mp4              video latar (juga .m4v, .mov, .wmv)
+//! profiles/<id profil>/backgrounds/<nama>.mp4              video latar (juga .m4v, .mov, .wmv, .mpg, .mpeg, .avi)
 //! profiles/<id profil>/backgrounds/posters/<nama>.mp4.jpg  gambar diam video
 //! profiles/<id profil>/backgrounds/thumbs/<nama>.mp4.jpg   gambar kecil video
 //! ```
@@ -38,8 +38,10 @@ const THUMBS_DIR: &str = "thumbs";
 /// Folder gambar diam video di dalam folder latar.
 const POSTERS_DIR: &str = "posters";
 /// Ekstensi video yang bisa ditambahkan. Di nama latar ekstensinya selalu
-/// huruf kecil.
-pub const VIDEO_EXTENSIONS: [&str; 4] = ["mp4", "m4v", "mov", "wmv"];
+/// huruf kecil. MPG dan AVI umum di latar EasyWorship lama; codec di dalamnya
+/// beragam, jadi hanya yang bisa dibuka Windows yang lolos (aplikasi menolak
+/// video yang gambar diamnya tidak bisa dibuat).
+pub const VIDEO_EXTENSIONS: [&str; 7] = ["mp4", "m4v", "mov", "wmv", "mpg", "mpeg", "avi"];
 /// Video yang lebih besar dari ini ditolak. Video latar biasanya 5–100 MB.
 pub const MAX_VIDEO_BYTES: u64 = 500 * 1024 * 1024;
 /// Layar yang harus bisa ditutup penuh oleh gambar tanpa terlihat kabur.
@@ -161,7 +163,7 @@ pub fn add_video(profile_dir: &Path, source: &Path, poster: &Picture) -> Result<
     let shown = display_name(source);
     let Some(ext) = video_extension(source) else {
         return Err(format!(
-            "{shown}: format video belum didukung. Gunakan MP4, M4V, MOV, atau WMV."
+            "{shown}: format video belum didukung. Gunakan MP4, M4V, MOV, WMV, MPG, atau AVI."
         ));
     };
     let size = fs::metadata(source)
@@ -960,8 +962,8 @@ mod tests {
     fn unsupported_and_broken_videos_are_refused() {
         let dir = TempDir::new("video-tolak");
         let profile = dir.0.join("profil");
-        let avi = fake_video(&dir.0, "lama.avi", 1);
-        let error = add_video(&profile, &avi, &poster(64, 36, 1)).unwrap_err();
+        let mkv = fake_video(&dir.0, "lama.mkv", 1);
+        let error = add_video(&profile, &mkv, &poster(64, 36, 1)).unwrap_err();
         assert!(error.contains("MP4"), "{error}");
         let video = fake_video(&dir.0, "rusak.mp4", 1);
         let empty = Picture {
@@ -973,9 +975,10 @@ mod tests {
         // Video yang gagal tidak tertinggal di folder latar.
         assert!(list(&profile).is_empty());
         assert!(is_video_file(Path::new("A.MOV")));
-        assert!(!is_video_file(Path::new("a.avi")));
+        assert!(!is_video_file(Path::new("a.mkv")));
+        assert!(is_video_file(Path::new("Lama.MPG")) && is_video_file(Path::new("b.avi")));
         assert!(!is_supported(Path::new("a.mp4")));
-        for name in ["x.MP4", "x.avi", "../x.mp4", ".x.mp4", "a/b.mov"] {
+        for name in ["x.MP4", "x.AVI", "x.mkv", "../x.mp4", ".x.mp4", "a/b.mov"] {
             assert!(!valid_name(name), "{name}");
             assert!(video_path(&profile, name).is_err(), "{name}");
         }

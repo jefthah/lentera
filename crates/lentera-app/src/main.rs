@@ -2692,7 +2692,7 @@ impl App {
                 .add_filter("Gambar atau video", &all)
                 .add_filter("Gambar JPG atau PNG", &background::EXTENSIONS)
                 .add_filter(
-                    "Video MP4, M4V, MOV, atau WMV",
+                    "Video MP4, M4V, MOV, WMV, MPG, atau AVI",
                     &background::VIDEO_EXTENSIONS,
                 );
         } else {

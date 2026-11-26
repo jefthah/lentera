@@ -844,3 +844,21 @@ Belum diuji:
 - Profil yang memakai video dibuka lagi oleh 0.7.0. Perilakunya (video tidak tampil, materi kembali ke latar umum atau warna) dibaca dari kode 0.7.0, tidak dijalankan.
 - Pembaruan otomatis 0.7.0 → 0.8.0 lewat GitHub Releases, setelah rilis diterbitkan.
 - PC gereja dan proyektor sungguhan dengan video.
+
+## Video latar MPG dan AVI — 26 November 2026
+
+Belum dirilis. Latar video kini menerima `.mpg`, `.mpeg`, dan `.avi` selain MP4, M4V, MOV, dan WMV. Diuji di komputer pengembangan yang sama dengan video latar asli EasyWorship 2009 dari `Lentera-Export\backgrounds\originals\videos` (hanya dibaca).
+
+- `cargo fmt --all --check` bersih. `cargo clippy --all-targets --locked -- -D warnings` bersih untuk `lentera-core` (dengan dan tanpa `http`) dan `lentera-app`. `cargo test --locked`: 105 tes `lentera-core` lulus. Tes penolakan kini memakai `.mkv` dan memeriksa bahwa `Lama.MPG` dan `b.avi` dikenali sebagai video, sedangkan nama latar `x.AVI` (huruf besar) tetap tidak sah.
+- Membuka dengan Media Foundation (`LENTERA_TEST_VIDEO`, tes `real_video` yang diabaikan):
+
+  | Format | Bisa dibuka | Ukuran frame |
+  |---|---:|---|
+  | MPG | 33 dari 52 | 320×240 |
+  | AVI | 7 dari 8 | 384×288 – 512×336 |
+  | WMV (contoh) | 1 dari 1 | 640×480 |
+
+  Video yang gagal mendapat pesan "video tidak bisa dibuka, mungkin rusak atau formatnya belum didukung Windows" dan tidak ditambahkan.
+- Uji alur UI build rilis dengan `snapshot`: 40/40 dengan `002_JumpBack.mpg`, 40/40 dengan `10.avi`. Tangkapan proyektor menampilkan video MPG bergerak dengan lirik di atasnya.
+
+Belum diuji: CPU dan RAM untuk MPG/AVI (resolusinya jauh di bawah 1080p), dan apakah 19 MPG yang gagal bisa dibuka setelah memasang codec tambahan.

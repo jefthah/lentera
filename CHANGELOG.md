@@ -1,5 +1,9 @@
 # Riwayat rilis
 
+## Belum dirilis
+
+- **Video latar MPG dan AVI.** Latar video kini juga menerima MPG, MPEG, dan AVI, format yang umum di latar EasyWorship lama. Video yang codecnya tidak dikenal Windows ditolak dengan pesan saat ditambahkan, jadi tidak ada video yang masuk galeri tetapi gagal di proyektor. Dari 60 video latar MPG dan AVI EasyWorship yang dicoba, 40 bisa dipakai.
+
 ## 0.8.0 — 25 November 2026 — beta
 
 **Latar video.** Video bisa dipakai sebagai latar umum atau latar per materi, sama seperti gambar. Untuk sekarang hanya di Windows.

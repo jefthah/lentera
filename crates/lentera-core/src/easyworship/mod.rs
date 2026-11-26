@@ -181,7 +181,8 @@ pub fn image_locations() -> Vec<PathBuf> {
 }
 
 /// Folder video EasyWorship 6–8 di komputer ini (`…\Resources\Videos`) yang
-/// berisi video MP4, M4V, MOV, atau WMV. Dipakai sebagai folder awal saat
+/// berisi video yang bisa menjadi latar (lihat
+/// [`crate::background::VIDEO_EXTENSIONS`]). Dipakai sebagai folder awal saat
 /// menambahkan latar bila tidak ada folder gambar.
 pub fn video_locations() -> Vec<PathBuf> {
     resource_locations("Videos", crate::background::is_video_file)

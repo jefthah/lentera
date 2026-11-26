@@ -27,14 +27,14 @@ Memerlukan **Windows 10/11 64-bit**. Antarmuka ditujukan untuk layar sekitar 102
 
 ## Tampilan dan fitur
 
-- **Kiri:** susunan ibadah (naik, turun, lepas), lalu tab **Pustaka** (lirik / ayat dengan filter dan pencarian judul / isi) dan tab **Alkitab**.
+- **Kiri:** susunan ibadah (naik, turun, lepas) dengan susunan tersimpan bernama, misalnya untuk Minggu dan Natal, lalu tab **Pustaka** (lirik / ayat dengan filter dan pencarian judul / isi) dan tab **Alkitab**.
 - **Alkitab:** impor terjemahan sekali (OpenSong XML, Zefania XML, TSV, atau EasyWorship `.ewb`). Tab **Alkitab** membuka Alkitab di kolom tengah: ketik referensi seperti `Yoh 3:16-18` dan tekan Enter untuk menayangkan, atau ketik referensinya di kotak cari (Ctrl+K). Ayat juga bisa dipilih dari daftar satu pasal (Shift+klik untuk rentang), dan **Terakhir dibuka** di kiri membuka lagi referensi sebelumnya. Slide dibagi otomatis 1–3 ayat dengan nomor ayat kecil, dan proyektor menulis referensi ayat di bawahnya; **Ke susunan** menyimpannya ke pustaka dan susunan ibadah.
 - **Tengah:** semua slide materi terpilih sebagai kartu. Klik untuk pratinjau, klik dua kali untuk langsung menayangkan.
 - **Kanan:** pratinjau, tombol **Tayangkan**, layar yang sedang tayang, tombol sebelumnya / berikutnya, gelapkan, layar penuh, dan latar umum (tiga warna, gambar, atau video).
 - **Latar gambar dan video:** tambahkan gambar JPG atau PNG, atau video MP4, MOV, WMV, MPG, atau AVI, ke galeri profil. Pakai satu sebagai latar umum, atau beri setiap lagu dan ayat latarnya sendiri. Teks di atasnya tampil putih dengan garis tepi gelap. Gambar disalin ke profil dan diperkecil untuk layar 1920×1080. Berkas aslinya tidak diubah.
   - Video diputar berulang tanpa suara di proyektor dan didecode di GPU lewat Media Foundation bawaan Windows. Video latar belum tersedia di macOS.
 - **Profil:** beberapa profil dalam satu komputer, masing-masing dengan pustaka dan susunan ibadahnya sendiri. Buat, ganti nama, hapus, dan berganti profil lewat tombol profil di bilah atas.
-- **Akun dan sinkron:** masuk dengan kode email tanpa kata sandi, lalu pakai profil yang sama di beberapa komputer. Lirik, ayat, susunan ibadah, nama profil, dan warna latar umum ikut disinkron; Alkitab, gambar dan video latar, serta pilihan monitor tetap per komputer. Setelah masuk sekali, Lentera tetap bisa dipakai tanpa internet.
+- **Akun dan sinkron:** masuk dengan kode email tanpa kata sandi, lalu pakai profil yang sama di beberapa komputer. Lirik, ayat, susunan ibadah (termasuk susunan tersimpan), nama profil, dan warna latar umum ikut disinkron; Alkitab, gambar dan video latar, pilihan monitor, dan susunan yang sedang dipakai tetap per komputer. Setelah masuk sekali, Lentera tetap bisa dipakai tanpa internet.
 - **Editor materi:** judul, jenis (lirik / ayat), dan isi, dengan hasil slide yang langsung terlihat. Tersimpan otomatis.
 - Jendela proyektor terpisah dengan pilihan monitor, layar penuh, dan blackout. Ukuran teks menyesuaikan layar.
 - Impor lirik TXT dan ayat TSV berformat UTF-8, serta terjemahan Alkitab dari OpenSong XML, Zefania XML, atau TSV.

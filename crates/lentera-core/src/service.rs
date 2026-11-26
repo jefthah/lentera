@@ -57,17 +57,19 @@ impl Library {
         })
     }
 
-    /// Letak materi di susunan ibadah. `hint` (misalnya baris susunan yang
+    /// Letak materi di susunan ibadah yang sedang dipakai. `hint` (misalnya baris susunan yang
     /// sedang dipilih) dipakai bila menunjuk materi ini, karena satu materi
     /// boleh muncul lebih dari sekali; bila tidak, dipakai kemunculan pertama.
     pub fn service_position(&self, item: u64, hint: Option<usize>) -> Option<usize> {
-        hint.filter(|index| self.service.get(*index) == Some(&item))
-            .or_else(|| self.service.iter().position(|id| *id == item))
+        let order = self.order();
+        hint.filter(|index| order.get(*index) == Some(&item))
+            .or_else(|| order.iter().position(|id| *id == item))
     }
 
     /// Slide berikutnya atau sebelumnya. Setelah slide terakhir sebuah materi,
     /// tayangan pindah ke materi berikutnya di susunan ibadah (mundur: ke slide
-    /// terakhir materi sebelumnya). Materi tanpa slide dilewati.
+    /// terakhir materi sebelumnya). Materi tanpa slide dilewati. Yang dipakai
+    /// adalah susunan yang sedang dipakai ([`Library::order`]).
     pub fn step(&self, from: Cursor, forward: bool) -> Step {
         let count = |id| self.item(id).map_or(0, |item: &Item| item.slides().len());
         if let Some(page) = shift(from.page, forward).filter(|page| *page < count(from.item)) {
@@ -76,8 +78,9 @@ impl Library {
         let Some(mut position) = from.service else {
             return Step::EndOfItem;
         };
-        while let Some(next) = shift(position, forward).filter(|next| *next < self.service.len()) {
-            let id = self.service[next];
+        let order = self.order();
+        while let Some(next) = shift(position, forward).filter(|next| *next < order.len()) {
+            let id = order[next];
             let total = count(id);
             if total > 0 {
                 return Step::Moved(Cursor {

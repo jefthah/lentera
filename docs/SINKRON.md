@@ -42,39 +42,47 @@ Aturan nama sama dengan aplikasi: spasi dirapikan, wajib diisi, dan paling panja
      "created_at": 1763550000000, "updated_at": 1763550000000, "deleted_at": null}
   ],
   "service": {"items": ["0190d2a0-…", "0190d2a0-…"], "updated_at": 1763550000000},
-  "settings": {"background": 2, "updated_at": 1763550000000}
+  "settings": {"background": 2, "updated_at": 1763550000000},
+  "services": [
+    {"id": "0190d2a1-…", "name": "Ibadah Natal", "items": ["0190d2a0-…"],
+     "created_at": 1763550000000, "updated_at": 1763550000000, "deleted_at": null}
+  ]
 }
 ```
 
 - `cursor`: revisi server terakhir yang sudah diterima perangkat ini untuk profil ini (0 = belum pernah).
 - `items`: materi yang berubah di perangkat ini sejak sinkron terakhir (`kind`: `song` atau `verse`).
-- `service`: urutan susunan ibadah lengkap. Kirim hanya bila berubah, dan isi `null` bila tidak. Materi yang sama boleh muncul lebih dari sekali.
+- `service`: urutan **Susunan utama** lengkap. Kirim hanya bila berubah, dan isi `null` bila tidak. Materi yang sama boleh muncul lebih dari sekali.
 - `settings`: latar layar. Kirim hanya bila berubah. **Pilihan monitor tidak dikirim**, karena itu milik perangkat, bukan profil.
+- `services` (sejak 0.9): susunan tersimpan selain Susunan utama yang berubah, masing-masing lengkap dengan nama dan urutan materinya. Susunan yang dihapus dikirim sebagai tanda hapus (`deleted_at` terisi; nama dan isinya diabaikan). Boleh dihilangkan atau kosong. **Susunan yang sedang dipakai tidak dikirim**: itu pilihan perangkat, seperti monitor.
 
 Jawaban:
 
 ```json
 {"cursor": 7, "more": false, "items": [...], "service": null, "settings": null,
- "accepted": 3, "server_time": 1763550001234}
+ "services": [], "accepted": 3, "server_time": 1763550001234}
 ```
 
 - `items` berisi perubahan dari perangkat lain sejak `cursor`, ditambah versi server untuk materi kiriman yang kalah bentrok atau waktunya dikoreksi. Terapkan semuanya ke SQLite lokal apa adanya, termasuk `updated_at`.
 - `service` / `settings` terisi bila ada versi lebih baru dari perangkat lain, atau kiriman perangkat ini kalah. `null` berarti tidak ada perubahan.
+- `services` berisi susunan tersimpan yang berubah di perangkat lain pada revisi halaman ini, ditambah versi server untuk kiriman yang kalah bentrok atau waktunya dikoreksi. Aplikasi sebelum 0.9 mengabaikannya. Server 0.9 selalu mengirim daftar, paling tidak `[]`. Bila `services` tidak ada atau `null`, server belum menyimpan susunan tersimpan: aplikasi membiarkan susunan tersimpannya tetap belum tersinkron, tidak mengirimnya lagi di putaran itu, dan memberi tahu pengguna. Materi, Susunan utama, dan latar tetap disinkron.
 - Simpan `cursor` baru setelah semua isi jawaban tersimpan di SQLite (dalam satu transaksi), bukan sebelumnya.
-- `more: true` berarti masih ada halaman berikutnya. Ulangi dengan `cursor` baru. `service` bisa menyebut materi di halaman berikutnya, jadi terapkan `service` terakhir setelah `more` menjadi `false`.
+- `more: true` berarti masih ada halaman berikutnya. Ulangi dengan `cursor` baru. `service` dan `services` bisa menyebut materi di halaman berikutnya, jadi kumpulkan dulu dan terapkan setelah `more` menjadi `false`.
 - `server_time` bisa dipakai untuk memperingatkan bila jam komputer jauh berbeda.
 - Kiriman perangkat sendiri tidak dikirim balik. Pengecualiannya saat jawaban dipecah per halaman: kiriman sendiri bisa muncul lagi di halaman berikutnya. Menerapkannya ulang tidak mengubah apa-apa karena isinya sama.
 
 ### Urutan sinkron di aplikasi
 
 1. Tarik dulu: kirim `items: []` dan ulangi sampai `more: false`.
-2. Kirim perubahan lokal dalam beberapa bagian, paling banyak 1.000 materi dan sekitar 8 MB per permintaan. Kirim `service` di bagian terakhir, setelah semua materi yang disebutnya terkirim.
+2. Kirim perubahan lokal dalam beberapa bagian, paling banyak 1.000 materi dan sekitar 8 MB per permintaan. Kirim `service` dan `services` (paling banyak 100 per permintaan) di bagian terakhir, setelah semua materi yang disebutnya terkirim. Materi yang dihapus atau tidak terkirim karena terlalu besar tidak disebut.
 3. Tandai materi lokal sebagai sudah terkirim hanya setelah server menjawab `200`.
 
 ### Aturan bentrok
 
 - Materi: `updated_at` yang lebih besar menang. Bila sama, versi server dipertahankan. `created_at` pertama yang diterima server tetap dipakai.
-- Susunan ibadah dan latar: diputuskan dengan cara yang sama, masing-masing sebagai satu kesatuan.
+- Susunan utama dan latar: diputuskan dengan cara yang sama, masing-masing sebagai satu kesatuan.
+- Susunan tersimpan: per susunan, seperti materi (nama dan isinya sebagai satu kesatuan). Dua komputer yang membuat susunan dengan nama sama mendapat dua susunan bernama sama.
+- Materi yang dihapus tetap disebut di susunan di server. Aplikasi melepasnya dari semua susunan saat menerima tanda hapusnya.
 - Waktu lebih dari 10 menit di depan jam server diganti dengan waktu server, supaya satu komputer dengan jam salah tidak selalu menang. Versi yang sudah dikoreksi dikirim balik di jawaban.
 
 ### Batas
@@ -86,12 +94,15 @@ Jawaban:
 | Isi materi | 1 MB (UTF-8) |
 | Materi per permintaan sinkron | 1.000 |
 | Ukuran permintaan sinkron | 16 MB (permintaan lain 1 MB) |
-| Susunan ibadah | 1.000 baris |
+| Susunan ibadah (utama dan tersimpan) | 1.000 baris |
+| Nama susunan tersimpan | 40 karakter |
+| Susunan tersimpan per permintaan sinkron | 100 |
+| Susunan tersimpan per profil | 1.000 di server; aplikasi membatasi 100 |
 | Latar | 0–15 |
 | Profil milik satu akun | 100 |
 | Satu halaman jawaban | 1.000 materi atau sekitar 4 MB |
 
-Materi yang melewati batas ditolak bersama seluruh permintaan (`422`), jadi aplikasi perlu memeriksa batas ini sebelum mengirim dan memberi tahu pengguna materi mana yang terlalu besar.
+Materi yang melewati batas ditolak bersama seluruh permintaan (`422`), jadi aplikasi perlu memeriksa batas ini sebelum mengirim dan memberi tahu pengguna materi mana yang terlalu besar. Sejak 0.9 seluruh permintaan yang ditolak juga tidak mengubah apa pun di server, termasuk materi yang dikirim bersama susunan yang menyebut materi tak dikenal.
 
 Judul dan isi juga harus UTF-8 yang sah dan tidak boleh berisi karakter NUL. Pesan galatnya menyebut "karakter yang tidak sah", bukan ukuran. Aplikasi membuang karakter kontrol selain baris baru dan tab sebelum menyimpan dan sebelum mengirim. Karakter seperti itu, misalnya NUL di lirik EasyWorship 7, tidak tampil di layar.
 
@@ -119,7 +130,7 @@ Logika sinkron ada di `crates/lentera-core/src/sync/`: `Engine` menjalankan satu
 
 - **Token sesi:** di Windows Credential Manager / macOS Keychain, dengan layanan `Lentera` dan nama `{server}|{folder data}`. Karena itu folder data uji (`--data-dir`) tidak memakai sesi folder utama.
 - **`akun.json` di folder data:** alamat server, id dan email akun, serta daftar profil yang dihapus di perangkat ini. Token tidak disimpan di sini.
-- **`library.db`:** catatan sinkron per profil ada di tabel `synced` dan kunci `meta` `sync_*`. Semuanya tambahan pada skema 2, jadi profil tetap bisa dibuka Lentera 0.5 dan 0.6.
+- **`library.db`:** catatan sinkron per profil ada di tabel `synced` (materi dan susunan tersimpan, menurut `uid`) dan kunci `meta` `sync_*`. Susunan tersimpan ada di tabel `services` dan `service_items`, dan susunan yang sedang dipakai di kunci `meta` `active_service`. Semuanya tambahan pada skema 2, jadi profil tetap bisa dibuka Lentera 0.5 sampai 0.8; versi itu hanya melihat Susunan utama.
 
 ### Kapan sinkron berjalan
 
@@ -151,7 +162,7 @@ Jam komputer yang berbeda lebih dari 5 menit dari `server_time` diperingatkan di
 
 ### Belum ikut sinkron
 
-- Pilihan monitor, karena itu milik perangkat.
+- Pilihan monitor dan susunan yang sedang dipakai, karena itu milik perangkat.
 - Gambar latar dan latar per materi. Latar per materi di perangkat ini tidak terhapus saat materinya diperbarui dari server.
 - Alkitab yang diimpor (`alkitab.db`), termasuk **Terakhir dibuka**.
 
@@ -169,7 +180,7 @@ Setiap kesalahan berbentuk `{"error": {"code": "...", "message": "...", "field":
 | 409 | `profile_taken`, `profile_busy` | Id profil bentrok; buat id baru atau coba lagi. |
 | 410 | `profile_deleted` | Profil dihapus pemiliknya. Simpan sebagai profil lokal yang tidak disinkron lagi, lalu beri tahu pengguna. |
 | 413 | `request_too_large` | Pecah kiriman jadi lebih kecil. |
-| 422 | `validation_failed`, `service_unknown_item`, `code_expired`, `invalid_code`, `too_many_attempts`, `profile_limit` | Tampilkan pesan; `field` menunjuk bagian yang salah. |
+| 422 | `validation_failed`, `service_unknown_item`, `services_full`, `code_expired`, `invalid_code`, `too_many_attempts`, `profile_limit` | Tampilkan pesan; `field` menunjuk bagian yang salah. |
 | 429 | `rate_limited` | Tunggu sesuai header `Retry-After`. |
 | 503 | `mail_failed` | Email kode gagal; coba lagi nanti. |
 

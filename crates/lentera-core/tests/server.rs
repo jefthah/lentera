@@ -46,6 +46,24 @@ fn titles(dir: &std::path::Path, id: &str) -> (Vec<String>, Vec<String>, usize) 
     (items, service, library.background)
 }
 
+/// Nama dan judul isi setiap susunan tersimpan, urut nama.
+fn saved(library: &lentera_core::Library) -> Vec<(String, Vec<String>)> {
+    let mut list: Vec<_> = library
+        .services
+        .iter()
+        .map(|s| {
+            let items = s
+                .items
+                .iter()
+                .map(|id| library.item(*id).unwrap().title.clone())
+                .collect();
+            (s.name.clone(), items)
+        })
+        .collect();
+    list.sort();
+    list
+}
+
 #[test]
 fn two_devices_share_a_profile_through_the_server() {
     let Some((base, token)) = server() else {
@@ -75,6 +93,10 @@ fn two_devices_share_a_profile_through_the_server() {
     let song = library.add(Kind::Song, "Lagu uji panjang".into(), long.clone());
     library.service.push(song);
     library.background = 2;
+    // Susunan tersimpan: isinya ikut, pilihan susunan tetap per komputer.
+    let natal = library.create_service("Natal uji", vec![song, 1]).unwrap();
+    library.create_service("Dihapus nanti", Vec::new()).unwrap();
+    library.select_service(Some(natal));
     opened.store.save(&library).unwrap();
     drop(opened.store);
     sync(&a);
@@ -93,6 +115,8 @@ fn two_devices_share_a_profile_through_the_server() {
         .unwrap()
         .id;
     assert_eq!(lib_b.item(song_b).unwrap().content, long);
+    assert_eq!(saved(&lib_b), saved(&library));
+    assert_eq!(lib_b.active, None);
 
     // B mengubah lagu, menghapus ayat contoh, dan mengubah susunan.
     std::thread::sleep(std::time::Duration::from_millis(5));
@@ -105,6 +129,20 @@ fn two_devices_share_a_profile_through_the_server() {
         .id;
     lib_b.remove(verse);
     lib_b.service.reverse();
+    let natal_b = lib_b
+        .services
+        .iter()
+        .find(|s| s.name == "Natal uji")
+        .unwrap()
+        .id;
+    let other_b = lib_b
+        .services
+        .iter()
+        .find(|s| s.name != "Natal uji")
+        .unwrap()
+        .id;
+    lib_b.rename_service(natal_b, "Natal uji B").unwrap();
+    lib_b.remove_service(other_b);
     copy.store.save(&lib_b).unwrap();
     drop(copy.store);
     sync(&b);
@@ -124,6 +162,18 @@ fn two_devices_share_a_profile_through_the_server() {
         Some("Lagu uji diubah di B")
     );
     assert_eq!(background, 2);
+    let lib_a = Store::open_profile(&a.0, &id).unwrap().library;
+    assert_eq!(
+        saved(&lib_a),
+        vec![(
+            "Natal uji B".to_owned(),
+            vec![
+                "Lagu uji diubah di B".to_owned(),
+                "Selamat datang di Lentera".to_owned()
+            ]
+        )]
+    );
+    assert_eq!(lib_a.active, Some(natal));
 
     // Rapikan: hapus profil uji di server.
     api.delete_profile(&id).unwrap();

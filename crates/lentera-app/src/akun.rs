@@ -419,20 +419,19 @@ impl App {
             // Monitor proyektor dan materi sementara milik komputer ini.
             st.library.monitor = old.monitor;
             st.library.scratch = old.scratch;
+            // Susunan yang dipakai bisa berubah isinya, atau dihapus di
+            // komputer lain sehingga Susunan utama dipakai lagi.
             if let Some(id) = selected
                 && !selection_gone
-                && st
-                    .selected_service
-                    .is_some_and(|i| st.library.service.get(i) != Some(&id))
             {
-                st.selected_service = st.library.service.iter().position(|s| *s == id);
+                let hint = st.selected_service;
+                st.selected_service = hint.and_then(|_| st.library.service_position(id, hint));
             }
-            if st
-                .live_service
-                .is_some_and(|i| i >= st.library.service.len())
-            {
-                st.live_service = None;
-            }
+            let live = st.live.as_ref().map(|s| s.item);
+            let hint = st.live_service;
+            st.live_service = live
+                .filter(|_| hint.is_some())
+                .and_then(|item| st.library.service_position(item, hint));
             (
                 st.library.background as i32,
                 selected_changed,

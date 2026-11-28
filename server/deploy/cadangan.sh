@@ -6,7 +6,9 @@
 #
 #   15 2 * * * /opt/lentera/repo/server/deploy/cadangan.sh >> /opt/lentera/repo/server/deploy/cadangan.log 2>&1
 #
-# Cadangan ini masih di VPS yang sama. Salin juga ke tempat lain secara berkala.
+# Bila cadangan-luar.env ada, setiap cadangan juga dikirim ke luar VPS dalam
+# arsip terenkripsi (lihat cadangan-luar.sh). Kegagalan langkah itu hanya
+# menjadi peringatan: cadangan lokal tetap ada dan skrip ini tetap berhasil.
 set -eu
 cd "$(dirname "$0")"
 umask 077
@@ -21,3 +23,8 @@ mv "$file.tmp" "$file"
 find cadangan -name 'lentera-*.dump' -mtime +"$keep_days" -delete
 
 echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) cadangan $file ($(wc -c < "$file") byte)"
+
+if [ -f cadangan-luar.env ]; then
+    ./cadangan-luar.sh "$file" ||
+        echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) PERINGATAN: salinan ke luar VPS gagal; cadangan lokal tetap ada: $file" >&2
+fi

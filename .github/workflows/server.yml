@@ -112,6 +112,37 @@ jobs:
           dump=$(ls cadangan/lentera-*.dump | tail -n 1)
           docker compose exec -T postgres pg_restore --list < "$dump" | grep -q 'TABLE public profiles'
 
+      # Tujuan rclone berupa folder lokal, jadi tidak ada yang diunggah ke luar.
+      - name: Salinan terenkripsi ke luar VPS
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq age rclone
+          key="$RUNNER_TEMP/age.txt"
+          age-keygen -o "$key" 2>/dev/null
+          age-keygen -y "$key" > "$RUNNER_TEMP/age-penerima.txt"
+          {
+            echo "LUAR_TUJUAN=$RUNNER_TEMP/luar"
+            echo "LUAR_AGE_PENERIMA=$RUNNER_TEMP/age-penerima.txt"
+          } > cadangan-luar.env
+          ./cadangan.sh
+          ./cadangan-luar.sh --daftar
+          archive=$(ls "$RUNNER_TEMP"/luar/lentera-*.tar.age | tail -n 1)
+          age -d -i "$key" "$archive" | tar -tf - | sort > "$RUNNER_TEMP/isi.txt"
+          cat "$RUNNER_TEMP/isi.txt"
+          # Hanya dump; .env tidak boleh ikut.
+          [ "$(wc -l < "$RUNNER_TEMP/isi.txt")" -eq 1 ]
+          grep -qx 'cadangan/lentera-[0-9-]*\.dump' "$RUNNER_TEMP/isi.txt"
+          if ls cadangan/.luar-* >/dev/null 2>&1; then
+            echo "Berkas sementara tertinggal di cadangan/"; exit 1
+          fi
+
+          # Tujuan yang tidak ada hanya peringatan; cadangan lokal tetap berhasil.
+          sed -i 's|^LUAR_TUJUAN=.*|LUAR_TUJUAN=tidak-ada:lentera-backup|' cadangan-luar.env
+          ./cadangan.sh > "$RUNNER_TEMP/gagal.txt" 2>&1 || { cat "$RUNNER_TEMP/gagal.txt"; exit 1; }
+          cat "$RUNNER_TEMP/gagal.txt"
+          grep -q 'PERINGATAN: salinan ke luar VPS gagal' "$RUNNER_TEMP/gagal.txt"
+          rm cadangan-luar.env
+
       - name: Log container
         if: always()
         run: docker compose logs --no-color

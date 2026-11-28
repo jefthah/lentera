@@ -1,9 +1,18 @@
 # Riwayat rilis
 
-## Belum dirilis
+## 0.9.0 — 28 November 2026 — beta
 
-- **Susunan tersimpan.** Selain Susunan utama, profil kini bisa menyimpan beberapa susunan ibadah bernama, misalnya untuk ibadah Minggu dan Natal. Klik nama susunan di atas daftar susunan untuk berganti, membuat susunan baru atau duplikat, mengganti nama, atau menghapus. Susunan yang sedang dipakai dipilih per komputer; susunan tersimpan ikut disinkron, dan bila dua komputer mengubah susunan yang sama, perubahan terakhir yang dipakai. Profil tetap bisa dibuka 0.8.0, yang hanya melihat Susunan utama. Sinkron susunan tersimpan butuh server Lentera yang sudah diperbarui (migrasi `00002_services`); dengan server lama, Lentera memberi tahu dan menunggu, sementara materi dan Susunan utama tetap tersinkron.
-- **Video latar MPG dan AVI.** Latar video kini juga menerima MPG, MPEG, dan AVI, format yang umum di latar EasyWorship lama. Video yang codecnya tidak dikenal Windows ditolak dengan pesan saat ditambahkan, jadi tidak ada video yang masuk galeri tetapi gagal di proyektor. Dari 60 video latar MPG dan AVI EasyWorship yang dicoba, 40 bisa dipakai.
+**Susunan tersimpan.** Selain Susunan utama, profil kini bisa menyimpan beberapa susunan ibadah bernama, misalnya untuk ibadah Minggu, Malam Natal, dan Natal, lalu berganti di antaranya tanpa menyusun ulang.
+
+- **Klik nama susunan** di atas daftar susunan (tanda ▾) untuk berganti susunan, membuat **Susunan baru**, **Duplikat susunan ini**, **Ganti nama**, atau **Hapus susunan ini**. Susunan utama tidak bisa diganti nama atau dihapus.
+- **+ Susunan**, **Tambah ke susunan**, dan perpindahan ke materi berikutnya memakai susunan yang sedang dipakai. Berganti susunan tidak mengubah layar jemaat.
+- Menghapus susunan tidak menghapus materinya dari pustaka.
+- Nama paling banyak 40 karakter. Satu profil bisa menyimpan sampai 100 susunan, masing-masing sampai 1.000 materi.
+- **Sinkron:** susunan tersimpan ikut disinkron ke komputer lain dengan akun yang sama. Bila dua komputer mengubah susunan yang sama, perubahan terakhir yang dipakai. Susunan yang sedang dipakai dipilih di masing-masing komputer, jadi laptop dan komputer gereja bisa memakai susunan berbeda. Server Lentera sudah diperbarui untuk ini. Bila Lentera tersambung ke server yang belum mendukung susunan tersimpan, Lentera memberi tahu dan menunggu; materi dan Susunan utama tetap tersinkron.
+
+**Video latar MPG dan AVI.** Latar video kini juga menerima MPG, MPEG, dan AVI, format yang umum di latar EasyWorship lama. Video yang codecnya tidak dikenal Windows ditolak dengan pesan saat ditambahkan, jadi tidak ada video yang masuk galeri tetapi gagal di proyektor. Dari 60 video latar MPG dan AVI EasyWorship yang dicoba, 40 bisa dipakai.
+
+**Memperbarui:** pengguna 0.1.1 sampai 0.8.0 menerima versi ini lewat pembaruan otomatis; pengguna 0.1.0 memasang installer sekali. Akun yang sudah masuk tetap masuk. Bila memperbarui dari 0.6.0 atau sebelumnya, Lentera meminta masuk saat pertama kali dibuka, seperti di 0.7.0. Versi ini tidak mengubah format profil: susunan tersimpan disimpan di tabel tambahan, jadi profil tetap bisa dibuka lagi oleh 0.5.0 sampai 0.8.0, yang hanya melihat Susunan utama. Perbarui semua komputer yang memakai akun yang sama. Komputer yang masih memakai 0.7.0 atau 0.8.0 tetap menyinkron materi dan Susunan utama, tetapi tidak melihat susunan tersimpan. Program kini sekitar 14,4 MB (0.8.0: 14,3 MB), tanpa komponen pihak ketiga baru.
 
 ## 0.8.0 — 25 November 2026 — beta
 

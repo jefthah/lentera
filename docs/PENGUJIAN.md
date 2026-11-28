@@ -880,3 +880,24 @@ Belum diuji:
 - Klik mouse sungguhan pada baris menu susunan. Uji alur memanggil fungsinya langsung, dan baris menu memakai `ListView` di dalam `PopupWindow`.
 - Sinkron dengan server produksi, yang butuh deploy migrasi `00002_services` lebih dulu.
 - macOS (menunggu CI).
+
+## Rilis 0.9.0 — 28 November 2026
+
+Berisi susunan tersimpan dan video latar MPG/AVI (dua bagian di atas). Diuji di komputer pengembangan yang sama.
+
+- Versi workspace 0.9.0 (`Cargo.lock`: 3 crate Lentera) dan `app.manifest` 0.9.0.0.
+- `cargo fmt --all --check` bersih. `cargo clippy --all-targets --locked -- -D warnings` bersih untuk `lentera-core` (dengan dan tanpa `http`), `lentera-app` (dengan dan tanpa `snapshot`), dan `lentera-win32`.
+- `cargo test --locked`: 112 tes `lentera-core` dan tes `lentera-app` lulus. Dua tes di `tests/server.rs` langsung selesai karena `LENTERA_TEST_SERVER` tidak diisi.
+- `THIRD-PARTY-NOTICES.txt` disusun ulang: 305 crate, tidak berubah dari 0.8.0.
+- Build rilis `lentera.exe` tanpa `LENTERA_SERVER`: 14.441.472 byte (0.8.0: 14.262.784). FileVersion / ProductVersion 0.9.0, FileDescription "Lentera".
+- Uji alur UI build rilis itu di folder kosong: 41/41 tanpa video dan 46/46 dengan video latar MP4, versi 0.9.0.
+- Catatan rilis dari `CHANGELOG.md` terbaca dengan perintah `awk` yang sama dengan `rilis.yml` (14 baris, bagian `## 0.9.0`).
+- CI commit `13d06a3` (PR #31) lulus: Inti dan Aplikasi Slint di Windows dan macOS, Aplikasi Win32, Server (Go + PostgreSQL), serta Image Docker dan alur deploy.
+- Server produksi sudah memakai `13d06a3`, termasuk migrasi `00002_services`. `/v1/health` menjawab `200` dengan `{"database":"ok","status":"ok"}`.
+
+Belum diuji:
+
+- Sinkron susunan tersimpan dari aplikasi ke server produksi, dan antara dua komputer sungguhan.
+- Klik mouse sungguhan pada baris menu susunan.
+- Pembaruan otomatis 0.8.0 → 0.9.0 lewat GitHub Releases, setelah rilis diterbitkan.
+- PC gereja dan proyektor sungguhan.

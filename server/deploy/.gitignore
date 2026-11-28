@@ -1,5 +1,6 @@
 # Dibuat di VPS; jangan di-commit.
 .env
+cadangan-luar.env
 cadangan/
 *.log
 .tag-aktif

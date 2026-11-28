@@ -1,0 +1,19 @@
+# Pengaturan salinan cadangan ke luar VPS (cadangan-luar.sh). Salin ke
+# cadangan-luar.env di folder ini lalu sesuaikan:
+#   cp cadangan-luar.contoh cadangan-luar.env
+# Selama cadangan-luar.env ada, cadangan.sh mengirim setiap cadangan ke tujuan ini.
+
+# Remote dan folder rclone tujuan, misalnya Google Drive: gdrive:lentera-backup
+LUAR_TUJUAN=gdrive:lentera-backup
+
+# Berkas config rclone. Kosongkan untuk memakai config bawaan user ini
+# (~/.config/rclone/rclone.conf). rclone menulis ulang berkas ini saat token
+# diperbarui, jadi harus bisa ditulis user yang menjalankan cadangan.
+LUAR_RCLONE_CONFIG=
+
+# Public key age penerima (satu atau beberapa baris age1…). Private key-nya
+# jangan disimpan di VPS; tanpa private key, arsip tidak bisa dibuka.
+LUAR_AGE_PENERIMA=/opt/lentera/age-penerima.txt
+
+# Arsip di tujuan yang lebih lama dari ini (hari) dihapus.
+LUAR_SIMPAN_HARI=60
